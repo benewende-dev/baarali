@@ -176,7 +176,27 @@ Harbor reste inchangé et continue de servir les Spaces, les membres, le temps r
 - **Ce qu'on mesure : le coût réel de chaque appel**, lu dans `usage.cost` d'OpenRouter (le plan de contrôle demande `usage: { include: true }`). Il est compté en crédits, l'unité de l'upstream (`CREDITS_PER_DOLLAR`, 100 M = 1 $). Une réponse sans coût est comptée au **plancher** d'un millième de dollar et marquée `estimated`, jamais à zéro.
 - **Tout passe par là :** texte, images et tâches de fond appellent `/v1/llm`, donc le même quota. Un Goal consomme le quota de son propriétaire, appel par appel.
 - **Le refus se décide avant l'appel.** Si l'une des deux fenêtres est épuisée, `/v1/llm` répond `429` avec `{ error: { code: "quota_reached", window: "session" | "week", resets_at } }`. **Un appel commencé n'est jamais coupé** : il peut dépasser le budget de son propre coût, compté ensuite. Le moteur d'objectifs relira la jauge avant chaque tâche (phase 1).
-- **Les budgets sont des données**, dans le catalogue des forfaits, pas dans le code. Les montants par forfait restent à fixer (🧑). En phase 0, un seul forfait, dont le budget hebdomadaire vient de la configuration.
+- **Les budgets se calculent à partir des prix** (ci-dessous) : aucun budget n'est saisi à la main.
+
+#### Les forfaits
+
+**Décidé (30/09/2026) : deux forfaits au plus, et une marge d'au moins 55 % garantie après le coût des modèles,** même pour quelqu'un qui épuise son quota chaque semaine. L'application est internationale : chaque forfait a **un prix fixe par devise**, hors taxes, choisi par le propriétaire (pas une conversion au jour le jour).
+
+| Forfait | EUR | USD | XOF / XAF | Budget modèles / mois | / semaine | / session de 5 h |
+|---|---|---|---|---|---|---|
+| Essentiel | 49 € | 55 $ | 32 000 F CFA | 21,32 $ | 4,92 $ | 1,23 $ |
+| Pro | 150 € | 169 $ | 98 000 F CFA | 65,30 $ | 15,07 $ | 3,77 $ |
+
+Le budget se déduit du prix, dans cet ordre (`apps/warell/packages/control/src/pricing.ts`) :
+
+1. le prix en dollars, au taux de référence BCE du jour de la décision (parité fixe pour le franc CFA) ;
+2. moins une **réserve de change** de 5 % (sauf pour les prix en dollars) et une **réserve de frais de paiement** de 5 %, à vérifier contre la réponse écrite de LigdiCash (fournisseurs §8) : c'est le revenu net ;
+3. 45 % du revenu net au plus pour les modèles, **divisé par 1,055**, la commission d'OpenRouter sur l'achat de crédits ;
+4. on garde **la devise la moins favorable**, pour que toutes tiennent la marge ; puis on répartit le mois sur 52/12 semaines.
+
+Un test parcourt chaque forfait et chaque devise, et casse si la marge à pleine utilisation passe sous 55 %. Changer un prix, un taux ou une commission ne se fait donc que dans `catalog.ts`, et le test dit tout de suite si la garantie tient encore.
+
+Ce que la marge de 55 % paie encore : l'hébergement de l'instance, le plan de contrôle, les SMS et le support. Les taxes s'ajoutent au prix affiché.
 
 **Sur le fil, on garde le schéma de l'upstream** (§3.14) : `GET /v1/me` porte la session dans le compartiment `daily` et la semaine dans `monthly`, et `usageDay` donne l'heure de remise à zéro de la session. Les libellés de l'écran d'usage upstream (« jour », « mois ») sont donc faux jusqu'à ce que la couche de marque et d'i18n (§3.12) les remplace : c'est accepté pour la phase 0, où seul le propriétaire utilise l'app.
 
@@ -418,4 +438,4 @@ Contrainte connue : on privilégie le **managé**, pas de VPS à administrer soi
 | 4 | Composio | **Décidé 29/09 :** désactivé en V1, MCP et connecteurs natifs à la place (§3.14). |
 | 5 | Argent des clients | **Décidé 29/09 :** Warell ne détient jamais d'argent (§3.9). Reste la validation juridique. |
 | 6 | JEV | **Décidé 29/09 :** accélérateur optionnel de lecture et recherche, adopté sur mesures (§3.10). |
-| 7 | Facturation de l'usage | **Décidé 30/09 :** quota en deux fenêtres, 5 h et semaine, au coût réel (§3.5). Restent les montants par forfait. |
+| 7 | Facturation de l'usage | **Décidé 30/09 :** quota en deux fenêtres, 5 h et semaine, au coût réel ; forfaits Essentiel 49 € et Pro 150 €, marge de 55 % garantie à pleine utilisation, prix fixe par devise (§3.5). |
