@@ -30,6 +30,7 @@ Mise à jour de la matrice de l'audit (§17) avec les décisions des documents 2
 | Harbor | `apps/harbor` | **Inchangé, à côté du plan de contrôle et non plus à sa base** (archi §3.5) : Spaces, membres, temps réel, push. |
 | Application mobile | `apps/mobile` | Base réelle pour le chat, les approbations et les notifications. |
 | Navigateur Electron | `apps/main/src/browser` | Reste le navigateur de l'application de bureau. |
+| Outils médias | `runtime/tools/domains/image.ts`, `voice.ts`, `deck.ts`, `spreadsheet.ts`, `parsing.ts` | Génération d'images (par OpenRouter), synthèse vocale, transcription, présentations, tableurs, lecture de PDF et de documents. Ils passent par nos routes `/v1` ou par OpenRouter, sans clé dans l'instance. |
 | Bundle headless du serveur | `apps/server/scripts/build-headless.mjs` | **Nouveau constat** : l'upstream sait déjà produire un serveur autonome sans Electron. C'est la base de l'image d'instance. |
 
 ### MODIFY : modifier, par injection plutôt que par édition
@@ -90,10 +91,11 @@ L'exemple de découpage de la mission (§58) a quatorze phases horizontales (mod
 | 5 | Email, agenda, fichiers, secrets | — | C, D | M |
 | 6 | Arrière-plan, veille et réveil planifié | 5ᵉ (§64) | F | M |
 | 7 | Code Mode dans le cloud | 4ᵉ (§63) | E | M |
-| 8 | Paiements | Addendum §90 | — | L |
-| 9 | Durcissement et pilote | — | A → H | M |
+| 8 | Voix et téléphone | — | — | M |
+| 9 | Paiements | Addendum §90 | — | L |
+| 10 | Durcissement et pilote | — | A → H | M |
 
-L'ordre des phases 4 à 7 est souple (**Latitude**). Chacune ne dépend que des phases 1 à 3.
+L'ordre des phases 4 à 8 est souple (**Latitude**). Chacune ne dépend que des phases 1 à 3.
 
 ### Phase 0 — Socle
 
@@ -180,23 +182,35 @@ L'ordre des phases 4 à 7 est souple (**Latitude**). Chacune ne dépend que des 
 
 **Critère de sortie :** scénario E sur un dépôt de test.
 
-### Phase 8 — Paiements
+### Phase 8 — Voix et téléphone
+
+**But :** parler à Warell, et le laisser appeler pour toi quand c'est utile. Dans la région, beaucoup de gens préfèrent parler qu'écrire : c'est aussi la porte d'entrée des langues nationales plus tard.
+
+| Étape | Contenu | Condition pour commencer |
+|---|---|---|
+| 8a | **Voix dans l'app** : dictée, réponses lues à voix haute, conversation vocale. Rowboat a déjà la transcription (Deepgram) et la synthèse (ElevenLabs) : on les fait passer par la route `/v1/voice` du plan de contrôle (archi §3.14), sans clé dans l'instance. | Phase 2 |
+| 8b | **Tu appelles Warell** : un numéro par pays, qui répond avec ton agent. Ton numéro vérifié t'identifie pour les demandes, **jamais pour une décision à risque** (sécurité §10.1). | Phase 3 ; fournisseur de téléphonie par pays (fournisseurs §5.4) |
+| 8c | **Warell appelle pour toi** (hôtel, restaurant, prise de rendez-vous) : outil asynchrone à risque élevé, approbation de l'objet de l'appel, annonce qu'il s'agit d'un assistant, transcription gardée comme preuve. | 8b + vérification juridique de l'enregistrement des appels par pays |
+
+**Critère de sortie :** une conversation vocale complète en français sur mobile (8a) ; un appel entrant qui crée un Goal (8b) ; un appel sortant approuvé, transcrit et vérifié (8c). Test de sécurité S17 : une approbation demandée par téléphone est refusée.
+
+### Phase 9 — Paiements
 
 L'ordre de l'addendum (§90), appliqué à ce que les fournisseurs permettent vraiment :
 
 | Étape | Contenu | Condition pour commencer |
 |---|---|---|
-| 8a | `@warell/payments` : intentions, mandats, moteur de politique, ledger, budgets, arrêt d'urgence, avec un **faux fournisseur** | Phase 3 finie |
-| 8b | Adaptateur LigdiCash (fournisseurs §4.4) ; **abonnement Warell** en premier | **Réponse écrite de LigdiCash sur son agrément et validation juridique** (fournisseurs §4.5) |
-| 8c | Dépenses d'agents par la page du marchand (chemin A, fournisseurs §4.6) | 8a + phase 4 |
-| 8d | Paiement pour compte de tiers (chemin D) | Réponse de LigdiCash à la question 2 (fournisseurs §8) |
+| 9a | `@warell/payments` : intentions, mandats, moteur de politique, ledger, budgets, arrêt d'urgence, avec un **faux fournisseur** | Phase 3 finie |
+| 9b | Adaptateur LigdiCash (fournisseurs §4.4) ; **abonnement Warell** en premier | **Réponse écrite de LigdiCash sur son agrément et validation juridique** (fournisseurs §4.5) |
+| 9c | Dépenses d'agents par la page du marchand (chemin A, fournisseurs §4.6) | 9a + phase 4 |
+| 9d | Paiement pour compte de tiers (chemin D) | Réponse de LigdiCash à la question 2 (fournisseurs §8) |
 | Plus tard | Cartes virtuelles, achats autonomes, crypto, routage avancé | Fournisseurs aujourd'hui UNAVAILABLE |
 
-**Critère de sortie de 8a :** tests runtime n° 5, 6, 7, 8, 10 et sécurité S11, **sur le faux fournisseur**. Le test n° 7 (crash à chaque barrière, jamais de double paiement) est **bloquant** : pas d'argent réel tant qu'il ne passe pas.
+**Critère de sortie de 9a :** tests runtime n° 5, 6, 7, 8, 10 et sécurité S11, **sur le faux fournisseur**. Le test n° 7 (crash à chaque barrière, jamais de double paiement) est **bloquant** : pas d'argent réel tant qu'il ne passe pas.
 
-### Phase 9 — Durcissement et pilote
+### Phase 10 — Durcissement et pilote
 
-- Les 16 tests de sécurité et les 13 scénarios runtime en CI ; les scénarios A à H rejoués sur une instance réelle.
+- Les 17 tests de sécurité et les 13 scénarios runtime en CI ; les scénarios A à H rejoués sur une instance réelle.
 - Guides d'intervention (sécurité §20), ancrage de l'audit (sécurité §15.2).
 - Revue juridique : données personnelles par pays, montage de paiement (sécurité §18, archi décision 5).
 - **Pilote** : un pays d'abord (**À trancher** : le Burkina Faso, où est LigdiCash, paraît naturel), avec un petit groupe d'utilisateurs choisis.
@@ -228,7 +242,7 @@ L'ordre de l'addendum (§90), appliqué à ce que les fournisseurs permettent vr
 
 - un compte Fly.io et un jeton de déploiement (en secret GitHub, jamais dans le dépôt) ;
 - une clé OpenRouter dédiée à Warell, avec un plafond de dépense ;
-- l'envoi des 12 questions à LigdiCash (fournisseurs §8). La réponse n'est nécessaire qu'en phase 8, mais elle peut prendre du temps ;
+- l'envoi des 12 questions à LigdiCash (fournisseurs §8). La réponse n'est nécessaire qu'en phase 9, mais elle peut prendre du temps ;
 - ton accord sur ce lot.
 
 **Ce que ce lot ne fait pas :** aucun écran, aucune table, aucun paiement. Il prouve que le socle tient (Rowboat en cloud, en veille, sans Rowboat Labs) avant qu'on y construise quoi que ce soit.
@@ -249,7 +263,7 @@ Repris de la mission (§45) et des documents précédents :
 |---|---|---|
 | L'instance dépasse 2 Go avec Chromium | Réveil de plusieurs secondes | Mesure dès la phase 0 ; Chromium à la demande (archi §6) |
 | L'upstream refuse l'i18n | Divergence lourde sur `App.tsx` | Extraction composant par composant ; commencer par les écrans mobiles, plus petits |
-| Réponse lente ou négative de LigdiCash sur l'agrément | Phase 8b bloquée | Questions envoyées dès maintenant ; second agrégateur étudié en parallèle (fournisseurs §4.9) |
+| Réponse lente ou négative de LigdiCash sur l'agrément | Phase 9b bloquée | Questions envoyées dès maintenant ; second agrégateur étudié en parallèle (fournisseurs §4.9) |
 | Délivrabilité SMS mauvaise dans un pays | Personne ne s'y connecte | Banc de mesure avant ouverture, deux fournisseurs (fournisseurs §5.1) |
 | Une grosse refonte upstream en cours de phase | Synchro coûteuse | Synchro hebdomadaire, divergences minimes, tests de contrat |
 | Le marquage de contamination rend l'agent pénible | Lassitude, approbations sans lire | Mesure en phase 3, réglage de la granularité (sécurité §12.2) |
@@ -261,6 +275,7 @@ Repris de la mission (§45) et des documents précédents :
 | 1 | Découpage par jalons de la mission plutôt que par couches | **Décidé** (§2) |
 | 2 | FR/EN en règle de chaque phase, pas en phase à part | **Décidé** (§3) |
 | 3 | Code Warell dans `apps/warell/`, dépendances `link:` | **Décidé** (§1) |
-| 4 | Pas d'argent réel avant le test « crash à chaque barrière » | **Décidé** (phase 8) |
+| 4 | Pas d'argent réel avant le test « crash à chaque barrière » | **Décidé** (phase 9) |
 | 5 | Premier lot = phase 0, en cinq PR | **À valider** par le propriétaire (§4) |
-| 6 | Pays pilote | **À trancher** avant la phase 9 |
+| 6 | Pays pilote | **À trancher** avant la phase 10 |
+| 7 | Voix et téléphone au plan, après les approbations | **Décidé 30/09** (phase 8) |
