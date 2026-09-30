@@ -338,7 +338,7 @@ Chaque instance tourne dans son propre conteneur (ou sa propre micro-VM, selon l
 - aucun accès au démon de conteneurs, aucun montage de l'hôte ;
 - **aucun volume partagé entre instances**.
 
-**Décidé :** une isolation au niveau du noyau (micro-VM ou équivalent) est **préférée** pour les instances qui exécutent du code (`executeCommand`, Code Mode). **À trancher** avec le choix de l'hébergeur : isolation noyau pour toutes les instances, ou bac à sable de code séparé (archi §3.11).
+**Décidé :** une isolation au niveau du noyau (micro-VM ou équivalent) est **préférée** pour les instances qui exécutent du code (`executeCommand`, Code Mode). **Tranché le 30/09/2026 par le choix de Fly.io** (archi §6) : chaque instance est une micro-VM Firecracker, donc toutes les instances ont une isolation noyau.
 
 ### 9.2 Ce que l'instance peut joindre
 
@@ -631,6 +631,6 @@ Les interrupteurs de plateforme sont des **données** (lues à chaque décision)
 | 6 | L'agent ne reçoit jamais de mot de passe ; l'utilisateur prend la main pour se connecter | **Décidé** (§11.3) |
 | 7 | JEV désactivé par défaut, contexte vide, accord de traitement avec TypeSafe | **Décidé** (§11.4) |
 | 8 | WhatsApp par l'API Business en cloud | **Décidé** (§10). Reste le fournisseur (`WEST_AFRICA_PROVIDER_ARCHITECTURE.md`). |
-| 9 | Isolation noyau pour toutes les instances, ou seulement pour le code | **À trancher** avec l'hébergeur (§9.1) |
+| 9 | Isolation noyau pour toutes les instances, ou seulement pour le code | **Décidé 30/09 :** toutes, par les micro-VM de Fly.io (§9.1) |
 | 10 | Récupération de compte assistée par le support | **À trancher** (§4.5) |
 | 11 | Obligations légales par pays sur les données | **RESEARCH_REQUIRED**, juriste (§18) |
