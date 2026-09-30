@@ -31,49 +31,62 @@ export interface PricingAssumptions {
   fxBufferRate: number;
   /** Worst payment rail fee (card or mobile money), as a share of the price. */
   paymentFeeRate: number;
+  /** Fixed part of the worst rail fee, in dollars, per payment. */
+  paymentFixedUsd: number;
   /** OpenRouter's fee when buying credits: every model dollar costs this much more. */
   providerFeeRate: number;
   /** What must remain after model costs, as a share of net revenue. */
   minMarginRate: number;
 }
 
+export type Billing =
+  /** One fixed price per currency, excluding taxes, for one period. */
+  | { kind: 'paid'; period: 'week' | 'month'; prices: Money[] }
+  /** Free plans have no revenue: their budget is a cost we accept, set in dollars. */
+  | { kind: 'free'; weekBudgetUsd: number };
+
 export interface Offer {
   id: string;
   category: 'free' | 'starter' | 'pro';
   displayName: string;
-  /** One fixed price per currency, excluding taxes, set by the owner. */
-  monthlyPrices: Money[];
-}
-
-/** Revenue we keep from one monthly payment, in dollars, after fees and the FX buffer. */
-export function netUsd(price: Money, a: PricingAssumptions): number {
-  const rate = a.usdPerUnit[price.currency];
-  if (rate === undefined) throw new Error(`No rate for ${price.currency}`);
-  const fx = price.currency === 'USD' ? 1 : 1 - a.fxBufferRate;
-  return toMajor(price) * rate * fx * (1 - a.paymentFeeRate);
-}
-
-/**
- * Model budget per month, in dollars of OpenRouter usage. Taken from the
- * least favorable currency, so every currency keeps the margin.
- */
-export function monthlyModelBudgetUsd(offer: Offer, a: PricingAssumptions): number {
-  if (offer.monthlyPrices.length === 0) throw new Error(`Offer ${offer.id} has no price`);
-  const worstNet = Math.min(...offer.monthlyPrices.map((p) => netUsd(p, a)));
-  return (worstNet * (1 - a.minMarginRate)) / (1 + a.providerFeeRate);
+  billing: Billing;
 }
 
 /** 52 weeks share 12 months: a full week of usage every week stays inside the month. */
 export const WEEKS_PER_MONTH = 52 / 12;
 
+/** Revenue we keep from one payment, in dollars, after fees and the FX buffer. */
+export function netUsd(price: Money, a: PricingAssumptions): number {
+  const rate = a.usdPerUnit[price.currency];
+  if (rate === undefined) throw new Error(`No rate for ${price.currency}`);
+  const fx = price.currency === 'USD' ? 1 : 1 - a.fxBufferRate;
+  return toMajor(price) * rate * fx * (1 - a.paymentFeeRate) - a.paymentFixedUsd;
+}
+
+/**
+ * Model budget for one billing period, in dollars of OpenRouter usage. Taken
+ * from the least favorable currency, so every currency keeps the margin.
+ */
+export function periodModelBudgetUsd(offer: Offer, a: PricingAssumptions): number {
+  if (offer.billing.kind === 'free') return offer.billing.weekBudgetUsd;
+  if (offer.billing.prices.length === 0) throw new Error(`Offer ${offer.id} has no price`);
+  const worstNet = Math.min(...offer.billing.prices.map((p) => netUsd(p, a)));
+  return (worstNet * (1 - a.minMarginRate)) / (1 + a.providerFeeRate);
+}
+
+function weeksPerPeriod(offer: Offer): number {
+  return offer.billing.kind === 'paid' && offer.billing.period === 'month' ? WEEKS_PER_MONTH : 1;
+}
+
 export function weekCredits(offer: Offer, a: PricingAssumptions): number {
-  return Math.floor((monthlyModelBudgetUsd(offer, a) / WEEKS_PER_MONTH) * CREDITS_PER_DOLLAR);
+  return Math.floor((periodModelBudgetUsd(offer, a) / weeksPerPeriod(offer)) * CREDITS_PER_DOLLAR);
 }
 
 /** Margin left on one price when the quota is used to the last credit every week. */
 export function marginAtFullUsage(price: Money, offer: Offer, a: PricingAssumptions): number {
   const net = netUsd(price, a);
-  const modelCost = (weekCredits(offer, a) / CREDITS_PER_DOLLAR) * WEEKS_PER_MONTH * (1 + a.providerFeeRate);
+  const weeks = weeksPerPeriod(offer);
+  const modelCost = (weekCredits(offer, a) / CREDITS_PER_DOLLAR) * weeks * (1 + a.providerFeeRate);
   return (net - modelCost) / net;
 }
 
@@ -84,6 +97,6 @@ export function plansFrom(offers: Offer[], a: PricingAssumptions) {
     category: offer.category,
     displayName: offer.displayName,
     weekCredits: weekCredits(offer, a),
-    monthlyPrices: offer.monthlyPrices,
+    monthlyPrices: offer.billing.kind === 'paid' && offer.billing.period === 'month' ? offer.billing.prices : [],
   }));
 }
