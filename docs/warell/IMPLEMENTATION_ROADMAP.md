@@ -276,6 +276,6 @@ Repris de la mission (§45) et des documents précédents :
 | 2 | FR/EN en règle de chaque phase, pas en phase à part | **Décidé** (§3) |
 | 3 | Code Warell dans `apps/warell/`, dépendances `link:` | **Décidé** (§1) |
 | 4 | Pas d'argent réel avant le test « crash à chaque barrière » | **Décidé** (phase 9) |
-| 5 | Premier lot = phase 0, en cinq PR | **À valider** par le propriétaire (§4) |
+| 5 | Premier lot = phase 0, en cinq PR | **Validé le 30/09/2026** ; PR 1 à 4 fusionnées (#8 à #12), mise en ligne sur Fly.io le 01/10/2026 (§4) |
 | 6 | Pays pilote | **À trancher** avant la phase 10 |
 | 7 | Voix et téléphone au plan, après les approbations | **Décidé 30/09** (phase 8) |
