@@ -1,6 +1,7 @@
 <!-- Baarali (01/10/2026) : le B qui regarde, sur ses deux pieds. Bleu #1A6DFF et blanc ; le noir est une option. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <g transform="translate(512 512) scale(1.8) translate(-505 -423)">
+  <rect width="1024" height="1024" rx="230" fill="#0A0A0A"/>
+  <g transform="translate(512 512) scale(1.55) translate(-505 -423)">
   <path d="M450 250 H502 C574 250 612 280 612 322 C612 345 602 360 590 368 Q584 373 590 378 C612 388 626 408 626 436 C626 476 590 502 512 502 H450 C413 502 384 473 384 436 V316 C384 279 413 250 450 250 Z" fill="#1A6DFF"/>
   <circle cx="460" cy="556" r="38" fill="#1A6DFF"/>
   <circle cx="552" cy="556" r="38" fill="#1A6DFF"/>
