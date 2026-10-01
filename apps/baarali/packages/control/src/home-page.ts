@@ -19,7 +19,7 @@ type Lang = 'fr' | 'en';
 const STRINGS = {
   fr: {
     title: 'Baarali — l’assistant qui agit pour vous',
-    description: 'Baarali cherche, rédige, organise et crée des vidéos, des voix et de la musique, et vous demande votre accord avant d’agir. En français et en anglais, avec des prix en F CFA.',
+    description: 'Il cherche, rédige et crée pour vous. Vous validez.',
     nav: { how: 'Comment ça marche', features: 'Ce qu’il fait', prices: 'Tarifs', faq: 'Questions' },
     navSignIn: 'Se connecter',
     beta: 'Bêta',
@@ -144,7 +144,7 @@ const STRINGS = {
   },
   en: {
     title: 'Baarali — the assistant that acts for you',
-    description: 'Baarali researches, writes, organizes and creates videos, voices and music, and asks for your approval before it acts. In French and English, with prices in CFA francs.',
+    description: 'It researches, writes and creates for you. You approve.',
     nav: { how: 'How it works', features: 'What it does', prices: 'Pricing', faq: 'Questions' },
     navSignIn: 'Sign in',
     beta: 'Beta',
