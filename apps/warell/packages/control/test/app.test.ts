@@ -7,7 +7,7 @@ import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js
 
 const T0 = Date.UTC(2026, 8, 30, 8, 0, 0);
 const TOKEN = 'instance-token';
-const plan: Plan = { id: 'p', category: 'starter', displayName: 'P', weekCredits: 4 * CREDITS_PER_DOLLAR, monthlyPrices: [{ amount: 4900, currency: 'USD' }] };
+const plan: Plan = { id: 'p', category: 'starter', displayName: 'P', weekCredits: 4 * CREDITS_PER_DOLLAR, monthlyPrices: [{ amount: 4900, currency: 'EUR' }] };
 const owner: Account = { id: 'acc', email: 'owner@example.test', planId: 'p', createdAt: T0 };
 
 interface Seen { url: string; init: RequestInit }

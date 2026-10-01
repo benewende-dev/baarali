@@ -180,15 +180,15 @@ Harbor reste inchangé et continue de servir les Spaces, les membres, le temps r
 
 #### Les forfaits
 
-**Décidé (30/09/2026) : une marge d'au moins 55 % garantie après le coût des modèles,** même pour quelqu'un qui épuise son quota chaque semaine. L'application est internationale : chaque forfait a **un prix fixe par devise**, hors taxes, choisi par le propriétaire (pas une conversion au jour le jour).
+**Décidé (30/09/2026) : une marge d'au moins 55 % garantie après le coût des modèles,** même pour quelqu'un qui épuise son quota chaque semaine. L'application est internationale : chaque forfait a **un prix fixe par devise**, hors taxes, choisi par le propriétaire (pas une conversion au jour le jour). **On facture en euros et en francs CFA seulement** : les deux francs CFA ont une parité fixe avec l'euro, donc nos prix ne dérivent jamais entre eux. Seuls les modèles se paient en dollars, d'où la réserve de change.
 
-| Forfait | Prix (EUR = USD) | F CFA (XOF, XAF) | Période | Budget modèles / semaine | / session de 5 h |
+| Forfait | EUR | F CFA (XOF, XAF) | Période | Budget modèles / semaine | / session de 5 h |
 |---|---|---|---|---|---|
 | Découverte | gratuit | gratuit | — | 0,08 $ | 0,02 $ |
-| Semaine | 5 | 3 300 | une semaine, prépayée | 1,88 $ | 0,47 $ |
-| Essentiel | 20 | 13 000 | mois | 1,84 $ | 0,46 $ |
-| Pro | 100 | 65 000 | mois | 9,32 $ | 2,33 $ |
-| Pro | 200 | 130 000 | mois | 18,67 $ | 4,67 $ |
+| Semaine | 5 € | 3 300 F | une semaine, prépayée | 2,04 $ | 0,51 $ |
+| Essentiel | 20 € | 13 000 F | mois | 1,96 $ | 0,49 $ |
+| Pro | 100 € | 65 000 F | mois | 9,96 $ | 2,49 $ |
+| Pro | 200 € | 130 000 F | mois | 19,96 $ | 4,99 $ |
 
 - **Semaine** est l'Essentiel d'une seule semaine, payé d'avance : LigdiCash ne sait pas prélever de façon récurrente, et le marché connaît le prépayé (crédit téléphonique).
 - **Pro** existe en deux niveaux d'utilisation, environ 5 et 10 fois l'Essentiel.
@@ -196,8 +196,8 @@ Harbor reste inchangé et continue de servir les Spaces, les membres, le temps r
 
 Le budget d'une offre payante se déduit de son prix, dans cet ordre (`apps/warell/packages/control/src/pricing.ts`) :
 
-1. le prix en dollars, au taux de référence BCE du jour de la décision (parité fixe pour le franc CFA) ;
-2. moins une **réserve de change** de 5 % (sauf pour les prix en dollars) et une **réserve de frais de paiement** de 5 % plus 0,35 $ par paiement, à vérifier contre la réponse écrite de LigdiCash (fournisseurs §8) : c'est le revenu net ;
+1. le prix converti en dollars, la monnaie des modèles, au taux de référence BCE du jour de la décision (parité fixe pour le franc CFA) ;
+2. moins une **réserve de change** de 5 % (si l'euro baisse face au dollar) et une **réserve de frais de paiement** de 5 % plus 0,35 $ par paiement, à vérifier contre la réponse écrite de LigdiCash (fournisseurs §8) : c'est le revenu net ;
 3. 45 % du revenu net au plus pour les modèles, **divisé par 1,055**, la commission d'OpenRouter sur l'achat de crédits ;
 4. on garde **la devise la moins favorable**, pour que toutes tiennent la marge ; un mois se répartit sur 52/12 semaines.
 
@@ -445,4 +445,4 @@ Contrainte connue : on privilégie le **managé**, pas de VPS à administrer soi
 | 4 | Composio | **Décidé 29/09 :** désactivé en V1, MCP et connecteurs natifs à la place (§3.14). |
 | 5 | Argent des clients | **Décidé 29/09 :** Warell ne détient jamais d'argent (§3.9). Reste la validation juridique. |
 | 6 | JEV | **Décidé 29/09 :** accélérateur optionnel de lecture et recherche, adopté sur mesures (§3.10). |
-| 7 | Facturation de l'usage | **Décidé 30/09 :** quota en deux fenêtres, 5 h et semaine, au coût réel ; Découverte gratuite, Semaine 5, Essentiel 20, Pro 100 ou 200 (EUR = USD, prix fixe en F CFA) ; marge de 55 % garantie à pleine utilisation (§3.5). |
+| 7 | Facturation de l'usage | **Décidé 30/09 :** quota en deux fenêtres, 5 h et semaine, au coût réel ; Découverte gratuite, Semaine 5 €, Essentiel 20 €, Pro 100 € ou 200 €, prix fixes en euros et en F CFA ; marge de 55 % garantie à pleine utilisation (§3.5). |

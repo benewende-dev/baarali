@@ -77,7 +77,7 @@ describe('pricing arithmetic', () => {
     const plans = plansFrom(OFFERS, ASSUMPTIONS);
     expect(plans.find((p) => p.id === 'semaine')!.monthlyPrices).toEqual([]);
     expect(plans.find((p) => p.id === 'decouverte')!.monthlyPrices).toEqual([]);
-    expect(plans.find((p) => p.id === 'essentiel')!.monthlyPrices).toHaveLength(4);
+    expect(plans.find((p) => p.id === 'essentiel')!.monthlyPrices.map((p) => p.currency)).toEqual(['EUR', 'XOF', 'XAF']);
   });
 
   it('refuses an unknown currency instead of guessing', () => {

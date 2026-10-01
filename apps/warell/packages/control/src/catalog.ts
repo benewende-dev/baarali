@@ -2,14 +2,16 @@ import type { Offer, PricingAssumptions } from './pricing.js';
 
 // The plans and what their budget rests on (architecture §3.5 "Les
 // forfaits", decided 30/09/2026). Prices are the owner's; each one is fixed
-// per currency, excluding taxes. Adding a currency = one price per offer and
-// one rate below.
+// per currency, excluding taxes. Euro and CFA francs only (decided
+// 30/09/2026): both CFA francs are pegged to the euro, so our own prices
+// never drift apart. Adding a currency = one price per offer and one rate.
 
 const EUR_USD = 1 / 0.88067; // ECB reference, 30/09/2026
 const EUR_PER_CFA = 1 / 655.957; // fixed parity of XOF and XAF to the euro
 
 export const ASSUMPTIONS: PricingAssumptions = {
-  usdPerUnit: { USD: 1, EUR: EUR_USD, XOF: EUR_USD * EUR_PER_CFA, XAF: EUR_USD * EUR_PER_CFA },
+  // Models are billed in dollars: the buffer below covers the euro falling.
+  usdPerUnit: { EUR: EUR_USD, XOF: EUR_USD * EUR_PER_CFA, XAF: EUR_USD * EUR_PER_CFA },
   fxBufferRate: 0.05,
   // Reserve for the worst rail (an international card: a share plus a fixed
   // part). To check against LigdiCash's written answer on its fees
@@ -21,9 +23,8 @@ export const ASSUMPTIONS: PricingAssumptions = {
   minMarginRate: 0.55,
 };
 
-const prices = (usdOrEur: number, cfa: number) => [
-  { amount: usdOrEur * 100, currency: 'EUR' },
-  { amount: usdOrEur * 100, currency: 'USD' },
+const prices = (eur: number, cfa: number) => [
+  { amount: eur * 100, currency: 'EUR' },
   { amount: cfa, currency: 'XOF' },
   { amount: cfa, currency: 'XAF' },
 ];
