@@ -342,7 +342,7 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
   // script); the script only replays it, step by step.
   const simulator = `
 <figure class="sim" aria-label="${escape(s.label)}">
-  <div class="sim-bar"><span></span><span></span><span></span><b>Baarali</b></div>
+  <div class="sim-bar"><span></span><span></span><span></span><b>Baarali</b><button class="replay" type="button" hidden>${escape(s.replay)}</button></div>
   <div class="sim-body">
     <aside class="sim-side">
       <p class="sim-new">${icon('plus')}${escape(s.newTask)}</p>
@@ -507,6 +507,9 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 .kicker { display:inline-flex; align-items:center; gap:8px; margin:0 0 16px; font-size:13px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--blue-deep); }
 .kicker::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--blue); }
 .kicker-light { color:#8fb4ff; }
+.kicker .num { font-variant-numeric:tabular-nums; opacity:.55; margin-right:2px; }
+.kicker:has(.num)::before { display:none; }
+.kicker .num::after { content:" /"; }
 .section { padding-block:104px; }
 .section h2 { font-size:clamp(32px, 4.6vw, 52px); line-height:1.05; }
 .sub { font-size:18px; color:var(--muted); max-width:58ch; margin:18px 0 0; }
@@ -552,7 +555,9 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 .sim { margin:0; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 40px 80px -40px var(--shadow), 0 0 0 8px var(--ring); overflow:hidden; }
 .sim-bar { display:flex; align-items:center; gap:7px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--surface-2); }
 .sim-bar span { width:11px; height:11px; border-radius:50%; background:var(--dot); }
-.sim-bar b { margin-left:auto; margin-right:auto; transform:translateX(-26px); font-size:13px; font-weight:600; color:var(--muted); }
+.sim-bar { position:relative; }
+.sim-bar b { position:absolute; left:50%; transform:translateX(-50%); font-size:13px; font-weight:600; color:var(--muted); }
+.replay { margin-left:auto; font:inherit; font-size:12.5px; font-weight:600; color:var(--blue-deep); background:var(--blue-soft); border:0; border-radius:999px; padding:4px 11px; cursor:pointer; }
 .sim-body { display:grid; grid-template-columns:172px minmax(0, 1fr); min-height:430px; }
 .sim-side { border-right:1px solid var(--line); background:var(--surface-2); padding:14px 10px; display:flex; flex-direction:column; gap:4px; font-size:13px; }
 .sim-side p { margin:0; padding:8px 10px; border-radius:9px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -819,7 +824,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="fonctions" class="section" aria-labelledby="features">
   <div class="wrap">
     <div class="head">
-      <p class="kicker">${escape(t.featuresKicker)}</p>
+      <p class="kicker"><span class="num">01</span>${escape(t.featuresKicker)}</p>
       <h2 id="features">${titled(t.featuresTitle)}</h2>
       <p class="sub">${escape(t.featuresLead)}</p>
     </div>
@@ -831,7 +836,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section class="section night" aria-labelledby="control">
   <div class="wrap split">
     <div>
-      <p class="kicker kicker-light">${escape(t.controlKicker)}</p>
+      <p class="kicker kicker-light"><span class="num">02</span>${escape(t.controlKicker)}</p>
       <h2 id="control">${titled(t.controlTitle)}</h2>
       <p class="sub">${escape(t.controlLead)}</p>
       <ul class="points">${t.control
@@ -846,7 +851,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="etapes" class="section" aria-labelledby="how">
   <div class="wrap">
     <div class="head">
-      <p class="kicker">${escape(t.howKicker)}</p>
+      <p class="kicker"><span class="num">03</span>${escape(t.howKicker)}</p>
       <h2 id="how">${titled(t.howTitle)}</h2>
     </div>
     <ol class="steps">${t.how.map(([h, p]) => `<li><h3>${escape(h)}</h3><p>${escape(p)}</p></li>`).join('')}</ol>
@@ -854,7 +859,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 </section>
 <section class="section blue" aria-labelledby="here">
   <div class="wrap">
-    <p class="kicker">${escape(t.hereKicker)}</p>
+    <p class="kicker"><span class="num">04</span>${escape(t.hereKicker)}</p>
     <h2 id="here">${titled(t.hereTitle)}</h2>
     <div class="here">${t.here.map(([b, p]) => `<div><b>${escape(b)}</b><p>${escape(p)}</p></div>`).join('')}</div>
   </div>
@@ -862,7 +867,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="tarifs" class="section" aria-labelledby="prices">
   <div class="wrap">
     <div class="head head-center">
-      <p class="kicker">${escape(t.pricesKicker)}</p>
+      <p class="kicker"><span class="num">05</span>${escape(t.pricesKicker)}</p>
       <h2 id="prices">${titled(t.pricesTitle)}</h2>
       <p class="sub">${escape(t.pricesLead)}</p>
     </div>
@@ -877,7 +882,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="questions" class="section" aria-labelledby="faq">
   <div class="wrap faq">
     <div>
-      <p class="kicker">${escape(t.faqKicker)}</p>
+      <p class="kicker"><span class="num">06</span>${escape(t.faqKicker)}</p>
       <h2 id="faq">${titled(t.faqTitle)}</h2>
     </div>
     <div class="qa">${t.faq.map(([q, a]) => `<details><summary>${escape(q)}</summary><p>${escape(a)}</p></details>`).join('')}</div>
@@ -948,7 +953,11 @@ if (sim && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
   const steps = [...sim.querySelectorAll("[data-step]")];
   const yes = sim.querySelector("[data-yes]");
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const replay = sim.querySelector(".replay");
+  let runs = 0;
   const run = async () => {
+    runs += 1;
+    replay.hidden = true;
     sim.classList.add("play");
     for (const s of steps) s.classList.remove("show");
     await wait(600);
@@ -960,9 +969,10 @@ if (sim && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     await wait(260);
     yes.classList.remove("press");
     for (const s of steps) if (s.dataset.step === "4") s.classList.add("show");
-    await wait(5200);
-    run();
+    // Two rounds on its own, then it waits to be asked again.
+    if (runs < 2) { await wait(5200); run(); } else replay.hidden = false;
   };
+  replay.addEventListener("click", () => { runs = 0; run(); });
   run();
 }
 </script>
