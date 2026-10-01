@@ -67,6 +67,7 @@ describe('the home page', () => {
   it('carries the Baarali mark, in the header and as the tab icon', async () => {
     const page = await (await app.request('/')).text();
     expect(page).toMatch(/<a class="brand" href="\/"><svg [^>]*aria-hidden="true"/);
+    expect(page).toContain('role="img" aria-label="Baarali"');
     expect(page).toContain('<link rel="icon" href="data:image/svg+xml,');
   });
 

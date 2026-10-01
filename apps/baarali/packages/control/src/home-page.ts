@@ -1,6 +1,6 @@
 import type { SoldPack } from './admin.js';
 import type { Money, Offer } from './pricing.js';
-import { FAVICON, logoMark } from './logo.js';
+import { FAVICON, logoTile, logoWord } from './logo.js';
 import { pickLang } from './sign-in-page.js';
 
 // The home page at baarali.com, with the prices (decided 01/10/2026). Prices
@@ -272,7 +272,7 @@ footer { padding-block:40px; color:var(--muted); font-size:14px; border-top:1px 
 <body>
 <div class="wrap">
 <header>
-  <a class="brand" href="/">${logoMark(30)}Baarali</a>
+  <a class="brand" href="/">${logoTile(34)}${logoWord(26)}</a>
   <nav><a href="#tarifs">${escape(t.navPrices)}</a><a class="button" href="/auth/v1/sign-in">${escape(t.navSignIn)}</a></nav>
 </header>
 <main>

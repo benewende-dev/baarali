@@ -3,7 +3,7 @@
 // nothing loaded from elsewhere: they must work on a slow phone connection.
 // Strings live in STRINGS until @baarali/i18n exists (roadmap phase 1).
 
-import { FAVICON, logoMark } from './logo.js';
+import { FAVICON, logoTile, logoWord } from './logo.js';
 
 export interface SignInMethods {
   email: boolean;
@@ -111,7 +111,7 @@ button:disabled { opacity:.6; cursor:default; }
 </head>
 <body>
 <main>
-<a class="logo" href="/">${logoMark(26)}Baarali</a>
+<a class="logo" href="/">${logoTile(30)}${logoWord(22)}</a>
 ${body}
 </main>
 <script nonce="${nonce}">
