@@ -95,3 +95,25 @@ describe('the page files', () => {
   });
 });
 
+describe('the legal pages', () => {
+  it('publishes who we are, what we do with data, and the terms', async () => {
+    for (const [path, text] of [['/mentions-legales', 'OpenBaara SAS'], ['/confidentialite', 'loi burkinabè'], ['/conditions', 'droit burkinabè']]) {
+      const res = await app.request(path);
+      expect(res.status).toBe(200);
+      const page = await res.text();
+      expect(page).toContain(text);
+      expect(page).toContain('contact@baarali.com');
+    }
+  });
+
+  it('answers in English when asked', async () => {
+    const page = await (await app.request('/confidentialite', { headers: { 'accept-language': 'en' } })).text();
+    expect(page).toContain('<title>Privacy — Baarali</title>');
+  });
+
+  it('is linked from the home page footer', async () => {
+    const page = await (await app.request('/')).text();
+    for (const path of ['/mentions-legales', '/confidentialite', '/conditions']) expect(page).toContain(`href="${path}"`);
+  });
+});
+

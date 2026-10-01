@@ -1,5 +1,6 @@
 import type { SoldPack } from './admin.js';
 import type { Money, Offer } from './pricing.js';
+import { CONTACT, legalLinks } from './legal-page.js';
 import { FAVICON, logoTile, logoWord, mascot } from './logo.js';
 import { pickLang } from './sign-in-page.js';
 
@@ -141,6 +142,7 @@ const STRINGS = {
     footerProduct: 'Produit',
     footerAccount: 'Compte',
     footerCreate: 'Créer un compte',
+    footerLegal: 'Légal',
     footer: 'Baarali est un produit d’OpenBaara.',
   },
   en: {
@@ -267,6 +269,7 @@ const STRINGS = {
     footerProduct: 'Product',
     footerAccount: 'Account',
     footerCreate: 'Create an account',
+    footerLegal: 'Legal',
     footer: 'Baarali is a product of OpenBaara.',
   },
 } satisfies Record<Lang, unknown>;
@@ -741,7 +744,7 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 
 /* Footer */
 footer { background:var(--night); color:var(--night-muted); padding-block:64px 40px; margin-top:104px; font-size:14.5px; }
-.foot { display:grid; grid-template-columns:minmax(0, 1.5fr) repeat(2, minmax(0, .6fr)); gap:40px; }
+.foot { display:grid; grid-template-columns:minmax(0, 1.4fr) repeat(3, minmax(0, .6fr)); gap:40px; }
 .foot .brand { color:#fff; }
 .foot p { margin:16px 0 0; max-width:36ch; }
 .foot h4 { margin:0 0 14px; color:#fff; font-size:14px; font-weight:650; }
@@ -920,10 +923,15 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
         <ul>
           <li><a href="/auth/v1/sign-in">${escape(t.navSignIn)}</a></li>
           <li><a href="/auth/v1/sign-in">${escape(t.footerCreate)}</a></li>
+          <li><a href="mailto:${CONTACT}">${CONTACT}</a></li>
         </ul>
       </div>
+      <div>
+        <h4>${escape(t.footerLegal)}</h4>
+        <ul>${legalLinks(opts.lang).map((l) => `<li><a href="${l.href}">${escape(l.label)}</a></li>`).join('')}</ul>
+      </div>
     </div>
-    <div class="legal"><span>© ${new Date().getFullYear()} OpenBaara</span><span>${escape(t.footer)}</span></div>
+    <div class="legal"><span>© ${new Date().getFullYear()} OpenBaara SAS · Burkina Faso</span><span>${escape(t.footer)}</span></div>
   </div>
 </footer>
 <script nonce="${opts.nonce}">
