@@ -34,7 +34,7 @@ function serveCatalog(catalog: {
     flavor?: string
     status?: 'ok' | 'error'
     error?: string
-    models: Array<{ id: string; reasoning?: boolean }>
+    models: Array<{ id: string; name?: string; reasoning?: boolean }>
   }>
   defaultModel: { provider: string; model: string } | null
 }): void {
