@@ -60,7 +60,7 @@ describe('the home page', () => {
 
   it('answers in English when asked, and runs only its own script', async () => {
     const res = await app.request('/', { headers: { 'accept-language': 'en-US,en' } });
-    expect(await res.text()).toContain('The assistant that acts for you.');
+    expect(await res.text()).toContain('<title>Baarali — the assistant that acts for you</title>');
     expect(res.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
   });
 
@@ -79,3 +79,19 @@ describe('the home page', () => {
     expect(formatPrice({ amount: 65000, currency: 'XOF' }, 'fr')).not.toContain(' ');
   });
 });
+
+describe('the page files', () => {
+  it('serves its fonts, for a year', async () => {
+    const res = await app.request('/assets/inter.woff2');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('font/woff2');
+    expect(res.headers.get('cache-control')).toContain('immutable');
+  });
+
+  it('serves nothing outside its list', async () => {
+    for (const path of ['/assets/OFL-Inter.txt', '/assets/..%2Fsrc%2Fapp.ts', '/assets/..%2F..%2Fpackage.json', '/assets/']) {
+      expect((await app.request(path)).status).toBe(404);
+    }
+  });
+});
+

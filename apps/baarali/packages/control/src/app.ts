@@ -4,6 +4,7 @@ import { createMiddleware } from 'hono/factory';
 import { buildApiConfig } from './config.js';
 import { proxyLlm, type ProxyDeps } from './llm-proxy.js';
 import { isAdmin, topUpMedia, type SoldPack } from './admin.js';
+import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
 import { homePage, type HomeData } from './home-page.js';
 import { html } from './html.js';
@@ -56,6 +57,12 @@ export function createApp(deps: ControlDeps) {
   if (deps.home) {
     const home = deps.home;
     app.get('/', (c) => html((nonce) => homePage(home, { lang: c.req.header('accept-language') ?? null, nonce })));
+    app.get('/assets/:name', (c) => {
+      const file = asset(c.req.param('name'));
+      if (!file) return c.notFound();
+      // Names never change content: a new font gets a new name.
+      return c.body(file.body, 200, { 'content-type': file.type, 'cache-control': 'public, max-age=31536000, immutable' });
+    });
   }
 
   // Unauthenticated, like the Rowboat Labs route: core reads it before login.
