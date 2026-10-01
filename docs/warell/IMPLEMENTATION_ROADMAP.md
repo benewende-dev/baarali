@@ -108,7 +108,7 @@ L'ordre des phases 4 à 8 est souple (**Latitude**). Chacune ne dépend que des 
   - mémoire de l'instance, avec et sans Chromium : la suspension exige 2 Go au plus ;
   - temps de suspension et de réveil ;
   - latence vers Paris et vers Johannesburg, depuis le Burkina et la Côte d'Ivoire. On peut passer par des sondes de mesure publiques installées dans ces pays (réseau RIPE Atlas) plutôt que d'attendre quelqu'un sur place.
-- Côté upstream (UPSTREAM.md §7) : une **issue** qui propose l'i18n, et une **PR** qui rétablit le contrôle du `cwd` d'`executeCommand` (sécurité H5).
+- Côté upstream (UPSTREAM.md §7) : une **issue** qui propose l'i18n, et une **issue** qui propose une limite réglable du `cwd` d'`executeCommand` pour le serveur à distance (sécurité H5 : le contrôle a été désactivé volontairement pour le bureau, on ne le réactive pas).
 
 **Critère de sortie :** depuis l'app de bureau pointée sur l'instance Fly, une conversation fonctionne via OpenRouter. L'instance se suspend, puis se réveille à la requête suivante. Aucun appel ne part vers `rowboatlabs.com` ni PostHog (vérifié par le journal du filtre de sortie). Les mesures sont versées dans l'architecture §6.
 
@@ -236,7 +236,7 @@ L'ordre de l'addendum (§90), appliqué à ce que les fournisseurs permettent vr
 | 2 | `feat(control): routes /v1 minimales` | `@warell/control` (Hono, comme `rowboat-server`) : `/v1/config`, `/v1/me`, `/v1/llm` vers OpenRouter sous le quota 5 h / semaine au coût réel (archi §3.5), `/health`. Tests de contrat contre les schémas de `@x/shared`. | Non | Tests de contrat verts |
 | 3 | `feat(instance): image et déploiement Fly.io` | Dockerfile qui empaquette `build-headless.mjs`, `fly.toml` (Paris, volume, `autostop = suspend`), script de déploiement du plan de contrôle et d'une instance de test. | Non | Instance joignable ; conversation via OpenRouter depuis l'app de bureau |
 | 4 | `docs(warell): mesures d'hébergement` | Mémoire (avec et sans Chromium), suspension et réveil, latence Paris / Johannesburg depuis BF et CI, coût d'une instance endormie. Mise à jour de l'architecture §6. | Non | Chiffres versés |
-| 5 | Upstream : issue i18n, PR du contrôle `cwd` | Textes rédigés ici, envoyés chez `rowboatlabs/rowboat` depuis une branche créée sur `upstream/main` (UPSTREAM.md §7) | Chez eux, pas chez nous | Liens de l'issue et de la PR |
+| 5 | Upstream : issue i18n, issue de la limite `cwd` | Textes rédigés ici, envoyés chez `rowboatlabs/rowboat` depuis une branche créée sur `upstream/main` (UPSTREAM.md §7) | Chez eux, pas chez nous | Liens des deux issues |
 
 **Ce qu'il faut de ta part (🧑) pour ce lot :**
 
