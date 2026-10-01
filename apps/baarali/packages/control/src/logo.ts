@@ -1,5 +1,5 @@
 // The Baarali mark (chosen 01/10/2026): a B that looks at you, on its two
-// feet, white on a blue tile, black eyes with a glint; and the name in
+// feet, white on a blue tile, black eyes looking right; and the name in
 // Instrument Serif italic (OFL), drawn as paths, the dot of the i in blue.
 // The same drawings as the desktop app (apps/baarali/packages/desktop/assets/
 // brand). Inline, for the pages' CSP admits only their nonce and data: images,
@@ -10,8 +10,7 @@ const BLUE = '#1A6DFF';
 const FACE =
   '<path d="M450 250 H502 C574 250 612 280 612 322 C612 345 602 360 590 368 Q584 373 590 378 C612 388 626 408 626 436 C626 476 590 502 512 502 H450 C413 502 384 473 384 436 V316 C384 279 413 250 450 250 Z" fill="#FFFFFF"/>' +
   '<circle cx="460" cy="556" r="38" fill="#FFFFFF"/><circle cx="552" cy="556" r="38" fill="#FFFFFF"/>' +
-  '<circle cx="498" cy="324" r="14" fill="#0A0A0A"/><circle cx="552" cy="324" r="14" fill="#0A0A0A"/>' +
-  '<circle cx="502.9" cy="318.4" r="4.5" fill="#FFFFFF"/><circle cx="556.9" cy="318.4" r="4.5" fill="#FFFFFF"/>';
+  '<circle cx="500" cy="324" r="12" fill="#0A0A0A"/><circle cx="554" cy="324" r="12" fill="#0A0A0A"/>';
 
 const TILE = `<rect width="1024" height="1024" rx="230" fill="${BLUE}"/><g transform="translate(512 512) scale(1.55) translate(-505 -423)">${FACE}</g>`;
 
