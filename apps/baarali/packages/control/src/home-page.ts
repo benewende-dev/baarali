@@ -897,7 +897,7 @@ ${LOGO_ALIVE_CSS}
       <ul class="trust">${t.trust.map((x) => `<li>${icon('check')}${escape(x)}</li>`).join('')}</ul>
     </div>
     <div class="stage">${simulator}
-      <div class="peek">${mascotTile()}</div>
+      <div class="peek">${logoTileLive(104).replace('class="logo-live"', 'class="logo-live tile"')}</div>
     </div>
   </div>
 </section>${download}
@@ -1103,9 +1103,4 @@ ${LOGO_ALIVE_JS}
 </script>
 </body>
 </html>`;
-}
-
-/** The character on its blue tile, peeking from behind the simulator. */
-function mascotTile(): string {
-  return `<svg class="tile mascot" viewBox="0 0 120 120" width="104" height="104" aria-hidden="true" focusable="false"><rect width="120" height="120" rx="27" fill="#1A6DFF"/><g transform="translate(-61.3 -42) scale(.24)">${mascot(380).replace(/<svg[^>]*>|<\/svg>/g, '')}</g></svg>`;
 }

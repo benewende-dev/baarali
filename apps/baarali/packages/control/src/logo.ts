@@ -54,9 +54,11 @@ export const LOGO_ALIVE_CSS = `
 .logo-live.hop .lg-foot { animation:lg-step .6s ease; }
 .logo-live.hop .lg-foot-2 { animation-delay:.08s; }
 @keyframes lg-blink { 0%, 93%, 100% { transform:scaleY(1); } 96% { transform:scaleY(.1); } }
-@keyframes lg-hop { 0%, 100% { transform:translateY(0) scaleY(1); } 18% { transform:translateY(0) scaleY(.9); } 45% { transform:translateY(-34px) scaleY(1.04); } 75% { transform:translateY(0) scaleY(.95); } }
-@keyframes lg-step { 0%, 100% { transform:translateY(0); } 45% { transform:translateY(-20px); } }
-@media (prefers-reduced-motion: reduce) { .logo-live .lg-lids, .logo-live.hop .lg-body, .logo-live.hop .lg-foot { animation:none; } .logo-live .lg-eyes { transition:none; } }
+@keyframes lg-hop { 0%, 100% { transform:translateY(0) scaleY(1); } 18% { transform:translateY(0) scaleY(.86); } 45% { transform:translateY(-110px) scaleY(1.06); } 75% { transform:translateY(0) scaleY(.92); } }
+@keyframes lg-step { 0%, 100% { transform:translateY(0); } 45% { transform:translateY(-70px); } }
+@keyframes lg-breathe { 0%, 100% { transform:scaleY(1); } 50% { transform:scaleY(1.035) translateY(-4px); } }
+.logo-live .lg-body { animation:lg-breathe 3.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .logo-live .lg-lids, .logo-live .lg-body, .logo-live.hop .lg-body, .logo-live.hop .lg-foot { animation:none; } .logo-live .lg-eyes { transition:none; } }
 `;
 
 /**
@@ -74,8 +76,8 @@ export const LOGO_ALIVE_JS = `
     for (const svg of logos) {
       const r = svg.getBoundingClientRect();
       const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height * .42);
-      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 260);
-      svg.querySelector(".lg-eyes").style.transform = "translate(" + (dx / d * 9 * k).toFixed(1) + "px," + (dy / d * 7 * k).toFixed(1) + "px)";
+      const d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 220);
+      svg.querySelector(".lg-eyes").style.transform = "translate(" + (dx / d * 20 * k).toFixed(1) + "px," + (dy / d * 13 * k).toFixed(1) + "px)";
     }
   };
   const hop = () => {
@@ -96,8 +98,9 @@ export const LOGO_ALIVE_JS = `
       look(r.left + r.width / 2, r.top + r.height / 2);
     },
   };
-  // A hello once the page is shown.
+  // A hello once the page is shown, then a hop now and then.
   setTimeout(hop, 700);
+  if (!still) setInterval(() => { if (!document.hidden) hop(); }, 7000);
 })();
 `;
 
