@@ -61,10 +61,24 @@ function walkFiles(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!['node_modules', 'dist', 'test', '__tests__'].includes(entry.name)) walkFiles(full, out);
+      if (!['node_modules', 'dist', 'test', '__tests__', 'baarali-i18n'].includes(entry.name)) walkFiles(full, out);
     } else if (/\.tsx?$/.test(entry.name) && !/\.test\.|\.d\.ts$/.test(entry.name)) out.push(full);
   }
   return out;
+}
+
+/** Words, as a person writes them: a capital or a bracket, then a space somewhere. */
+const looksWritten = (s) => !!s && /^[(\[“"']?[A-Z][a-z]/.test(s) && /[a-z] [A-Za-z]/.test(s.replace(/\$\d+/g, ''));
+
+/** A string only the program reads: an import, a log line, an error it throws, a key. */
+function inCode(n) {
+  const p = n.parent;
+  if (ts.isImportDeclaration(p) || ts.isExportDeclaration(p) || ts.isExternalModuleReference(p)) return true;
+  if (ts.isPropertyAssignment(p) && p.name === n) return true;
+  if (ts.isElementAccessExpression(p)) return true;
+  if (ts.isCallExpression(p) && /^console\.|^(require|import)$|\.(debug|log|warn|info|trace)$/.test(p.expression.getText())) return true;
+  if (ts.isCaseClause(p) || (ts.isBinaryExpression(p) && /===|!==|==|!=/.test(p.operatorToken.getText()))) return true;
+  return false;
 }
 
 /** Every visible string of the renderer → the files it appears in. */
@@ -105,6 +119,15 @@ export function extract(root = RENDERER) {
         add(text(n.expression), file, 'return'); // return 'Yesterday', return `${n}m ago`
       } else if (ts.isReturnStatement(n) && n.expression && /\s/.test(text(n.expression) ?? '')) {
         add(text(n.expression), file, 'return');
+      } else if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateExpression(n)) && looksWritten(text(n)) && !inCode(n)) {
+        // Anywhere else, a sentence a person would read: `title || '(Untitled chat)'`,
+        // `const label = busy ? 'All caught up' : …`, a default placeholder.
+        add(text(n), file, 'literal');
+      } else if (ts.isConditionalExpression(n) || (ts.isBinaryExpression(n) && /^(\|\||\?\?)$/.test(n.operatorToken.getText()))) {
+        // A word chosen or put in by default: `x ? 'Upgrade' : 'Manage'`, `title || 'Untitled'`.
+        const branches = ts.isConditionalExpression(n) ? [n.whenTrue, n.whenFalse] : [n.right];
+        for (const b of branches) if (/^[A-Z][a-z]/.test(text(b) ?? '')) add(text(b), file, 'branch');
+        if (ts.isJsxExpression(n.parent)) for (const b of branches) add(text(b), file);
       } else if (ts.isConditionalExpression(n) && ts.isJsxExpression(n.parent)) {
         for (const branch of [n.whenTrue, n.whenFalse]) {
           add(text(branch), file); // {busy ? 'Saving…' : 'Save'}

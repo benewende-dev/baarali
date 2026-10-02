@@ -44,6 +44,10 @@ describe('translate', () => {
     expect(translate(FR, ' New chat ')).toBe(' Nouvelle discussion ');
   });
 
+  it('finds a text the build did not name Baarali', () => {
+    expect(translate(FR, 'Manage your Rowboat account')).toBe('Gérer votre compte Baarali');
+  });
+
   it('leaves alone what it does not know', () => {
     expect(translate(FR, 'Réunion avec Awa')).toBeNull();
     expect(translate(FR, '42')).toBeNull();
@@ -64,6 +68,8 @@ describe('translate', () => {
     expect(translate(FR, 'Open questions', 'text')).toBeNull();
     expect(translate(FR, 'Open questions', 'attr')).toBe('Ouvrir questions');
     expect(translate(FR, 'Connect OpenAI', 'control')).toBe('Connecter OpenAI');
+    // Even on a button, a phrase someone wrote is not a name.
+    expect(translate(FR, 'Add your first to-do — just type below', 'control')).toBeNull();
     // Numbers are never someone's words.
     expect(translate(FR, '12 files', 'text')).toBe('12 fichiers');
   });

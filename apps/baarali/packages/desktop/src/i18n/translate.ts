@@ -76,8 +76,10 @@ export type Place = 'attr' | 'text' | 'control';
  * numbers.
  */
 function allowed(t: Template, values: string[], place: Place): boolean {
-  if (!t.loose || place !== 'text') return true;
-  return values.every((v) => /^[\d\s.,:+\-–/%]*$/.test(v));
+  if (!t.loose || place === 'attr') return true;
+  if (values.every((v) => /^[\d\s.,:+\-–/%]*$/.test(v))) return true;
+  // On a button, a name (`Connect OpenAI`), never a phrase (`Add your first to-do`).
+  return place === 'control' && values.every((v) => !/\s/.test(v.trim()));
 }
 
 /**
@@ -97,7 +99,8 @@ const seen = new Map<string, string | null>();
 export function translate(dict: Dictionary, text: string, place: Place = 'text', depth = 0): string | null {
   const core = text.trim();
   if (!core || !/[A-Za-z]/.test(core)) return null;
-  let out: string | null = dict.exact[core] ?? null;
+  // The build names the product Baarali (scripts/brand.mjs); a text it missed still matches.
+  let out: string | null = dict.exact[core] ?? dict.exact[core.replace(/\bRowboat\b/g, 'Baarali')] ?? null;
   const key = `${place}\u0000${core}`;
   if (out === null && seen.has(key)) out = seen.get(key) ?? null;
   else if (out === null) {
@@ -136,18 +139,45 @@ function translateAttrs(dict: Dictionary, el: Element): void {
   }
 }
 
+/**
+ * A piece of a sentence (`and`, `Add`) is translated only when the rest of
+ * the sentence is the interface's too: next to words the dictionary does not
+ * know (an app's description, a to-do someone wrote), it stays as written,
+ * so nothing reads « two colors et a mix ».
+ */
+/** Text nodes this layer wrote: French already, never strangers. */
+const translated = new WeakSet<Node>();
+
+function amongStrangers(dict: Dictionary, node: Node, place: Place): boolean {
+  const parent = node.parentElement;
+  if (!parent) return false;
+  for (const sibling of Array.from(parent.childNodes)) {
+    if (sibling === node || sibling.nodeType !== Node.TEXT_NODE) continue;
+    const text = sibling.nodeValue ?? '';
+    // A phrase (three words or more), not a value like a name or an address.
+    const words = text.split(/\s+/).filter((w) => /[A-Za-z]{2}/.test(w)).length;
+    if (words >= 3 && !translated.has(sibling) && translate(dict, text, place) === null) return true;
+  }
+  return false;
+}
+
 function translateNode(dict: Dictionary, node: Node): void {
   if (node.nodeType === Node.TEXT_NODE) {
     const parent = node.parentElement;
     if (skip(parent)) return;
+    if (amongStrangers(dict, node, 'text')) return;
     const fr = translate(dict, node.nodeValue ?? '', parent?.closest(CONTROLS) ? 'control' : 'text');
-    if (fr !== null && fr !== node.nodeValue) node.nodeValue = fr;
+    if (fr !== null && fr !== node.nodeValue) {
+      node.nodeValue = fr;
+      translated.add(node);
+    }
     return;
   }
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const el = node as Element;
+  // A field's own hint (placeholder, label) is the interface's, even where its content is not.
+  if (!skip(el.parentElement)) translateAttrs(dict, el);
   if (skip(el)) return;
-  translateAttrs(dict, el);
   for (const child of Array.from(el.childNodes)) translateNode(dict, child);
 }
 
@@ -190,7 +220,7 @@ export function startTranslation(dict: Dictionary, root: Element = document.body
       try {
         if (r.type === 'characterData') translateNode(dict, r.target);
         else if (r.type === 'attributes') {
-          if (!skip(r.target as Element)) translateAttrs(dict, r.target as Element);
+          if (!skip((r.target as Element).parentElement)) translateAttrs(dict, r.target as Element);
         }
         else for (const n of Array.from(r.addedNodes)) translateNode(dict, n);
       } catch {
