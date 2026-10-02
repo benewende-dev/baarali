@@ -7,8 +7,7 @@ import { readFileSync } from 'node:fs';
 
 const FILES: Record<string, string> = {
   'inter.woff2': 'font/woff2',
-  'instrument-serif-normal.woff2': 'font/woff2',
-  'instrument-serif-italic.woff2': 'font/woff2',
+  'source-serif-4.woff2': 'font/woff2',
 };
 
 const cache = new Map<string, Uint8Array<ArrayBuffer>>();

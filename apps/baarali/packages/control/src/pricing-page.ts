@@ -1,7 +1,7 @@
 import { ANNUAL_DISCOUNT } from './catalog.js';
 import { formatPrice, type HomeData } from './home-page.js';
 import { CONTACT, legalLinks } from './legal-page.js';
-import { FAVICON, logoTile, logoWord } from './logo.js';
+import { FAVICON, logoTile, logoWord, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
 import type { Money, Offer } from './pricing.js';
 import { pickLang } from './sign-in-page.js';
 
@@ -407,7 +407,7 @@ try { if (localStorage.getItem("baarali-currency") === "eur") document.documentE
 </script>
 <style nonce="${opts.nonce}">
 @font-face { font-family:"Inter"; src:url(/assets/inter.woff2) format("woff2"); font-weight:400 800; font-display:swap; }
-@font-face { font-family:"Instrument Serif"; src:url(/assets/instrument-serif-italic.woff2) format("woff2"); font-style:italic; font-display:swap; }
+@font-face { font-family:"Source Serif 4"; src:url(/assets/source-serif-4.woff2) format("woff2"); font-weight:400 700; font-style:normal; font-display:swap; }
 /* The home page's palette and type (home-page.ts), in both themes. */
 :root { --paper:#ffffff; --mist:#f4f6fb; --surface:#ffffff; --line:#e6e8ef; --ink:#0a0a0a; --on-ink:#ffffff; --text:#2a2d36; --muted:#5d6271; --blue:#1a6dff; --blue-deep:#155eef; --blue-soft:#eaf1ff; --blue-line:#cfdcff; --top-bg:rgb(255 255 255 / .82); --night:#0a0a0a; --night-line:#26282f; --night-muted:#a3a7b3; --featured:#0a0a0a; --featured-line:#0a0a0a; --track:#e9ecf3; color-scheme:light; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper:#0b0c0f; --mist:#121318; --surface:#15161b; --line:#24262e; --ink:#f5f6f8; --on-ink:#0a0a0a; --text:#d3d5dc; --muted:#9a9fac; --blue:#4d8dff; --blue-deep:#1a6dff; --blue-soft:#14203a; --blue-line:#29437a; --top-bg:rgb(11 12 15 / .8); --night:#000000; --featured:#000000; --featured-line:#3a5ea8; --track:#23252d; color-scheme:dark; } }
@@ -435,10 +435,10 @@ a { color:inherit; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme .sun { display:none; } :root:not([data-theme="light"]) .theme .moon { display:block; } }
 .kicker { display:inline-flex; align-items:center; gap:8px; margin:0 0 14px; font-size:13px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--blue-deep); }
 .kicker::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--blue); }
-h1, h2 { margin:0; color:var(--ink); letter-spacing:-.04em; font-weight:750; text-wrap:balance; }
+h1, h2 { font-family:"Source Serif 4", Georgia, serif; margin:0; color:var(--ink); letter-spacing:-.022em; font-weight:500; text-wrap:balance; }
 h1 { font-size:clamp(38px, 6vw, 66px); line-height:1.02; }
 h2 { font-size:clamp(30px, 4vw, 44px); line-height:1.08; }
-h1 em, h2 em { font-family:"Instrument Serif", Georgia, serif; font-style:italic; font-weight:400; letter-spacing:-.01em; color:var(--blue); }
+h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; letter-spacing:inherit; color:var(--blue); }
 .lead { margin:16px 0 0; max-width:58ch; color:var(--muted); font-size:18px; }
 .section { padding-block:96px 0; }
 .head { max-width:720px; }
@@ -460,7 +460,7 @@ h1 em, h2 em { font-family:"Instrument Serif", Georgia, serif; font-style:italic
 .plans { position:relative; margin-top:-72px; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; align-items:start; }
 .plan { position:relative; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:24px; padding:26px 24px; box-shadow:0 1px 2px rgb(10 20 40 / .04), 0 12px 32px -18px rgb(10 20 40 / .18); }
 .plan .tag { margin:0; font-size:13px; font-weight:650; color:var(--blue-deep); }
-.plan h3 { margin:8px 0 0; font-size:24px; letter-spacing:-.03em; color:var(--ink); }
+.plan h3 { font-family:"Source Serif 4", Georgia, serif; font-weight:500; margin:8px 0 0; font-size:28px; letter-spacing:-.015em; color:var(--ink); }
 .plan .for { margin:6px 0 0; font-size:14px; color:var(--muted); min-height:44px; }
 .price { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 8px; margin:18px 0 0; }
 .price strong { font-size:40px; line-height:1; letter-spacing:-.045em; color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -507,7 +507,7 @@ h1 em, h2 em { font-family:"Instrument Serif", Georgia, serif; font-style:italic
 .biz .lead { color:#a3a7b3; }
 .biz-head { display:grid; grid-template-columns:minmax(0, 1fr) 260px; gap:40px; align-items:end; }
 .biz-side { display:flex; flex-direction:column; gap:10px; }
-.biz-price { margin:0; color:#fff; font-size:30px; font-weight:750; letter-spacing:-.03em; }
+.biz-price { margin:0; color:#fff; font-family:"Source Serif 4", Georgia, serif; font-size:32px; font-weight:500; letter-spacing:-.02em; }
 .cta-white { background:#fff; color:#0a0a0a; margin:0; }
 .biz-mail { margin:0; font-size:13.5px; }
 .biz-for { list-style:none; margin:32px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
@@ -539,7 +539,7 @@ h1 em, h2 em { font-family:"Instrument Serif", Georgia, serif; font-style:italic
 .gauge small { font-size:13px; color:var(--muted); }
 .steps { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:22px; counter-reset:s; }
 .steps li { display:grid; grid-template-columns:44px minmax(0, 1fr); gap:14px; counter-increment:s; }
-.steps li::before { content:counter(s, decimal-leading-zero); font-family:"Instrument Serif", Georgia, serif; font-style:italic; font-size:30px; line-height:1; color:var(--blue); }
+.steps li::before { content:counter(s, decimal-leading-zero); font-family:"Source Serif 4", Georgia, serif; font-size:30px; line-height:1; color:var(--blue); }
 .steps b { display:block; color:var(--ink); font-size:17px; margin-bottom:2px; }
 .steps p { margin:0; color:var(--muted); }
 /* Compare */
@@ -614,12 +614,13 @@ footer a:hover { color:#fff; }
 }
 @media (max-width: 440px) { .menu .btn { display:none; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } .faq summary::after, .bar i { transition:none; } .live, .feed li { animation:none; } }
+${LOGO_ALIVE_CSS}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="/">${logoTile(32)}${logoWord(25)}</a>
+    <a class="brand" href="/">${logoTileLive(32)}${logoWord(25)}</a>
     <nav class="menu" aria-label="Baarali">
       <a href="/">${escape(t.home)}</a>
       <a href="${PRICING_PATH}" aria-current="page">${escape(t.prices)}</a>
@@ -779,6 +780,7 @@ for (const b of document.querySelectorAll(".levels button")) {
     for (const l of document.querySelectorAll(".level")) l.hidden = l.dataset.level !== b.dataset.level;
   });
 }
+${LOGO_ALIVE_JS}
 </script>
 </body>
 </html>`;

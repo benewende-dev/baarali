@@ -1,7 +1,7 @@
 import type { SoldPack } from './admin.js';
 import type { Money, Offer } from './pricing.js';
 import { CONTACT, legalLinks } from './legal-page.js';
-import { FAVICON, logoTile, logoWord, mascot } from './logo.js';
+import { FAVICON, logoTile, logoWord, mascot, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
 import { pickLang } from './sign-in-page.js';
 
 // The home page at baarali.com, with the prices (decided 01/10/2026). Prices
@@ -31,7 +31,7 @@ const STRINGS = {
     start: 'Créer mon compte gratuit',
     download: 'Télécharger Baarali',
     seeHow: 'Voir comment ça marche',
-    trust: ['Gratuit pour commencer', 'Sans mot de passe', 'Français et anglais'],
+    trust: ['Gratuit pour commencer', 'Les meilleurs modèles d’IA', 'Français et anglais'],
     sim: {
       label: 'Aperçu de l’app Baarali au travail',
       newTask: 'Nouvelle tâche',
@@ -59,6 +59,22 @@ const STRINGS = {
       ['Il travaille en arrière-plan', 'Les tâches longues continuent quand vous fermez l’app. Il vous prévient à la fin.'],
       ['Il se souvient', 'Vos clients, vos prix, vos habitudes : ce qu’il apprend reste dans votre espace.'],
     ],
+    modelsKicker: 'Les modèles',
+    modelsTitle: ['Le bon modèle ', 'pour chaque tâche', '.'],
+    modelsLead: 'Baarali vous donne les meilleurs modèles d’IA du moment. Un rapide pour trier, un puissant pour raisonner, un autre pour lire tout un dossier : la puissance seulement quand elle sert.',
+    modelsPick: 'Choisissez une tâche',
+    modelsChosen: 'Le modèle qu’il lui faut',
+    modelsResult: 'Résultat',
+    meters: ['Vitesse', 'Profondeur', 'Coût'],
+    modelTasks: [
+      { task: 'Trier 200 emails et répondre aux plus simples', profile: 'Rapide et économique', why: 'Des centaines de petites décisions : la vitesse compte plus que la profondeur.', meters: [95, 40, 15], makers: ['DeepSeek', 'Qwen', 'Mistral'], out: '142 emails rangés · 18 réponses prêtes à valider' },
+      { task: 'Rédiger une offre commerciale de 6 pages', profile: 'Rédaction soignée', why: 'Un texte long, dans votre ton, qui doit convaincre.', meters: [60, 80, 55], makers: ['Anthropic', 'OpenAI'], out: 'Offre-Sahel-Logistique.docx · 6 pages' },
+      { task: 'Analyser un bilan et un compte de résultat', profile: 'Raisonnement', why: 'Des chiffres à croiser et des ratios à calculer : il prend le temps de réfléchir.', meters: [35, 98, 85], makers: ['OpenAI', 'Google', 'Anthropic'], out: 'Rentabilité en baisse de 3 points : 4 causes trouvées' },
+      { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
+    ],
+    makersTitle: 'Dans Baarali, les modèles de',
+    makers: ['OpenAI', 'Anthropic', 'Google', 'DeepSeek', 'Mistral', 'Qwen', 'Meta', 'xAI'],
+    modelsNote: 'Choisissez le modèle à chaque conversation, ou gardez celui par défaut. Tous les modèles dès le forfait Semaine ; Découverte donne les rapides.',
     demo: {
       search: 'prix du cajou cette semaine',
       sources: ['3 sources lues', 'Résumé en 5 points'],
@@ -159,7 +175,7 @@ const STRINGS = {
     start: 'Create my free account',
     download: 'Download Baarali',
     seeHow: 'See how it works',
-    trust: ['Free to start', 'No password', 'French and English'],
+    trust: ['Free to start', 'The best AI models', 'French and English'],
     sim: {
       label: 'A look at the Baarali app at work',
       newTask: 'New task',
@@ -187,6 +203,22 @@ const STRINGS = {
       ['It works in the background', 'Long tasks keep running when you close the app. It tells you when they are done.'],
       ['It remembers', 'Your clients, your prices, your habits: what it learns stays in your space.'],
     ],
+    modelsKicker: 'Models',
+    modelsTitle: ['The right model ', 'for every task', '.'],
+    modelsLead: 'Baarali gives you today’s best AI models. A fast one to sort, a powerful one to reason, another to read a whole file: power only when it helps.',
+    modelsPick: 'Pick a task',
+    modelsChosen: 'The model it needs',
+    modelsResult: 'Result',
+    meters: ['Speed', 'Depth', 'Cost'],
+    modelTasks: [
+      { task: 'Sort 200 emails and answer the simple ones', profile: 'Fast and low-cost', why: 'Hundreds of small decisions: speed matters more than depth.', meters: [95, 40, 15], makers: ['DeepSeek', 'Qwen', 'Mistral'], out: '142 emails filed · 18 replies ready to approve' },
+      { task: 'Write a 6-page sales proposal', profile: 'Careful writing', why: 'A long text, in your tone, that has to convince.', meters: [60, 80, 55], makers: ['Anthropic', 'OpenAI'], out: 'Proposal-Sahel-Logistics.docx · 6 pages' },
+      { task: 'Analyse a balance sheet and income statement', profile: 'Reasoning', why: 'Figures to cross-check and ratios to compute: it takes time to think.', meters: [35, 98, 85], makers: ['OpenAI', 'Google', 'Anthropic'], out: 'Profitability down 3 points: 4 causes found' },
+      { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 requirements, 3 risks, deadline 28 October' },
+    ],
+    makersTitle: 'In Baarali, models from',
+    makers: ['OpenAI', 'Anthropic', 'Google', 'DeepSeek', 'Mistral', 'Qwen', 'Meta', 'xAI'],
+    modelsNote: 'Pick the model for each conversation, or keep the default. Every model from the Semaine plan; Découverte gives the fast ones.',
     demo: {
       search: 'cashew price this week',
       sources: ['3 sources read', '5-point summary'],
@@ -459,11 +491,10 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
 try { const v = localStorage.getItem("baarali-theme"); if (v === "light" || v === "dark") document.documentElement.dataset.theme = v; } catch {}
 </script>
 <link rel="preload" href="/assets/inter.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/assets/instrument-serif-italic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/source-serif-4.woff2" as="font" type="font/woff2" crossorigin>
 <style nonce="${opts.nonce}">
 @font-face { font-family:"Inter"; src:url(/assets/inter.woff2) format("woff2"); font-weight:400 800; font-display:swap; }
-@font-face { font-family:"Instrument Serif"; src:url(/assets/instrument-serif-normal.woff2) format("woff2"); font-style:normal; font-display:swap; }
-@font-face { font-family:"Instrument Serif"; src:url(/assets/instrument-serif-italic.woff2) format("woff2"); font-style:italic; font-display:swap; }
+@font-face { font-family:"Source Serif 4"; src:url(/assets/source-serif-4.woff2) format("woff2"); font-weight:400 700; font-style:normal; font-display:swap; }
 /* The brand's three colours (decided 01/10/2026): white, blue, black. The
    page is deliberately one look, light with black bands, in either theme. */
 :root {
@@ -472,7 +503,7 @@ try { const v = localStorage.getItem("baarali-theme"); if (v === "light" || v ==
   --night:#0a0a0a; --night-2:#15161a; --night-line:#26282f; --night-muted:#a3a7b3;
   --surface:#ffffff; --surface-2:#fbfbfd; --dot:#e2e4ea; --skeleton:#dfe3ec; --on-ink:#ffffff; --hover-line:#c9ccd6; --top-bg:rgb(255 255 255 / .82); --glass:rgb(255 255 255 / .7); --hero-grid:.55; --shadow:rgb(10 10 10 / .35); --ring:rgb(255 255 255 / .6); --featured-line:var(--night);
   --sans:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --serif:"Instrument Serif", Georgia, "Times New Roman", serif;
+  --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
   color-scheme: light;
 }
 /* Dark (01/10/2026): the viewer's system choice, unless they picked one with
@@ -496,8 +527,9 @@ try { const v = localStorage.getItem("baarali-theme"); if (v === "light" || v ==
 html { scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
 body { margin:0; background:var(--paper); color:var(--text); font:16px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }
 a { color:inherit; }
-h1, h2, h3 { color:var(--ink); font-weight:750; letter-spacing:-.035em; text-wrap:balance; margin:0; }
-h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; letter-spacing:-.01em; color:var(--blue); }
+/* Titles in an upright serif, never italic (decided 01/10/2026). */
+h1, h2, h3 { font-family:var(--serif); color:var(--ink); font-weight:500; letter-spacing:-.022em; text-wrap:balance; margin:0; }
+h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; letter-spacing:inherit; color:var(--blue); }
 .wrap { max-width:1180px; margin:0 auto; padding-inline:20px; }
 .i { width:18px; height:18px; flex:none; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .i.fill { fill:currentColor; stroke:none; }
@@ -551,7 +583,6 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 .pill { display:inline-flex; align-items:center; gap:10px; padding:6px 14px 6px 6px; border:1px solid var(--blue-line); background:var(--glass); border-radius:999px; font-size:13.5px; font-weight:600; color:var(--ink); }
 .pill b { background:var(--blue-deep); color:#fff; font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
 .hero h1 { font-size:clamp(44px, 6.6vw, 84px); line-height:.98; margin:26px 0 22px; }
-.hero h1 em { font-size:1.08em; }
 .lead { font-size:19px; line-height:1.6; color:var(--muted); max-width:52ch; margin:0 0 32px; }
 .ctas { display:flex; flex-wrap:wrap; gap:12px; }
 .trust { display:flex; flex-wrap:wrap; gap:8px 22px; list-style:none; padding:0; margin:28px 0 0; font-size:14px; color:var(--muted); }
@@ -614,6 +645,45 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 @keyframes hop { 0%, 100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 
 /* Features */
+/* The models: one task lit, the model it needs beside it. */
+.router { display:grid; grid-template-columns:minmax(0, .9fr) minmax(0, 1.1fr); gap:16px; margin-top:48px; }
+.r-label { margin:0 0 12px; font-size:12.5px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+.r-tasks { display:flex; flex-direction:column; gap:8px; }
+.r-tasks button { display:flex; align-items:center; gap:12px; text-align:left; font:inherit; font-size:15.5px; font-weight:550; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px 18px; cursor:pointer; transition:border-color .2s, background .2s, transform .2s; }
+.r-tasks button .i { color:var(--muted); transition:transform .2s, color .2s; }
+.r-tasks button:hover { border-color:var(--hover-line); }
+.r-tasks button[aria-selected="true"] { border-color:var(--blue); background:var(--blue-soft); color:var(--ink); }
+.r-tasks button[aria-selected="true"] .i { color:var(--blue); transform:translateX(3px); }
+.r-panel { background:var(--night); color:var(--night-muted); border-radius:24px; padding:30px; animation:r-in .45s ease both; }
+.r-panel .r-label { color:#8fb4ff; }
+.r-panel h3 { color:#fff; font-size:32px; }
+.r-why { margin:8px 0 0; max-width:46ch; }
+.r-meters { display:grid; gap:12px; margin-top:24px; }
+.r-meters div { display:grid; grid-template-columns:96px minmax(0, 1fr); align-items:center; gap:12px; font-size:14px; }
+.r-bar { display:block; height:8px; border-radius:999px; background:#23252d; overflow:hidden; }
+.r-bar b { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg, #1a6dff, #6f9fff); animation:r-grow .9s cubic-bezier(.2,.7,.2,1) both; transform-origin:left; }
+.mv-15 { width:15%; }
+.mv-35 { width:35%; }
+.mv-40 { width:40%; }
+.mv-45 { width:45%; }
+.mv-55 { width:55%; }
+.mv-60 { width:60%; }
+.mv-75 { width:75%; }
+.mv-80 { width:80%; }
+.mv-85 { width:85%; }
+.mv-95 { width:95%; }
+.mv-98 { width:98%; }
+.r-makers { list-style:none; margin:22px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
+.r-makers li { border:1px solid #2c2e36; border-radius:999px; padding:5px 12px; font-size:13.5px; color:#d3d5dc; }
+.r-out { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:24px 0 0; padding-top:18px; border-top:1px solid #26282f; color:#fff; font-weight:600; }
+.r-out small { width:100%; font-size:12.5px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:#a3a7b3; }
+.r-out .i { color:#22c55e; }
+@keyframes r-in { from { opacity:0; transform:translateY(8px); } }
+@keyframes r-grow { from { transform:scaleX(0); } }
+.makers { display:flex; flex-wrap:wrap; align-items:center; gap:12px 20px; margin-top:28px; padding:20px 24px; border:1px solid var(--line); border-radius:18px; background:var(--surface); }
+.makers p { margin:0; font-size:14px; color:var(--muted); }
+.makers ul { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px 22px; }
+.makers li { font-family:var(--serif); font-size:20px; color:var(--ink); }
 .bento { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
 .feat { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
 .feat:hover { border-color:var(--blue-line); box-shadow:0 18px 40px -26px rgb(21 94 239 / .45); transform:translateY(-2px); }
@@ -673,7 +743,7 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 /* Steps */
 .steps { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; counter-reset:step; list-style:none; padding:0; margin:0; }
 .steps li { position:relative; border-top:2px solid var(--ink); padding:22px 6px 0 0; }
-.steps li::before { counter-increment:step; content:"0" counter(step); display:block; font-family:var(--serif); font-style:italic; font-size:56px; line-height:1; color:var(--blue); margin-bottom:18px; }
+.steps li::before { counter-increment:step; content:"0" counter(step); display:block; font-family:var(--serif); font-size:52px; line-height:1; color:var(--blue); margin-bottom:18px; }
 .steps h3 { font-size:21px; margin-bottom:8px; letter-spacing:-.02em; }
 .steps p { margin:0; color:var(--muted); }
 
@@ -697,7 +767,7 @@ h1 em, h2 em { font-family:var(--serif); font-style:italic; font-weight:400; let
 .plan.featured .price strong { color:#fff; }
 .plan.featured .tag { color:#8fb4ff; }
 .badge { position:absolute; top:-12px; left:22px; margin:0; background:var(--blue-deep); color:#fff; font-size:12px; font-weight:650; padding:4px 11px; border-radius:999px; }
-.plan h3 { font-size:24px; letter-spacing:-.03em; }
+.plan h3 { font-size:28px; letter-spacing:-.015em; }
 .tag { margin:0; font-size:13px; font-weight:650; color:var(--blue-deep); }
 .price { margin:0; font-variant-numeric:tabular-nums; }
 .price strong { font-size:38px; letter-spacing:-.04em; color:var(--ink); font-weight:750; }
@@ -761,6 +831,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 :focus-visible { outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
 
 @media (max-width: 1040px) {
+  .router { grid-template-columns:minmax(0, 1fr); }
   .menu { display:none; }
   .hero .wrap, .split, .faq, .media { grid-template-columns:minmax(0, 1fr); }
   .hero .wrap { gap:48px; }
@@ -795,12 +866,13 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
   *, *::before, *::after { animation:none !important; transition:none !important; }
   html { scroll-behavior:auto; }
 }
+${LOGO_ALIVE_CSS}
 </style>
 </head>
 <body>
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="/">${logoTile(32)}${logoWord(25)}</a>
+    <a class="brand" href="/">${logoTileLive(32)}${logoWord(25)}</a>
     <nav class="menu" aria-label="Baarali">
       <a href="#fonctions">${escape(t.nav.features)}</a>
       <a href="#etapes">${escape(t.nav.how)}</a>
@@ -841,10 +913,39 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
       .join('')}</div>
   </div>
 </section>
+<section id="modeles" class="section" aria-labelledby="models">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker"><span class="num">02</span>${escape(t.modelsKicker)}</p>
+      <h2 id="models">${titled(t.modelsTitle)}</h2>
+      <p class="sub">${escape(t.modelsLead)}</p>
+    </div>
+    <div class="router">
+      <div class="r-tasks" role="tablist" aria-label="${escape(t.modelsPick)}">
+        <p class="r-label">${escape(t.modelsPick)}</p>
+        ${t.modelTasks.map((m, i) => `<button type="button" role="tab" id="rt-${i}" aria-controls="rp-${i}" aria-selected="${i === 0}">${icon('arrow')}<span>${escape(m.task)}</span></button>`).join('')}
+      </div>
+      ${t.modelTasks
+        .map(
+          (m, i) => `<div class="r-panel" role="tabpanel" id="rp-${i}" aria-labelledby="rt-${i}"${i === 0 ? '' : ' hidden'}>
+        <p class="r-label">${escape(t.modelsChosen)}</p>
+        <h3>${escape(m.profile)}</h3>
+        <p class="r-why">${escape(m.why)}</p>
+        <div class="r-meters">${m.meters.map((v, k) => `<div><span>${escape(t.meters[k])}</span><i class="r-bar"><b class="mv-${v}"></b></i></div>`).join('')}</div>
+        <ul class="r-makers">${m.makers.map((x) => `<li>${escape(x)}</li>`).join('')}</ul>
+        <p class="r-out"><small>${escape(t.modelsResult)}</small>${icon('check')}${escape(m.out)}</p>
+      </div>`,
+        )
+        .join('')}
+    </div>
+    <div class="makers"><p>${escape(t.makersTitle)}</p><ul>${t.makers.map((x) => `<li>${escape(x)}</li>`).join('')}</ul></div>
+    <p class="fine">${escape(t.modelsNote)}</p>
+  </div>
+</section>
 <section class="section night" aria-labelledby="control">
   <div class="wrap split">
     <div>
-      <p class="kicker kicker-light"><span class="num">02</span>${escape(t.controlKicker)}</p>
+      <p class="kicker kicker-light"><span class="num">03</span>${escape(t.controlKicker)}</p>
       <h2 id="control">${titled(t.controlTitle)}</h2>
       <p class="sub">${escape(t.controlLead)}</p>
       <ul class="points">${t.control
@@ -859,7 +960,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="etapes" class="section" aria-labelledby="how">
   <div class="wrap">
     <div class="head">
-      <p class="kicker"><span class="num">03</span>${escape(t.howKicker)}</p>
+      <p class="kicker"><span class="num">04</span>${escape(t.howKicker)}</p>
       <h2 id="how">${titled(t.howTitle)}</h2>
     </div>
     <ol class="steps">${t.how.map(([h, p]) => `<li><h3>${escape(h)}</h3><p>${escape(p)}</p></li>`).join('')}</ol>
@@ -867,7 +968,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 </section>
 <section class="section blue" aria-labelledby="here">
   <div class="wrap">
-    <p class="kicker"><span class="num">04</span>${escape(t.hereKicker)}</p>
+    <p class="kicker"><span class="num">05</span>${escape(t.hereKicker)}</p>
     <h2 id="here">${titled(t.hereTitle)}</h2>
     <div class="here">${t.here.map(([b, p]) => `<div><b>${escape(b)}</b><p>${escape(p)}</p></div>`).join('')}</div>
   </div>
@@ -875,7 +976,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="tarifs" class="section" aria-labelledby="prices">
   <div class="wrap">
     <div class="head head-center">
-      <p class="kicker"><span class="num">05</span>${escape(t.pricesKicker)}</p>
+      <p class="kicker"><span class="num">06</span>${escape(t.pricesKicker)}</p>
       <h2 id="prices">${titled(t.pricesTitle)}</h2>
       <p class="sub">${escape(t.pricesLead)}</p>
     </div>
@@ -890,7 +991,7 @@ footer { background:var(--night); color:var(--night-muted); padding-block:64px 4
 <section id="questions" class="section" aria-labelledby="faq">
   <div class="wrap faq">
     <div>
-      <p class="kicker"><span class="num">06</span>${escape(t.faqKicker)}</p>
+      <p class="kicker"><span class="num">07</span>${escape(t.faqKicker)}</p>
       <h2 id="faq">${titled(t.faqTitle)}</h2>
     </div>
     <div class="qa">${t.faq.map(([q, a]) => `<details><summary>${escape(q)}</summary><p>${escape(a)}</p></details>`).join('')}</div>
@@ -947,6 +1048,12 @@ for (const b of document.querySelectorAll(".levels button")) {
     for (const l of document.querySelectorAll(".level")) l.hidden = l.dataset.level !== b.dataset.level;
   });
 }
+// The models: the tasks take turns until the reader picks one.
+const tabs = [...document.querySelectorAll(".r-tasks button")];
+const panels = [...document.querySelectorAll(".r-panel")];
+const pick = (n) => tabs.forEach((b, k) => { b.setAttribute("aria-selected", String(k === n)); panels[k].hidden = k !== n; });
+let auto = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : setInterval(() => pick((tabs.findIndex((b) => b.getAttribute("aria-selected") === "true") + 1) % tabs.length), 4200);
+tabs.forEach((b, k) => b.addEventListener("click", () => { clearInterval(auto); auto = null; pick(k); }));
 // Light or dark: the switch wins over the system, and is remembered.
 const root = document.documentElement;
 document.querySelector(".theme").addEventListener("click", () => {
@@ -976,18 +1083,23 @@ if (sim && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     await wait(600);
     for (const n of [1, 2, 3]) {
       for (const s of steps) if (Number(s.dataset.step) === n) s.classList.add("show");
+      // The mascot follows the work: it looks at the approval it waits for.
+      if (n === 3) window.baarali?.look(yes);
       await wait(n === 3 ? 2200 : 1500);
     }
     yes.classList.add("press");
     await wait(260);
     yes.classList.remove("press");
     for (const s of steps) if (s.dataset.step === "4") s.classList.add("show");
+    window.baarali?.look(null);
+    window.baarali?.hop();
     // Two rounds on its own, then it waits to be asked again.
     if (runs < 2) { await wait(5200); run(); } else replay.hidden = false;
   };
   replay.addEventListener("click", () => { runs = 0; run(); });
   run();
 }
+${LOGO_ALIVE_JS}
 </script>
 </body>
 </html>`;
