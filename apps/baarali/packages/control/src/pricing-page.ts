@@ -15,6 +15,9 @@ type Lang = 'fr' | 'en';
 
 export const PRICING_PATH = '/tarifs';
 
+/** "10", from the catalog: every mention of the yearly discount follows it. */
+const OFF = String(Math.round(ANNUAL_DISCOUNT * 100));
+
 const STRINGS = {
   fr: {
     title: 'Tarifs — Baarali',
@@ -43,13 +46,13 @@ const STRINGS = {
     plans: {
       decouverte: { tag: 'Pour essayer', for: 'Pour découvrir Baarali sur de vraies tâches.', plus: 'Inclus', points: ['Des recherches sur le web, résumées avec leurs sources', 'Emails, devis et comptes rendus rédigés dans votre ton', 'Documents, tableaux et présentations prêts à envoyer', 'Votre accord avant chaque envoi ou publication', 'Les tâches longues en arrière-plan, et les routines', 'Une mémoire : vos clients, vos prix, vos habitudes', 'Vidéos, voix et musique avec des crédits médias', 'Les apps Mac et Windows', 'Des modèles rapides et économiques', 'Une utilisation limitée, renouvelée toutes les 5 h et chaque semaine'] },
       semaine: { tag: 'Sans engagement', for: 'Pour une semaine chargée, payée en Mobile Money.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel pendant 7 jours', '25 fois l’utilisation de Découverte', 'Payé en Mobile Money, quand vous en avez besoin', 'Rien ne se renouvelle tout seul'] },
-      essentiel: { tag: 'Le quotidien', for: 'Pour s’en servir chaque jour, au travail ou chez soi.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', '25 fois l’utilisation de Découverte', 'Assez pour s’en servir tous les jours', 'De la marge pour les tâches longues', 'Au mois, ou à l’année avec 19 % de remise'] },
-      pro: { tag: 'Pour les gros besoins', for: 'Pour travailler toute la journée avec lui.', plus: 'Tout Essentiel, et :', points: ['Cinq ou dix fois l’utilisation d’Essentiel', 'Pour les tâches longues et les routines de chaque jour', 'Pour une personne qui délègue beaucoup', 'Les médias toujours avec des crédits', 'Au mois, ou à l’année avec 19 % de remise'] },
+      essentiel: { tag: 'Le quotidien', for: 'Pour s’en servir chaque jour, au travail ou chez soi.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', '25 fois l’utilisation de Découverte', 'Assez pour s’en servir tous les jours', 'De la marge pour les tâches longues', `Au mois, ou à l’année avec ${OFF} % de remise`] },
+      pro: { tag: 'Pour les gros besoins', for: 'Pour travailler toute la journée avec lui.', plus: 'Tout Essentiel, et :', points: ['Cinq ou dix fois l’utilisation d’Essentiel', 'Pour les tâches longues et les routines de chaque jour', 'Pour une personne qui délègue beaucoup', 'Les médias toujours avec des crédits', `Au mois, ou à l’année avec ${OFF} % de remise`] },
     } as Record<string, { tag: string; for: string; plus: string; points: string[] }>,
     period: 'Paiement',
     monthly: 'Au mois',
     yearly: 'À l’année',
-    save: '−19 %',
+    save: `−${OFF} %`,
     perMonthYear: 'par mois, à l’année',
     billedYear: (total: string, saved: string) => `${total} par an · ${saved} économisés`,
     weekOnly: 'À la semaine seulement',
@@ -101,7 +104,7 @@ const STRINGS = {
     },
     billingNone: 'Aucun',
     billingWeek: 'Chaque semaine, à la main',
-    billingMonth: 'Au mois ou à l’année (−19 %)',
+    billingMonth: `Au mois ou à l’année (−${OFF} %)`,
     modelsFast: 'Rapides et économiques',
     modelsAll: 'Tous',
     usageLimited: 'Limitée',
@@ -167,13 +170,13 @@ const STRINGS = {
     plans: {
       decouverte: { tag: 'To try it', for: 'To try Baarali on real tasks.', plus: 'Included', points: ['Web research, summed up with its sources', 'Emails, quotes and minutes written in your tone', 'Documents, spreadsheets and slides ready to send', 'Your approval before anything is sent or published', 'Long tasks in the background, and routines', 'A memory: your clients, your prices, your habits', 'Videos, voices and music with media credits', 'The Mac and Windows apps', 'Fast, low-cost models', 'Limited usage, renewed every 5 h and every week'] },
       semaine: { tag: 'No commitment', for: 'For a busy week, paid with mobile money.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', 'The usage of Essentiel for 7 days', '25 times the usage of Découverte', 'Paid with mobile money, when you need it', 'Nothing renews on its own'] },
-      essentiel: { tag: 'Everyday', for: 'To use it every day, at work or at home.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', '25 times the usage of Découverte', 'Enough to use it every day', 'Room for long tasks', 'Monthly, or yearly with 19% off'] },
-      pro: { tag: 'For heavy use', for: 'To work with it all day long.', plus: 'Everything in Essentiel, and:', points: ['Five or ten times the usage of Essentiel', 'For long tasks and daily routines', 'For someone who delegates a lot', 'Media still with credits', 'Monthly, or yearly with 19% off'] },
+      essentiel: { tag: 'Everyday', for: 'To use it every day, at work or at home.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', '25 times the usage of Découverte', 'Enough to use it every day', 'Room for long tasks', `Monthly, or yearly with ${OFF}% off`] },
+      pro: { tag: 'For heavy use', for: 'To work with it all day long.', plus: 'Everything in Essentiel, and:', points: ['Five or ten times the usage of Essentiel', 'For long tasks and daily routines', 'For someone who delegates a lot', 'Media still with credits', `Monthly, or yearly with ${OFF}% off`] },
     } as Record<string, { tag: string; for: string; plus: string; points: string[] }>,
     period: 'Billing',
     monthly: 'Monthly',
     yearly: 'Yearly',
-    save: '−19%',
+    save: `−${OFF}%`,
     perMonthYear: 'per month, billed yearly',
     billedYear: (total: string, saved: string) => `${total} a year · ${saved} saved`,
     weekOnly: 'Weekly only',
@@ -225,7 +228,7 @@ const STRINGS = {
     },
     billingNone: 'None',
     billingWeek: 'Each week, by hand',
-    billingMonth: 'Monthly or yearly (−19%)',
+    billingMonth: `Monthly or yearly (−${OFF}%)`,
     modelsFast: 'Fast and low-cost',
     modelsAll: 'All',
     usageLimited: 'Limited',

@@ -1,7 +1,7 @@
 import type { SoldPack } from './admin.js';
 import type { Money, Offer } from './pricing.js';
 import { CONTACT, legalLinks } from './legal-page.js';
-import { MEDIA_BRANDS, MODEL_BRANDS, TOOL_BRANDS, type Brand } from './brands.js';
+import { MODEL_BRANDS, MODEL_MAKER, TOOL_BRANDS, type Brand } from './brands.js';
 import { FAVICON, logoTile, logoWord, mascot, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
 import { pickLang } from './sign-in-page.js';
 
@@ -91,13 +91,12 @@ const STRINGS = {
     modelsResult: 'Résultat',
     meters: ['Vitesse', 'Profondeur', 'Coût'],
     modelTasks: [
-      { task: 'Trier 200 emails et répondre aux plus simples', profile: 'Rapide et économique', why: 'Des centaines de petites décisions : la vitesse compte plus que la profondeur.', meters: [95, 40, 15], makers: ['DeepSeek', 'Qwen', 'Mistral'], out: '142 emails rangés · 18 réponses prêtes à valider' },
-      { task: 'Rédiger une offre commerciale de 6 pages', profile: 'Rédaction soignée', why: 'Un texte long, dans votre ton, qui doit convaincre.', meters: [60, 80, 55], makers: ['Claude', 'OpenAI'], out: 'Offre-Sahel-Logistique.docx · 6 pages' },
-      { task: 'Analyser un bilan et un compte de résultat', profile: 'Raisonnement', why: 'Des chiffres à croiser et des ratios à calculer : il prend le temps de réfléchir.', meters: [35, 98, 85], makers: ['OpenAI', 'Gemini', 'Claude'], out: 'Rentabilité en baisse de 3 points : 4 causes trouvées' },
-      { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Gemini', 'Claude'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
+      { task: 'Trier 200 emails et répondre aux plus simples', profile: 'Rapide et économique', why: 'Des centaines de petites décisions : la vitesse compte plus que la profondeur.', meters: [95, 40, 15], makers: ['DeepSeek', 'Alibaba', 'Mistral AI'], out: '142 emails rangés · 18 réponses prêtes à valider' },
+      { task: 'Rédiger une offre commerciale de 6 pages', profile: 'Rédaction soignée', why: 'Un texte long, dans votre ton, qui doit convaincre.', meters: [60, 80, 55], makers: ['Anthropic', 'OpenAI'], out: 'Offre-Sahel-Logistique.docx · 6 pages' },
+      { task: 'Analyser un bilan et un compte de résultat', profile: 'Raisonnement', why: 'Des chiffres à croiser et des ratios à calculer : il prend le temps de réfléchir.', meters: [35, 98, 85], makers: ['OpenAI', 'Google', 'Anthropic'], out: 'Rentabilité en baisse de 3 points : 4 causes trouvées' },
+      { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
     ],
-    makersTitle: 'Les modèles dans Baarali',
-    mediaKinds: { image: 'Images', video: 'Vidéo', voice: 'Voix', music: 'Musique' },
+    makersTitle: 'Les modèles de ces entreprises, dans Baarali',
     agentsKicker: 'Vos agents',
     agentsTitle: ['Créez vos agents, ', 'à votre nom', '.'],
     agentsLead: 'Un nom, un visage, une mission, ses outils et son modèle. Chaque agent a sa propre conversation : vous le retrouvez comme un contact.',
@@ -280,13 +279,12 @@ const STRINGS = {
     modelsResult: 'Result',
     meters: ['Speed', 'Depth', 'Cost'],
     modelTasks: [
-      { task: 'Sort 200 emails and answer the simple ones', profile: 'Fast and low-cost', why: 'Hundreds of small decisions: speed matters more than depth.', meters: [95, 40, 15], makers: ['DeepSeek', 'Qwen', 'Mistral'], out: '142 emails filed · 18 replies ready to approve' },
-      { task: 'Write a 6-page sales proposal', profile: 'Careful writing', why: 'A long text, in your tone, that has to convince.', meters: [60, 80, 55], makers: ['Claude', 'OpenAI'], out: 'Proposal-Sahel-Logistics.docx · 6 pages' },
-      { task: 'Analyse a balance sheet and income statement', profile: 'Reasoning', why: 'Figures to cross-check and ratios to compute: it takes time to think.', meters: [35, 98, 85], makers: ['OpenAI', 'Gemini', 'Claude'], out: 'Profitability down 3 points: 4 causes found' },
-      { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Gemini', 'Claude'], out: '14 requirements, 3 risks, deadline 28 October' },
+      { task: 'Sort 200 emails and answer the simple ones', profile: 'Fast and low-cost', why: 'Hundreds of small decisions: speed matters more than depth.', meters: [95, 40, 15], makers: ['DeepSeek', 'Alibaba', 'Mistral AI'], out: '142 emails filed · 18 replies ready to approve' },
+      { task: 'Write a 6-page sales proposal', profile: 'Careful writing', why: 'A long text, in your tone, that has to convince.', meters: [60, 80, 55], makers: ['Anthropic', 'OpenAI'], out: 'Proposal-Sahel-Logistics.docx · 6 pages' },
+      { task: 'Analyse a balance sheet and income statement', profile: 'Reasoning', why: 'Figures to cross-check and ratios to compute: it takes time to think.', meters: [35, 98, 85], makers: ['OpenAI', 'Google', 'Anthropic'], out: 'Profitability down 3 points: 4 causes found' },
+      { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 requirements, 3 risks, deadline 28 October' },
     ],
-    makersTitle: 'The models in Baarali',
-    mediaKinds: { image: 'Images', video: 'Video', voice: 'Voice', music: 'Music' },
+    makersTitle: 'Models from these companies, in Baarali',
     agentsKicker: 'Your agents',
     agentsTitle: ['Create your agents, ', 'in your name', '.'],
     agentsLead: 'A name, a face, a mission, its tools and its model. Each agent has its own conversation: you find it like a contact.',
@@ -462,7 +460,7 @@ const icon = (name: keyof typeof ICON, cls = '') =>
 
 /** A brand's mark, decorative: its name is always written beside it. */
 function brandImg(list: Brand[], name: string, size: number): string {
-  const b = list.find((x) => x.name === name);
+  const b = list.find((x) => x.name === name) ?? list.find((x) => x.name === MODEL_MAKER[name]);
   return b ? `<img class="mark" src="${b.src}" alt="" width="${size}" height="${size}">` : '';
 }
 
@@ -878,8 +876,6 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .ag-icon .i { width:40px; height:40px; padding:9px; border-radius:12px; background:var(--blue-soft); color:var(--blue-deep); }
 .appgrid h3 { font-size:21px; }
 .appgrid article > p:last-child { margin:6px 0 0; font-size:14.5px; color:var(--muted); }
-.kinds { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; width:100%; }
-.kinds p { margin:0 0 8px; font-size:13px; color:var(--muted); }
 .bento { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
 .feat { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
 .feat:hover { border-color:var(--blue-line); box-shadow:0 18px 40px -26px rgb(21 94 239 / .45); transform:translateY(-2px); }
@@ -1028,7 +1024,7 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
 
 @media (max-width: 1040px) {
   .meet, .meet-demo { grid-template-columns:minmax(0, 1fr); }
-  .appgrid, .kinds { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .appgrid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .agent-demo { grid-template-columns:minmax(0, 1fr); }
   .head-row { flex-direction:column; align-items:flex-start; }
   .router { grid-template-columns:minmax(0, 1fr); }
@@ -1041,7 +1037,7 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
   .peek { right:8px; }
 }
 @media (max-width: 680px) {
-  .appgrid, .kinds { grid-template-columns:minmax(0, 1fr); }
+  .appgrid { grid-template-columns:minmax(0, 1fr); }
   .meet { padding:22px; }
   .section { padding-block:72px; }
   .hero { padding-block:40px 80px; }
@@ -1174,9 +1170,6 @@ ${LOGO_ALIVE_CSS}
     <div class="makers">
       <p>${escape(t.makersTitle)}</p>
       <ul class="logos">${MODEL_BRANDS.map((b) => `<li>${brandImg(MODEL_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul>
-      <div class="kinds">${(['image', 'video', 'voice', 'music'] as const)
-        .map((k) => `<div><p>${escape(t.mediaKinds[k])}</p><ul class="logos">${MEDIA_BRANDS.filter((b) => b.kind === k).map((b) => `<li>${brandImg(MEDIA_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul></div>`)
-        .join('')}</div>
     </div>
     <p class="fine">${escape(t.modelsNote)}</p>
   </div>
