@@ -56,9 +56,32 @@ const STRINGS = {
       ['Il cherche et résume', 'Le web, vos documents, vos notes : il lit à votre place et vous rend l’essentiel, avec ses sources.'],
       ['Il rédige', 'Devis, comptes rendus, tableaux, présentations : prêts à envoyer, dans votre ton.'],
       ['Il écrit vos messages', 'Emails et réponses préparés pour vous. Rien ne part sans votre accord.'],
-      ['Il crée des médias', 'Des vidéos, des voix et de la musique, avec des crédits médias à part du forfait.'],
+      ['Il crée des médias', 'Des images, des vidéos, des voix et de la musique, avec des crédits médias à part du forfait.'],
       ['Il travaille en arrière-plan', 'Les tâches longues continuent quand vous fermez l’app. Il vous prévient à la fin.'],
       ['Il se souvient', 'Vos clients, vos prix, vos habitudes : ce qu’il apprend reste dans votre espace.'],
+    ],
+    appKicker: 'Dans l’app',
+    appTitle: ['Plus qu’un chat, ', 'un poste de travail', '.'],
+    appLead: 'Baarali ne se contente pas de répondre. Il suit vos réunions, tient vos notes à jour, prépare vos présentations et travaille quand vous n’êtes pas là.',
+    meet: {
+      tag: 'Réunions',
+      title: 'Il suit vos réunions et les résume',
+      lead: 'Il écoute depuis votre ordinateur, sans robot ajouté à l’appel. À la fin : le résumé, les décisions et qui fait quoi. Avant la suivante : une fiche pour vous préparer.',
+      live: 'En direct · Point client Sahel Logistique',
+      lines: [['Vous', 'On peut livrer les 40 sacs jeudi ?'], ['Awa', 'Jeudi c’est bon, plutôt le matin.'], ['Vous', 'Je t’envoie le devis révisé aujourd’hui.']] as Array<[string, string]>,
+      summary: 'Résumé',
+      points: ['Livraison des 40 sacs jeudi matin', 'Devis révisé à envoyer aujourd’hui'],
+      todo: 'À faire',
+      tasks: [['Vous', 'Envoyer le devis révisé'], ['Awa', 'Confirmer l’adresse de livraison']] as Array<[string, string]>,
+    },
+    soon: 'Bientôt',
+    appFeatures: [
+      { icon: 'note', title: 'Notes vivantes', text: 'Une note qui se met à jour seule : vos ventes du jour, la veille d’un marché, vos emails importants.', soon: false },
+      { icon: 'slides', title: 'Présentations', text: 'Il crée et modifie vos présentations, prêtes à projeter ou à envoyer.', soon: false },
+      { icon: 'apps', title: 'Mini-apps', text: 'Demandez un petit outil, un suivi de caisse ou un formulaire : il le construit pour vous.', soon: false },
+      { icon: 'mail', title: 'Vos emails', text: 'Il lit votre boîte, prépare les réponses et vous laisse valider.', soon: false },
+      { icon: 'call', title: 'Appels', text: 'Parlez-lui à voix haute ; il voit votre écran pour vous aider en direct.', soon: true },
+      { icon: 'team', title: 'Espaces d’équipe', text: 'Des espaces partagés avec vos collègues, et un tableau blanc pour réfléchir ensemble.', soon: true },
     ],
     modelsKicker: 'Les modèles',
     modelsTitle: ['Le bon modèle ', 'pour chaque tâche', '.'],
@@ -74,7 +97,7 @@ const STRINGS = {
       { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Gemini', 'Claude'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
     ],
     makersTitle: 'Les modèles dans Baarali',
-    mediaMakers: 'Vidéo et musique',
+    mediaKinds: { image: 'Images', video: 'Vidéo', voice: 'Voix', music: 'Musique' },
     agentsKicker: 'Vos agents',
     agentsTitle: ['Créez vos agents, ', 'à votre nom', '.'],
     agentsLead: 'Un nom, un visage, une mission, ses outils et son modèle. Chaque agent a sa propre conversation : vous le retrouvez comme un contact.',
@@ -222,9 +245,32 @@ const STRINGS = {
       ['It researches and sums up', 'The web, your documents, your notes: it reads for you and gives you what matters, with its sources.'],
       ['It writes', 'Quotes, minutes, spreadsheets, slides: ready to send, in your tone.'],
       ['It drafts your messages', 'Emails and replies prepared for you. Nothing goes out without your approval.'],
-      ['It creates media', 'Videos, voices and music, with media credits separate from your plan.'],
+      ['It creates media', 'Images, videos, voices and music, with media credits separate from your plan.'],
       ['It works in the background', 'Long tasks keep running when you close the app. It tells you when they are done.'],
       ['It remembers', 'Your clients, your prices, your habits: what it learns stays in your space.'],
+    ],
+    appKicker: 'In the app',
+    appTitle: ['More than a chat, ', 'a workstation', '.'],
+    appLead: 'Baarali does more than answer. It follows your meetings, keeps your notes up to date, prepares your decks and works while you are away.',
+    meet: {
+      tag: 'Meetings',
+      title: 'It follows your meetings and sums them up',
+      lead: 'It listens from your computer, with no bot added to the call. At the end: the summary, the decisions and who does what. Before the next one: a brief to prepare.',
+      live: 'Live · Sahel Logistics client call',
+      lines: [['You', 'Can we deliver the 40 bags on Thursday?'], ['Awa', 'Thursday works, morning is better.'], ['You', 'I’ll send the revised quote today.']] as Array<[string, string]>,
+      summary: 'Summary',
+      points: ['40 bags delivered Thursday morning', 'Revised quote to send today'],
+      todo: 'To do',
+      tasks: [['You', 'Send the revised quote'], ['Awa', 'Confirm the delivery address']] as Array<[string, string]>,
+    },
+    soon: 'Soon',
+    appFeatures: [
+      { icon: 'note', title: 'Live notes', text: 'A note that updates itself: today’s sales, a market watch, your important emails.', soon: false },
+      { icon: 'slides', title: 'Presentations', text: 'It creates and edits your decks, ready to present or send.', soon: false },
+      { icon: 'apps', title: 'Mini apps', text: 'Ask for a small tool, a till tracker or a form: it builds it for you.', soon: false },
+      { icon: 'mail', title: 'Your emails', text: 'It reads your inbox, prepares replies and lets you approve.', soon: false },
+      { icon: 'call', title: 'Calls', text: 'Talk to it out loud; it sees your screen to help you live.', soon: true },
+      { icon: 'team', title: 'Team spaces', text: 'Spaces shared with your colleagues, and a whiteboard to think together.', soon: true },
     ],
     modelsKicker: 'Models',
     modelsTitle: ['The right model ', 'for every task', '.'],
@@ -240,7 +286,7 @@ const STRINGS = {
       { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Gemini', 'Claude'], out: '14 requirements, 3 risks, deadline 28 October' },
     ],
     makersTitle: 'The models in Baarali',
-    mediaMakers: 'Video and music',
+    mediaKinds: { image: 'Images', video: 'Video', voice: 'Voice', music: 'Music' },
     agentsKicker: 'Your agents',
     agentsTitle: ['Create your agents, ', 'in your name', '.'],
     agentsLead: 'A name, a face, a mission, its tools and its model. Each agent has its own conversation: you find it like a contact.',
@@ -401,6 +447,12 @@ const ICON = {
   windows: '<path d="M3 5.5 10 4.5v7H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7v7L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  note: '<path d="M6 3.5h9l3 3v14H6z"/><path d="M9 10h6M9 13.5h6M9 17h4"/>',
+  slides: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',
+  apps: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><path d="M16.5 13v7M13 16.5h7"/>',
+  call: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  team: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5a5 5 0 0 1 5.5 5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
   moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
   send: '<path d="M5 12h13M13 6l6 6-6 6"/>',
@@ -794,6 +846,40 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .toolwall { margin-top:28px; padding:22px 24px; border:1px solid var(--line); border-radius:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; }
 .toolwall > p:first-child, .makers > p { margin:0; font-size:14px; color:var(--muted); }
 .toolwall .fine { margin:0; font-size:13px; }
+/* In the app: the meeting, then the other things it does. */
+.soon { display:inline-flex; align-items:center; font-family:var(--sans); font-size:11.5px; font-weight:650; letter-spacing:.02em; color:var(--blue-deep); background:var(--blue-soft); border:1px solid var(--blue-line); border-radius:999px; padding:3px 9px; margin-left:8px; vertical-align:middle; }
+.meet { display:grid; grid-template-columns:minmax(0, .8fr) minmax(0, 1.2fr); gap:32px; align-items:center; margin-top:48px; background:var(--night); border:1px solid var(--night-line); border-radius:28px; padding:36px; }
+.meet-tag { display:flex; align-items:center; gap:8px; margin:0; font-weight:650; color:var(--blue-deep); }
+.meet-copy h3 { margin-top:14px; font-size:clamp(26px, 3vw, 34px); line-height:1.15; }
+.meet-copy > p:last-child { margin:12px 0 0; color:var(--muted); }
+.meet-demo { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:12px; }
+.m-live, .m-notes { background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:18px; }
+.m-head { display:flex; align-items:center; gap:8px; margin:0 0 12px; font-size:13px; font-weight:650; color:var(--ink); }
+.m-notes .m-head + ul + .m-head { margin-top:16px; }
+.rec { width:9px; height:9px; border-radius:50%; background:#ef4444; box-shadow:0 0 0 4px rgb(239 68 68 / .18); animation:pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity:.4; } }
+.m-line { margin:0 0 8px; font-size:13.5px; color:var(--text); line-height:1.45; }
+.m-line b { display:block; font-size:12px; color:var(--blue-deep); }
+.meet.play .m-line { opacity:0; transform:translateY(6px); transition:opacity .4s, transform .4s; }
+.meet.play .m-line.show { opacity:1; transform:none; }
+.m-wave { display:flex; align-items:center; gap:3px; height:26px; margin:6px 0 0; }
+.m-wave i { flex:1; height:30%; border-radius:3px; background:var(--blue); opacity:.7; animation:wave 1.2s ease-in-out infinite; }
+.m-wave i:nth-child(2n) { animation-delay:-.3s; } .m-wave i:nth-child(3n) { animation-delay:-.6s; } .m-wave i:nth-child(5n) { animation-delay:-.9s; }
+@keyframes wave { 50% { height:100%; } }
+.m-notes ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; font-size:13.5px; color:var(--text); }
+.m-notes li { display:flex; gap:8px; align-items:flex-start; }
+.m-notes li .i { width:16px; height:16px; color:var(--blue); margin-top:2px; }
+.m-tasks li span { flex:none; font-size:11.5px; font-weight:650; color:var(--blue-deep); background:var(--blue-soft); border-radius:999px; padding:2px 8px; }
+.meet.play .m-notes li { opacity:0; transition:opacity .4s; }
+.meet.play .m-notes li.show { opacity:1; }
+.appgrid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; margin-top:16px; }
+.appgrid article { background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:22px; }
+.ag-icon { margin:0 0 12px; }
+.ag-icon .i { width:40px; height:40px; padding:9px; border-radius:12px; background:var(--blue-soft); color:var(--blue-deep); }
+.appgrid h3 { font-size:21px; }
+.appgrid article > p:last-child { margin:6px 0 0; font-size:14.5px; color:var(--muted); }
+.kinds { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; width:100%; }
+.kinds p { margin:0 0 8px; font-size:13px; color:var(--muted); }
 .bento { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
 .feat { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
 .feat:hover { border-color:var(--blue-line); box-shadow:0 18px 40px -26px rgb(21 94 239 / .45); transform:translateY(-2px); }
@@ -941,6 +1027,8 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
 :focus-visible { outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
 
 @media (max-width: 1040px) {
+  .meet, .meet-demo { grid-template-columns:minmax(0, 1fr); }
+  .appgrid, .kinds { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .agent-demo { grid-template-columns:minmax(0, 1fr); }
   .head-row { flex-direction:column; align-items:flex-start; }
   .router { grid-template-columns:minmax(0, 1fr); }
@@ -953,6 +1041,8 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
   .peek { right:8px; }
 }
 @media (max-width: 680px) {
+  .appgrid, .kinds { grid-template-columns:minmax(0, 1fr); }
+  .meet { padding:22px; }
   .section { padding-block:72px; }
   .hero { padding-block:40px 80px; }
   .lead { font-size:17px; }
@@ -1025,10 +1115,41 @@ ${LOGO_ALIVE_CSS}
       .join('')}</div>
   </div>
 </section>
+<section id="app" class="section" aria-labelledby="app-title">
+  <div class="wrap">
+    <div class="head">
+      <p class="kicker"><span class="num">02</span>${escape(t.appKicker)}</p>
+      <h2 id="app-title">${titled(t.appTitle)}</h2>
+      <p class="sub">${escape(t.appLead)}</p>
+    </div>
+    <div class="meet">
+      <div class="meet-copy">
+        <p class="meet-tag">${icon('mic')}${escape(t.meet.tag)}<span class="soon">${escape(t.soon)}</span></p>
+        <h3>${escape(t.meet.title)}</h3>
+        <p>${escape(t.meet.lead)}</p>
+      </div>
+      <div class="meet-demo" aria-hidden="true">
+        <div class="m-live"><p class="m-head"><i class="rec"></i>${escape(t.meet.live)}</p>
+          ${t.meet.lines.map(([who, line], i) => `<p class="m-line" data-i="${i}"><b>${escape(who)}</b>${escape(line)}</p>`).join('')}
+          <p class="m-wave">${Array.from({ length: 22 }, (_, i) => `<i data-h="${(i * 7) % 10}"></i>`).join('')}</p>
+        </div>
+        <div class="m-notes">
+          <p class="m-head">${icon('note')}${escape(t.meet.summary)}</p>
+          <ul>${t.meet.points.map((x) => `<li>${icon('check')}${escape(x)}</li>`).join('')}</ul>
+          <p class="m-head">${escape(t.meet.todo)}</p>
+          <ul class="m-tasks">${t.meet.tasks.map(([who, x]) => `<li><span>${escape(who)}</span>${escape(x)}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </div>
+    <div class="appgrid">${t.appFeatures
+      .map((f) => `<article><p class="ag-icon">${icon(f.icon as keyof typeof ICON)}</p><h3>${escape(f.title)}${f.soon ? `<span class="soon">${escape(t.soon)}</span>` : ''}</h3><p>${escape(f.text)}</p></article>`)
+      .join('')}</div>
+  </div>
+</section>
 <section id="modeles" class="section" aria-labelledby="models">
   <div class="wrap">
     <div class="head">
-      <p class="kicker"><span class="num">02</span>${escape(t.modelsKicker)}</p>
+      <p class="kicker"><span class="num">03</span>${escape(t.modelsKicker)}</p>
       <h2 id="models">${titled(t.modelsTitle)}</h2>
       <p class="sub">${escape(t.modelsLead)}</p>
     </div>
@@ -1053,8 +1174,9 @@ ${LOGO_ALIVE_CSS}
     <div class="makers">
       <p>${escape(t.makersTitle)}</p>
       <ul class="logos">${MODEL_BRANDS.map((b) => `<li>${brandImg(MODEL_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul>
-      <p>${escape(t.mediaMakers)}</p>
-      <ul class="logos">${MEDIA_BRANDS.map((b) => `<li>${brandImg(MEDIA_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul>
+      <div class="kinds">${(['image', 'video', 'voice', 'music'] as const)
+        .map((k) => `<div><p>${escape(t.mediaKinds[k])}</p><ul class="logos">${MEDIA_BRANDS.filter((b) => b.kind === k).map((b) => `<li>${brandImg(MEDIA_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul></div>`)
+        .join('')}</div>
     </div>
     <p class="fine">${escape(t.modelsNote)}</p>
   </div>
@@ -1063,7 +1185,7 @@ ${LOGO_ALIVE_CSS}
   <div class="wrap">
     <div class="head head-row">
       <div>
-        <p class="kicker"><span class="num">03</span>${escape(t.agentsKicker)}</p>
+        <p class="kicker"><span class="num">04</span>${escape(t.agentsKicker)}</p>
         <h2 id="agents-title">${titled(t.agentsTitle)}</h2>
         <p class="sub">${escape(t.agentsLead)}</p>
       </div>
@@ -1110,7 +1232,7 @@ ${LOGO_ALIVE_CSS}
 <section class="section night" aria-labelledby="control">
   <div class="wrap split">
     <div>
-      <p class="kicker kicker-light"><span class="num">04</span>${escape(t.controlKicker)}</p>
+      <p class="kicker kicker-light"><span class="num">05</span>${escape(t.controlKicker)}</p>
       <h2 id="control">${titled(t.controlTitle)}</h2>
       <p class="sub">${escape(t.controlLead)}</p>
       <ul class="points">${t.control
@@ -1125,7 +1247,7 @@ ${LOGO_ALIVE_CSS}
 <section id="etapes" class="section" aria-labelledby="how">
   <div class="wrap">
     <div class="head">
-      <p class="kicker"><span class="num">05</span>${escape(t.howKicker)}</p>
+      <p class="kicker"><span class="num">06</span>${escape(t.howKicker)}</p>
       <h2 id="how">${titled(t.howTitle)}</h2>
     </div>
     <ol class="steps">${t.how.map(([h, p]) => `<li><h3>${escape(h)}</h3><p>${escape(p)}</p></li>`).join('')}</ol>
@@ -1133,7 +1255,7 @@ ${LOGO_ALIVE_CSS}
 </section>
 <section class="section blue" aria-labelledby="here">
   <div class="wrap">
-    <p class="kicker"><span class="num">06</span>${escape(t.hereKicker)}</p>
+    <p class="kicker"><span class="num">07</span>${escape(t.hereKicker)}</p>
     <h2 id="here">${titled(t.hereTitle)}</h2>
     <div class="here">${t.here.map(([b, p]) => `<div><b>${escape(b)}</b><p>${escape(p)}</p></div>`).join('')}</div>
   </div>
@@ -1141,7 +1263,7 @@ ${LOGO_ALIVE_CSS}
 <section id="tarifs" class="section" aria-labelledby="prices">
   <div class="wrap">
     <div class="head head-center">
-      <p class="kicker"><span class="num">07</span>${escape(t.pricesKicker)}</p>
+      <p class="kicker"><span class="num">08</span>${escape(t.pricesKicker)}</p>
       <h2 id="prices">${titled(t.pricesTitle)}</h2>
       <p class="sub">${escape(t.pricesLead)}</p>
     </div>
@@ -1156,7 +1278,7 @@ ${LOGO_ALIVE_CSS}
 <section id="questions" class="section" aria-labelledby="faq">
   <div class="wrap faq">
     <div>
-      <p class="kicker"><span class="num">08</span>${escape(t.faqKicker)}</p>
+      <p class="kicker"><span class="num">09</span>${escape(t.faqKicker)}</p>
       <h2 id="faq">${titled(t.faqTitle)}</h2>
     </div>
     <div class="qa">${t.faq.map(([q, a]) => `<details><summary>${escape(q)}</summary><p>${escape(a)}</p></details>`).join('')}</div>
@@ -1212,6 +1334,21 @@ for (const b of document.querySelectorAll(".levels button")) {
     for (const o of document.querySelectorAll(".levels button")) o.setAttribute("aria-checked", String(o === b));
     for (const l of document.querySelectorAll(".level")) l.hidden = l.dataset.level !== b.dataset.level;
   });
+}
+// The meeting: the lines come one by one, then the summary writes itself.
+const meet = document.querySelector(".meet");
+if (meet && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const lines = [...meet.querySelectorAll(".m-line")], notes = [...meet.querySelectorAll(".m-notes li")];
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const run = async () => {
+    meet.classList.add("play");
+    for (const x of [...lines, ...notes]) x.classList.remove("show");
+    for (const l of lines) { await wait(1300); l.classList.add("show"); }
+    await wait(900);
+    for (const n of notes) { await wait(450); n.classList.add("show"); }
+    await wait(5000); run();
+  };
+  new IntersectionObserver((e, o) => { if (e[0].isIntersecting) { o.disconnect(); run(); } }, { threshold: .35 }).observe(meet);
 }
 // The agents: arrows slide by one card; the builder types an agent, which
 // then shows up in the chats, like a new contact.
