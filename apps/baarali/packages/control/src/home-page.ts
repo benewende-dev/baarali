@@ -1,6 +1,7 @@
 import type { SoldPack } from './admin.js';
 import type { Money, Offer } from './pricing.js';
 import { CONTACT, legalLinks } from './legal-page.js';
+import { MEDIA_BRANDS, MODEL_BRANDS, TOOL_BRANDS, type Brand } from './brands.js';
 import { FAVICON, logoTile, logoWord, mascot, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
 import { pickLang } from './sign-in-page.js';
 
@@ -68,12 +69,34 @@ const STRINGS = {
     meters: ['Vitesse', 'Profondeur', 'Coût'],
     modelTasks: [
       { task: 'Trier 200 emails et répondre aux plus simples', profile: 'Rapide et économique', why: 'Des centaines de petites décisions : la vitesse compte plus que la profondeur.', meters: [95, 40, 15], makers: ['DeepSeek', 'Qwen', 'Mistral'], out: '142 emails rangés · 18 réponses prêtes à valider' },
-      { task: 'Rédiger une offre commerciale de 6 pages', profile: 'Rédaction soignée', why: 'Un texte long, dans votre ton, qui doit convaincre.', meters: [60, 80, 55], makers: ['Anthropic', 'OpenAI'], out: 'Offre-Sahel-Logistique.docx · 6 pages' },
-      { task: 'Analyser un bilan et un compte de résultat', profile: 'Raisonnement', why: 'Des chiffres à croiser et des ratios à calculer : il prend le temps de réfléchir.', meters: [35, 98, 85], makers: ['OpenAI', 'Google', 'Anthropic'], out: 'Rentabilité en baisse de 3 points : 4 causes trouvées' },
-      { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
+      { task: 'Rédiger une offre commerciale de 6 pages', profile: 'Rédaction soignée', why: 'Un texte long, dans votre ton, qui doit convaincre.', meters: [60, 80, 55], makers: ['Claude', 'OpenAI'], out: 'Offre-Sahel-Logistique.docx · 6 pages' },
+      { task: 'Analyser un bilan et un compte de résultat', profile: 'Raisonnement', why: 'Des chiffres à croiser et des ratios à calculer : il prend le temps de réfléchir.', meters: [35, 98, 85], makers: ['OpenAI', 'Gemini', 'Claude'], out: 'Rentabilité en baisse de 3 points : 4 causes trouvées' },
+      { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Gemini', 'Claude'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
     ],
-    makersTitle: 'Dans Baarali, les modèles de',
-    makers: ['OpenAI', 'Anthropic', 'Google', 'DeepSeek', 'Mistral', 'Qwen', 'Meta', 'xAI'],
+    makersTitle: 'Les modèles dans Baarali',
+    mediaMakers: 'Vidéo et musique',
+    agentsKicker: 'Vos agents',
+    agentsTitle: ['Créez vos agents, ', 'à votre nom', '.'],
+    agentsLead: 'Un nom, un visage, une mission, ses outils et son modèle. Chaque agent a sa propre conversation : vous le retrouvez comme un contact.',
+    agentsSoon: 'Bientôt dans l’app',
+    agentsPrev: 'Agents précédents',
+    agentsNext: 'Agents suivants',
+    agents: [
+      { id: 'mariama', name: 'Mariama', role: 'Commerciale', mission: 'Relance vos prospects chaque lundi et prépare vos devis.', tools: ['Gmail', 'WhatsApp', 'HubSpot'], model: 'Claude' },
+      { id: 'ibrahim', name: 'Ibrahim', role: 'Comptable SYSCOHADA', mission: 'Tient vos comptes et prépare la TVA du mois.', tools: ['Google Sheets', 'Gmail'], model: 'OpenAI' },
+      { id: 'adjoua', name: 'Adjoua', role: 'Assistante personnelle', mission: 'Gère votre agenda, trie vos emails, vous rappelle l’essentiel.', tools: ['Google Agenda', 'Gmail'], model: 'Gemini' },
+      { id: 'aminata', name: 'Aminata', role: 'Gestion de boutique', mission: 'Suit les stocks et répond aux commandes WhatsApp.', tools: ['WhatsApp', 'Google Sheets'], model: 'DeepSeek' },
+      { id: 'fatou', name: 'Fatou', role: 'RH et paie', mission: 'Prépare les bulletins, suit les congés et les contrats.', tools: ['Google Drive', 'Gmail'], model: 'Mistral' },
+      { id: 'moussa', name: 'Moussa', role: 'Logistique', mission: 'Planifie les livraisons et prévient vos clients.', tools: ['WhatsApp', 'Google Agenda'], model: 'Qwen' },
+      { id: 'zara', name: 'Zara', role: 'Designer', mission: 'Crée vos visuels et vos publications de la semaine.', tools: ['Google Drive', 'Notion'], model: 'Gemini' },
+      { id: 'kofi', name: 'Kofi', role: 'Analyste data', mission: 'Lit vos ventes et vous dit quoi changer.', tools: ['Google Sheets', 'Notion'], model: 'OpenAI' },
+      { id: 'kouadio', name: 'Kouadio', role: 'Tuteur scolaire', mission: 'Aide vos enfants à réviser, matière par matière.', tools: ['Google Docs'], model: 'Claude' },
+      { id: 'youssoupha', name: 'Youssoupha', role: 'Producteur musical', mission: 'Compose des maquettes et écrit vos textes.', tools: ['Google Drive'], model: 'Gemini' },
+    ],
+    builder: { title: 'Nouvel agent', name: 'Nom', mission: 'Mission', tools: 'Outils', model: 'Modèle', create: 'Créer l’agent', nameValue: 'Mariama', missionValue: 'Relancer mes clients chaque lundi', modelValue: 'Claude · rédaction' },
+    chats: { title: 'Discussions', items: [['Mariama', '3 relances prêtes, je les envoie ?', '09:12', '2'], ['Ibrahim', 'La TVA de septembre est prête.', '08:40', ''], ['Adjoua', 'Rendez-vous déplacé à 15 h.', 'Hier', ''], ['Aminata', '12 commandes reçues ce matin.', 'Hier', '5']] as Array<[string, string, string, string]> },
+    toolsTitle: 'Il travaille avec vos outils',
+    toolsNote: 'Gmail et Google Agenda directement ; les autres par des connecteurs à brancher depuis l’app.',
     modelsNote: 'Choisissez le modèle à chaque conversation, ou gardez celui par défaut. Tous les modèles dès le forfait Semaine ; Découverte donne les rapides.',
     demo: {
       search: 'prix du cajou cette semaine',
@@ -212,12 +235,34 @@ const STRINGS = {
     meters: ['Speed', 'Depth', 'Cost'],
     modelTasks: [
       { task: 'Sort 200 emails and answer the simple ones', profile: 'Fast and low-cost', why: 'Hundreds of small decisions: speed matters more than depth.', meters: [95, 40, 15], makers: ['DeepSeek', 'Qwen', 'Mistral'], out: '142 emails filed · 18 replies ready to approve' },
-      { task: 'Write a 6-page sales proposal', profile: 'Careful writing', why: 'A long text, in your tone, that has to convince.', meters: [60, 80, 55], makers: ['Anthropic', 'OpenAI'], out: 'Proposal-Sahel-Logistics.docx · 6 pages' },
-      { task: 'Analyse a balance sheet and income statement', profile: 'Reasoning', why: 'Figures to cross-check and ratios to compute: it takes time to think.', meters: [35, 98, 85], makers: ['OpenAI', 'Google', 'Anthropic'], out: 'Profitability down 3 points: 4 causes found' },
-      { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 requirements, 3 risks, deadline 28 October' },
+      { task: 'Write a 6-page sales proposal', profile: 'Careful writing', why: 'A long text, in your tone, that has to convince.', meters: [60, 80, 55], makers: ['Claude', 'OpenAI'], out: 'Proposal-Sahel-Logistics.docx · 6 pages' },
+      { task: 'Analyse a balance sheet and income statement', profile: 'Reasoning', why: 'Figures to cross-check and ratios to compute: it takes time to think.', meters: [35, 98, 85], makers: ['OpenAI', 'Gemini', 'Claude'], out: 'Profitability down 3 points: 4 causes found' },
+      { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Gemini', 'Claude'], out: '14 requirements, 3 risks, deadline 28 October' },
     ],
-    makersTitle: 'In Baarali, models from',
-    makers: ['OpenAI', 'Anthropic', 'Google', 'DeepSeek', 'Mistral', 'Qwen', 'Meta', 'xAI'],
+    makersTitle: 'The models in Baarali',
+    mediaMakers: 'Video and music',
+    agentsKicker: 'Your agents',
+    agentsTitle: ['Create your agents, ', 'in your name', '.'],
+    agentsLead: 'A name, a face, a mission, its tools and its model. Each agent has its own conversation: you find it like a contact.',
+    agentsSoon: 'Coming soon to the app',
+    agentsPrev: 'Previous agents',
+    agentsNext: 'Next agents',
+    agents: [
+      { id: 'mariama', name: 'Mariama', role: 'Sales', mission: 'Follows up your leads every Monday and drafts your quotes.', tools: ['Gmail', 'WhatsApp', 'HubSpot'], model: 'Claude' },
+      { id: 'ibrahim', name: 'Ibrahim', role: 'SYSCOHADA accountant', mission: 'Keeps your books and prepares the month’s VAT.', tools: ['Google Sheets', 'Gmail'], model: 'OpenAI' },
+      { id: 'adjoua', name: 'Adjoua', role: 'Personal assistant', mission: 'Runs your calendar, sorts your emails, reminds you of what matters.', tools: ['Google Agenda', 'Gmail'], model: 'Gemini' },
+      { id: 'aminata', name: 'Aminata', role: 'Shop manager', mission: 'Tracks stock and answers WhatsApp orders.', tools: ['WhatsApp', 'Google Sheets'], model: 'DeepSeek' },
+      { id: 'fatou', name: 'Fatou', role: 'HR and payroll', mission: 'Prepares payslips, tracks leave and contracts.', tools: ['Google Drive', 'Gmail'], model: 'Mistral' },
+      { id: 'moussa', name: 'Moussa', role: 'Logistics', mission: 'Plans deliveries and keeps your customers posted.', tools: ['WhatsApp', 'Google Agenda'], model: 'Qwen' },
+      { id: 'zara', name: 'Zara', role: 'Designer', mission: 'Creates your visuals and the week’s posts.', tools: ['Google Drive', 'Notion'], model: 'Gemini' },
+      { id: 'kofi', name: 'Kofi', role: 'Data analyst', mission: 'Reads your sales and tells you what to change.', tools: ['Google Sheets', 'Notion'], model: 'OpenAI' },
+      { id: 'kouadio', name: 'Kouadio', role: 'School tutor', mission: 'Helps your children revise, subject by subject.', tools: ['Google Docs'], model: 'Claude' },
+      { id: 'youssoupha', name: 'Youssoupha', role: 'Music producer', mission: 'Composes demos and writes your lyrics.', tools: ['Google Drive'], model: 'Gemini' },
+    ],
+    builder: { title: 'New agent', name: 'Name', mission: 'Mission', tools: 'Tools', model: 'Model', create: 'Create the agent', nameValue: 'Mariama', missionValue: 'Follow up my customers every Monday', modelValue: 'Claude · writing' },
+    chats: { title: 'Chats', items: [['Mariama', '3 follow-ups ready, shall I send them?', '09:12', '2'], ['Ibrahim', 'September’s VAT is ready.', '08:40', ''], ['Adjoua', 'Meeting moved to 3 pm.', 'Yesterday', ''], ['Aminata', '12 orders came in this morning.', 'Yesterday', '5']] as Array<[string, string, string, string]> },
+    toolsTitle: 'It works with your tools',
+    toolsNote: 'Gmail and Google Calendar directly; the others through connectors you plug in from the app.',
     modelsNote: 'Pick the model for each conversation, or keep the default. Every model from the Semaine plan; Découverte gives the fast ones.',
     demo: {
       search: 'cashew price this week',
@@ -362,6 +407,12 @@ const ICON = {
 } as const;
 const icon = (name: keyof typeof ICON, cls = '') =>
   `<svg class="i${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON[name]}</svg>`;
+
+/** A brand's mark, decorative: its name is always written beside it. */
+function brandImg(list: Brand[], name: string, size: number): string {
+  const b = list.find((x) => x.name === name);
+  return b ? `<img class="mark" src="${b.src}" alt="" width="${size}" height="${size}">` : '';
+}
 
 export function homePage(data: HomeData, opts: { lang: string | null; nonce: string }): string {
   const lang = pickLang(opts.lang);
@@ -684,6 +735,65 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .makers p { margin:0; font-size:14px; color:var(--muted); }
 .makers ul { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px 22px; }
 .makers li { font-family:var(--serif); font-size:20px; color:var(--ink); }
+/* Logos: on a white tile in both themes, for the dark marks stay legible. */
+.mark { flex:none; display:inline-block; object-fit:contain; }
+.logos { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:10px; }
+.logos li { display:inline-flex; align-items:center; gap:9px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:8px 13px 8px 9px; font-size:14px; font-weight:550; color:var(--ink); }
+.logos .mark { background:#fff; border-radius:7px; padding:4px; box-sizing:content-box; box-shadow:0 0 0 1px rgb(0 0 0 / .06); }
+.makers { flex-direction:column; align-items:flex-start; gap:14px; }
+.r-makers li { display:inline-flex; align-items:center; gap:7px; }
+.r-makers .mark { background:#fff; border-radius:5px; padding:3px; box-sizing:content-box; }
+/* Agents: a slide of example agents, then the builder and the chats. */
+.head-row { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; max-width:none; }
+.head-row > div:first-child { max-width:720px; }
+.slide-nav { display:flex; align-items:center; gap:8px; flex:none; }
+.soon { font-size:12.5px; font-weight:650; color:var(--blue-deep); background:var(--blue-soft); border:1px solid var(--blue-line); border-radius:999px; padding:5px 11px; margin-right:6px; }
+.slide-btn { width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.slide-btn[data-dir="-1"] .i { transform:rotate(180deg); }
+.slide-btn:hover { border-color:var(--hover-line); }
+.slider { margin-top:40px; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; padding:8px max(20px, calc((100vw - 1140px) / 2)) 24px; scroll-padding-inline:max(20px, calc((100vw - 1140px) / 2)); }
+.slider::-webkit-scrollbar { display:none; }
+.track { list-style:none; margin:0; padding:0; display:flex; gap:16px; width:max-content; }
+.agent { scroll-snap-align:start; width:264px; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:24px; padding:22px; transition:transform .25s, border-color .25s, box-shadow .25s; }
+.agent:hover { transform:translateY(-4px); border-color:var(--blue-line); box-shadow:0 24px 40px -28px rgb(21 94 239 / .45); }
+.face { width:88px; height:88px; border-radius:24px; object-fit:cover; background:var(--mist); }
+.agent h3 { margin-top:16px; font-size:24px; }
+.role { margin:2px 0 0; font-size:13.5px; font-weight:650; color:var(--blue-deep); }
+.mission { margin:10px 0 0; font-size:14.5px; color:var(--muted); line-height:1.5; flex:1; }
+.agent-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:18px; padding-top:14px; border-top:1px solid var(--line); }
+.tools { display:flex; gap:6px; }
+.tools .mark, .b-tool .mark, .b-model .mark, .model .mark { background:#fff; border-radius:6px; padding:3px; box-sizing:content-box; box-shadow:0 0 0 1px rgb(0 0 0 / .06); }
+.model { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--muted); }
+.agent-demo { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; margin-top:24px; }
+.builder, .chats { background:var(--night); border:1px solid var(--night-line); border-radius:24px; padding:24px; }
+.b-title { display:flex; align-items:center; gap:8px; margin:0 0 16px; font-weight:650; color:var(--ink); }
+.b-row { display:flex; align-items:center; gap:14px; }
+.b-face { width:56px; height:56px; border-radius:16px; object-fit:cover; }
+.b-row .b-field { flex:1; margin:0; }
+.b-field { display:flex; flex-direction:column; gap:6px; margin-top:12px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:11px 14px; }
+.b-field small { font-size:12px; font-weight:650; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+.typed { min-height:1.4em; color:var(--ink); font-weight:550; }
+.typed.caret::after { content:""; display:inline-block; width:2px; height:1.05em; margin-left:2px; vertical-align:-2px; background:var(--blue); animation:caret 1s steps(1) infinite; }
+@keyframes caret { 50% { opacity:0; } }
+.b-tools { display:flex; flex-wrap:wrap; gap:6px; }
+.b-tool, .b-model { display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:550; color:var(--ink); }
+.b-tool { border:1px solid var(--line); border-radius:999px; padding:4px 10px 4px 5px; }
+.b-create { display:flex; justify-content:center; margin-top:16px; background:var(--blue-deep); color:#fff; font-weight:650; border-radius:999px; padding:12px; transition:transform .2s; }
+.b-create.press { transform:scale(.96); }
+.chats ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+.chats li { display:grid; grid-template-columns:44px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:10px; border-radius:14px; }
+.chats li.on { background:var(--surface); box-shadow:0 0 0 1px var(--line); }
+.chats li.new { animation:rise .5s ease both; }
+.chats img { width:44px; height:44px; border-radius:50%; object-fit:cover; }
+.chats b { display:block; color:var(--ink); font-size:15px; }
+.chats li span { display:block; font-size:13.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chats .meta { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.chats .meta small { font-size:12px; color:var(--muted); }
+.chats .meta i { font-style:normal; font-size:11.5px; font-weight:700; color:#fff; background:var(--blue-deep); border-radius:999px; min-width:20px; text-align:center; padding:2px 6px; }
+@keyframes rise { from { opacity:0; transform:translateY(6px); } }
+.toolwall { margin-top:28px; padding:22px 24px; border:1px solid var(--line); border-radius:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; }
+.toolwall > p:first-child, .makers > p { margin:0; font-size:14px; color:var(--muted); }
+.toolwall .fine { margin:0; font-size:13px; }
 .bento { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
 .feat { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
 .feat:hover { border-color:var(--blue-line); box-shadow:0 18px 40px -26px rgb(21 94 239 / .45); transform:translateY(-2px); }
@@ -831,6 +941,8 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
 :focus-visible { outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
 
 @media (max-width: 1040px) {
+  .agent-demo { grid-template-columns:minmax(0, 1fr); }
+  .head-row { flex-direction:column; align-items:flex-start; }
   .router { grid-template-columns:minmax(0, 1fr); }
   .menu { display:none; }
   .hero .wrap, .split, .faq, .media { grid-template-columns:minmax(0, 1fr); }
@@ -932,20 +1044,73 @@ ${LOGO_ALIVE_CSS}
         <h3>${escape(m.profile)}</h3>
         <p class="r-why">${escape(m.why)}</p>
         <div class="r-meters">${m.meters.map((v, k) => `<div><span>${escape(t.meters[k])}</span><i class="r-bar"><b class="mv-${v}"></b></i></div>`).join('')}</div>
-        <ul class="r-makers">${m.makers.map((x) => `<li>${escape(x)}</li>`).join('')}</ul>
+        <ul class="r-makers">${m.makers.map((x) => `<li>${brandImg(MODEL_BRANDS, x, 16)}${escape(x)}</li>`).join('')}</ul>
         <p class="r-out"><small>${escape(t.modelsResult)}</small>${icon('check')}${escape(m.out)}</p>
       </div>`,
         )
         .join('')}
     </div>
-    <div class="makers"><p>${escape(t.makersTitle)}</p><ul>${t.makers.map((x) => `<li>${escape(x)}</li>`).join('')}</ul></div>
+    <div class="makers">
+      <p>${escape(t.makersTitle)}</p>
+      <ul class="logos">${MODEL_BRANDS.map((b) => `<li>${brandImg(MODEL_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul>
+      <p>${escape(t.mediaMakers)}</p>
+      <ul class="logos">${MEDIA_BRANDS.map((b) => `<li>${brandImg(MEDIA_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul>
+    </div>
     <p class="fine">${escape(t.modelsNote)}</p>
+  </div>
+</section>
+<section id="agents" class="section" aria-labelledby="agents-title">
+  <div class="wrap">
+    <div class="head head-row">
+      <div>
+        <p class="kicker"><span class="num">03</span>${escape(t.agentsKicker)}</p>
+        <h2 id="agents-title">${titled(t.agentsTitle)}</h2>
+        <p class="sub">${escape(t.agentsLead)}</p>
+      </div>
+      <div class="slide-nav"><span class="soon">${escape(t.agentsSoon)}</span><button type="button" class="slide-btn" data-dir="-1" aria-label="${escape(t.agentsPrev)}">${icon('arrow')}</button><button type="button" class="slide-btn" data-dir="1" aria-label="${escape(t.agentsNext)}">${icon('arrow')}</button></div>
+    </div>
+  </div>
+  <div class="slider" tabindex="0" aria-label="${escape(t.agentsKicker)}">
+    <ul class="track">${t.agents
+      .map(
+        (a) => `<li class="agent">
+        <img class="face" src="/assets/agent-${a.id}.jpg" alt="" width="88" height="88" loading="lazy">
+        <h3>${escape(a.name)}</h3>
+        <p class="role">${escape(a.role)}</p>
+        <p class="mission">${escape(a.mission)}</p>
+        <div class="agent-foot"><span class="tools">${a.tools.map((x) => brandImg(TOOL_BRANDS, x, 18)).join('')}</span><span class="model">${brandImg(MODEL_BRANDS, a.model, 14)}${escape(a.model)}</span></div>
+      </li>`,
+      )
+      .join('')}</ul>
+  </div>
+  <div class="wrap">
+    <div class="agent-demo">
+      <div class="builder" aria-hidden="true">
+        <p class="b-title">${icon('plus')}${escape(t.builder.title)}</p>
+        <div class="b-row"><img class="b-face" src="/assets/agent-mariama.jpg" alt="" width="56" height="56" loading="lazy"><div class="b-field"><small>${escape(t.builder.name)}</small><span class="typed" data-text="${escape(t.builder.nameValue)}">${escape(t.builder.nameValue)}</span></div></div>
+        <div class="b-field"><small>${escape(t.builder.mission)}</small><span class="typed" data-text="${escape(t.builder.missionValue)}">${escape(t.builder.missionValue)}</span></div>
+        <div class="b-field"><small>${escape(t.builder.tools)}</small><span class="b-tools">${['Gmail', 'WhatsApp', 'HubSpot'].map((x) => `<span class="b-tool">${brandImg(TOOL_BRANDS, x, 16)}${escape(x)}</span>`).join('')}</span></div>
+        <div class="b-field"><small>${escape(t.builder.model)}</small><span class="b-model">${brandImg(MODEL_BRANDS, 'Claude', 16)}${escape(t.builder.modelValue)}</span></div>
+        <span class="b-create">${escape(t.builder.create)}</span>
+      </div>
+      <div class="chats" aria-hidden="true">
+        <p class="b-title">${escape(t.chats.title)}</p>
+        <ul>${t.chats.items
+          .map(([n, m, h, u], i) => `<li${i === 0 ? ' class="on"' : ''}><img src="/assets/agent-${n.toLowerCase()}.jpg" alt="" width="44" height="44" loading="lazy"><div><b>${escape(n)}</b><span>${escape(m)}</span></div><div class="meta"><small>${escape(h)}</small>${u ? `<i>${u}</i>` : ''}</div></li>`)
+          .join('')}</ul>
+      </div>
+    </div>
+    <div class="toolwall">
+      <p>${escape(t.toolsTitle)}</p>
+      <ul class="logos">${TOOL_BRANDS.map((b) => `<li>${brandImg(TOOL_BRANDS, b.name, 22)}<span>${escape(b.name)}</span></li>`).join('')}</ul>
+      <p class="fine">${escape(t.toolsNote)}</p>
+    </div>
   </div>
 </section>
 <section class="section night" aria-labelledby="control">
   <div class="wrap split">
     <div>
-      <p class="kicker kicker-light"><span class="num">03</span>${escape(t.controlKicker)}</p>
+      <p class="kicker kicker-light"><span class="num">04</span>${escape(t.controlKicker)}</p>
       <h2 id="control">${titled(t.controlTitle)}</h2>
       <p class="sub">${escape(t.controlLead)}</p>
       <ul class="points">${t.control
@@ -960,7 +1125,7 @@ ${LOGO_ALIVE_CSS}
 <section id="etapes" class="section" aria-labelledby="how">
   <div class="wrap">
     <div class="head">
-      <p class="kicker"><span class="num">04</span>${escape(t.howKicker)}</p>
+      <p class="kicker"><span class="num">05</span>${escape(t.howKicker)}</p>
       <h2 id="how">${titled(t.howTitle)}</h2>
     </div>
     <ol class="steps">${t.how.map(([h, p]) => `<li><h3>${escape(h)}</h3><p>${escape(p)}</p></li>`).join('')}</ol>
@@ -968,7 +1133,7 @@ ${LOGO_ALIVE_CSS}
 </section>
 <section class="section blue" aria-labelledby="here">
   <div class="wrap">
-    <p class="kicker"><span class="num">05</span>${escape(t.hereKicker)}</p>
+    <p class="kicker"><span class="num">06</span>${escape(t.hereKicker)}</p>
     <h2 id="here">${titled(t.hereTitle)}</h2>
     <div class="here">${t.here.map(([b, p]) => `<div><b>${escape(b)}</b><p>${escape(p)}</p></div>`).join('')}</div>
   </div>
@@ -976,7 +1141,7 @@ ${LOGO_ALIVE_CSS}
 <section id="tarifs" class="section" aria-labelledby="prices">
   <div class="wrap">
     <div class="head head-center">
-      <p class="kicker"><span class="num">06</span>${escape(t.pricesKicker)}</p>
+      <p class="kicker"><span class="num">07</span>${escape(t.pricesKicker)}</p>
       <h2 id="prices">${titled(t.pricesTitle)}</h2>
       <p class="sub">${escape(t.pricesLead)}</p>
     </div>
@@ -991,7 +1156,7 @@ ${LOGO_ALIVE_CSS}
 <section id="questions" class="section" aria-labelledby="faq">
   <div class="wrap faq">
     <div>
-      <p class="kicker"><span class="num">07</span>${escape(t.faqKicker)}</p>
+      <p class="kicker"><span class="num">08</span>${escape(t.faqKicker)}</p>
       <h2 id="faq">${titled(t.faqTitle)}</h2>
     </div>
     <div class="qa">${t.faq.map(([q, a]) => `<details><summary>${escape(q)}</summary><p>${escape(a)}</p></details>`).join('')}</div>
@@ -1047,6 +1212,33 @@ for (const b of document.querySelectorAll(".levels button")) {
     for (const o of document.querySelectorAll(".levels button")) o.setAttribute("aria-checked", String(o === b));
     for (const l of document.querySelectorAll(".level")) l.hidden = l.dataset.level !== b.dataset.level;
   });
+}
+// The agents: arrows slide by one card; the builder types an agent, which
+// then shows up in the chats, like a new contact.
+const slider = document.querySelector(".slider");
+for (const b of document.querySelectorAll(".slide-btn")) b.addEventListener("click", () => slider.scrollBy({ left: Number(b.dataset.dir) * 280, behavior: "smooth" }));
+const builder = document.querySelector(".builder");
+if (builder && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const fields = [...builder.querySelectorAll(".typed")];
+  const create = builder.querySelector(".b-create");
+  const first = document.querySelector(".chats li");
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+  const type = async (el) => {
+    const text = el.dataset.text; el.textContent = ""; el.classList.add("caret");
+    for (const ch of text) { el.textContent += ch; await pause(55); }
+    el.classList.remove("caret");
+  };
+  let seen = false;
+  const play = async () => {
+    for (const f of fields) f.textContent = "";
+    first.classList.remove("new"); first.hidden = true;
+    for (const f of fields) await type(f);
+    await pause(500); create.classList.add("press"); await pause(220); create.classList.remove("press");
+    first.hidden = false; void first.offsetWidth; first.classList.add("new");
+    window.baarali?.hop();
+    await pause(6000); play();
+  };
+  new IntersectionObserver((e, o) => { if (e[0].isIntersecting && !seen) { seen = true; o.disconnect(); play(); } }, { threshold: .4 }).observe(builder);
 }
 // The models: the tasks take turns until the reader picks one.
 const tabs = [...document.querySelectorAll(".r-tasks button")];
