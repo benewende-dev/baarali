@@ -117,3 +117,30 @@ describe('the legal pages', () => {
   });
 });
 
+
+describe('the pricing page', () => {
+  it('shows every plan in CFA francs and in euros, from the catalog', async () => {
+    const res = await app.request('/tarifs');
+    expect(res.status).toBe(200);
+    const page = norm(await res.text());
+    for (const name of ['Découverte', 'Semaine', 'Essentiel', 'Pro']) expect(page).toContain(name);
+    for (const price of ['3 300', '13 000', '65 000', '130 000', '20 €', '100 €']) expect(page).toContain(price);
+    expect(page).toContain('data-currency="eur"');
+  });
+
+  it('never claims a payment that is not open yet', async () => {
+    const page = await (await app.request('/tarifs')).text();
+    expect(page).toContain('Paiement bientôt disponible');
+    expect(page).not.toMatch(/href="[^"]*(checkout|pay)[^"]*"/);
+  });
+
+  it('answers in English when asked', async () => {
+    const page = await (await app.request('/tarifs', { headers: { 'accept-language': 'en' } })).text();
+    expect(page).toContain('<title>Pricing — Baarali</title>');
+  });
+
+  it('is linked from the home page', async () => {
+    const page = await (await app.request('/')).text();
+    expect(page).toContain('href="/tarifs"');
+  });
+});
