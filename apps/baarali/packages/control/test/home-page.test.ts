@@ -39,7 +39,7 @@ describe('the download section', () => {
 describe('the home page', () => {
   it('shows every plan at the catalog prices, in euros and CFA francs', async () => {
     const page = norm(await (await app.request('/')).text());
-    for (const text of ['Découverte', 'Semaine', 'Essentiel', 'Pro', '5 €', '3 300 F CFA', '20 €', '13 000 F CFA', '100 €', '200 €', '130 000 F CFA']) {
+    for (const text of ['Découverte', 'Semaine', 'Essentiel', 'Pro', '5 €', '3 280 F CFA', '20 €', '13 119 F CFA', '100 €', '200 €', '131 191 F CFA']) {
       expect(page).toContain(text);
     }
     // Usage relative to Essentiel, from the computed budgets.
@@ -124,7 +124,7 @@ describe('the pricing page', () => {
     expect(res.status).toBe(200);
     const page = norm(await res.text());
     for (const name of ['Découverte', 'Semaine', 'Essentiel', 'Pro']) expect(page).toContain(name);
-    for (const price of ['3 300', '13 000', '65 000', '130 000', '20 €', '100 €']) expect(page).toContain(price);
+    for (const price of ['3 280', '13 119', '65 596', '131 191', '20 €', '100 €']) expect(page).toContain(price);
     expect(page).toContain('data-currency="eur"');
   });
 
@@ -132,6 +132,18 @@ describe('the pricing page', () => {
     const page = await (await app.request('/tarifs')).text();
     expect(page).toContain('Paiement bientôt disponible');
     expect(page).not.toMatch(/href="[^"]*(checkout|pay)[^"]*"/);
+  });
+
+  it('gives the year of a monthly plan at 19 % off, and the CFA price at the fixed parity', async () => {
+    const page = norm(await (await app.request('/tarifs')).text());
+    // Essentiel: 20 € a month = 13 119 F CFA; a year: 16,20 € a month, 194,40 € a year.
+    for (const price of ['13 119', '16,20 €', '194,40 €', '10 626']) expect(page).toContain(price);
+  });
+
+  it('offers companies and institutions their own instance', async () => {
+    const page = await (await app.request('/tarifs')).text();
+    expect(page).toContain('id="entreprises"');
+    expect(page).toContain('mailto:contact@baarali.com');
   });
 
   it('answers in English when asked', async () => {

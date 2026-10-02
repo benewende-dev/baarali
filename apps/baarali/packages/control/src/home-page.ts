@@ -285,7 +285,9 @@ const titled = ([a, em, b]: string[]) => `${escape(a)}<em>${escape(em)}</em>${es
 /** "20 €", "13 000 F CFA": whole amounts, the way people write them here. */
 export function formatPrice(price: Money, lang: Lang): string {
   const major = price.currency === 'EUR' ? price.amount / 100 : price.amount;
-  const n = new Intl.NumberFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 2 }).format(major);
+  // Cents shown in full (16,20 €), or not at all (20 €).
+  const cents = Number.isInteger(major) ? 0 : 2;
+  const n = new Intl.NumberFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { minimumFractionDigits: cents, maximumFractionDigits: cents }).format(major);
   return price.currency === 'EUR' ? (lang === 'fr' ? `${n} €` : `€${n}`) : `${n} F CFA`;
 }
 

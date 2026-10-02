@@ -1,3 +1,4 @@
+import { ANNUAL_DISCOUNT } from './catalog.js';
 import { formatPrice, type HomeData } from './home-page.js';
 import { CONTACT, legalLinks } from './legal-page.js';
 import { FAVICON, logoTile, logoWord } from './logo.js';
@@ -37,12 +38,37 @@ const STRINGS = {
     usage: (x: string) => `Utilisation ×${x} par rapport à Essentiel`,
     start: 'Créer mon compte gratuit',
     soon: 'Paiement bientôt disponible',
+    // What each plan changes; what Baarali does is the same on every plan
+    // (only the models and the usage differ, catalog.ts).
     plans: {
-      decouverte: { tag: 'Pour essayer', for: 'Pour découvrir Baarali sur de vraies tâches.', points: ['Des modèles rapides et économiques', 'Une utilisation limitée, renouvelée toutes les 5 h et chaque semaine', 'Les médias avec des crédits'] },
-      semaine: { tag: 'Sans engagement', for: 'Pour une semaine chargée, payée en Mobile Money.', points: ['Tous les modèles', 'L’utilisation d’Essentiel, payée à la semaine', 'Rien ne se renouvelle tout seul'] },
-      essentiel: { tag: 'Le quotidien', for: 'Pour s’en servir chaque jour, au travail ou chez soi.', points: ['Tous les modèles', 'Une utilisation pour tous les jours', 'Les médias avec des crédits'] },
-      pro: { tag: 'Pour les gros besoins', for: 'Pour travailler toute la journée avec lui.', points: ['Tous les modèles', 'Cinq ou dix fois l’utilisation d’Essentiel', 'Les médias avec des crédits'] },
-    } as Record<string, { tag: string; for: string; points: string[] }>,
+      decouverte: { tag: 'Pour essayer', for: 'Pour découvrir Baarali sur de vraies tâches.', plus: 'Inclus', points: ['Des recherches sur le web, résumées avec leurs sources', 'Emails, devis et comptes rendus rédigés dans votre ton', 'Documents, tableaux et présentations prêts à envoyer', 'Votre accord avant chaque envoi ou publication', 'Les tâches longues en arrière-plan, et les routines', 'Une mémoire : vos clients, vos prix, vos habitudes', 'Vidéos, voix et musique avec des crédits médias', 'Les apps Mac et Windows', 'Des modèles rapides et économiques', 'Une utilisation limitée, renouvelée toutes les 5 h et chaque semaine'] },
+      semaine: { tag: 'Sans engagement', for: 'Pour une semaine chargée, payée en Mobile Money.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel pendant 7 jours', '25 fois l’utilisation de Découverte', 'Payé en Mobile Money, quand vous en avez besoin', 'Rien ne se renouvelle tout seul'] },
+      essentiel: { tag: 'Le quotidien', for: 'Pour s’en servir chaque jour, au travail ou chez soi.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', '25 fois l’utilisation de Découverte', 'Assez pour s’en servir tous les jours', 'De la marge pour les tâches longues', 'Au mois, ou à l’année avec 19 % de remise'] },
+      pro: { tag: 'Pour les gros besoins', for: 'Pour travailler toute la journée avec lui.', plus: 'Tout Essentiel, et :', points: ['Cinq ou dix fois l’utilisation d’Essentiel', 'Pour les tâches longues et les routines de chaque jour', 'Pour une personne qui délègue beaucoup', 'Les médias toujours avec des crédits', 'Au mois, ou à l’année avec 19 % de remise'] },
+    } as Record<string, { tag: string; for: string; plus: string; points: string[] }>,
+    period: 'Paiement',
+    monthly: 'Au mois',
+    yearly: 'À l’année',
+    save: '−19 %',
+    perMonthYear: 'par mois, à l’année',
+    billedYear: (total: string, saved: string) => `${total} par an · ${saved} économisés`,
+    weekOnly: 'À la semaine seulement',
+    proYear: 'Pro à l’année',
+    bizKicker: 'Entreprises et institutions',
+    bizTitle: ['Votre Baarali, ', 'chez vous', '.'],
+    bizLead: 'Pour les banques, les institutions financières, les administrations et les grandes organisations : Baarali installé sur vos serveurs ou dans votre cloud, sous votre contrôle.',
+    bizFor: ['Banques et institutions financières', 'Administrations et ministères', 'Grandes entreprises', 'ONG et organisations internationales'],
+    bizPoints: [
+      ['Votre propre instance', 'Sur vos serveurs, dans votre centre de données ou chez l’hébergeur de votre choix, dans votre pays.'],
+      ['Vos données restent chez vous', 'Documents, mémoire et échanges ne quittent pas votre infrastructure.'],
+      ['Vos modèles', 'Des modèles ouverts installés chez vous, ou ceux que votre politique autorise.'],
+      ['Vos règles d’accord', 'Ce que les agents font seuls et ce qui attend une validation, fixé par vos équipes.'],
+      ['Toute votre équipe', 'Des comptes pour chaque collaborateur, des agents partagés par service.'],
+      ['Accompagnement', 'Installation, formation des équipes et contrat sur mesure.'],
+    ] as Array<[string, string]>,
+    bizPrice: 'Sur devis',
+    bizCta: 'Parler à l’équipe',
+    bizNote: 'Nous étudions chaque demande avec vos équipes techniques et juridiques.',
     usageKicker: 'L’utilisation',
     usageTitle: ['Deux jauges, ', 'pas de compteur', ' à surveiller.'],
     usageLead: 'Chaque forfait donne une part d’utilisation qui se renouvelle d’elle-même. Vous la voyez dans l’app, à tout moment.',
@@ -50,7 +76,11 @@ const STRINGS = {
     gaugeWeek: 'Cette semaine',
     gaugeFiveNote: 'Se renouvelle dans 2 h 14',
     gaugeWeekNote: 'Se renouvelle lundi',
-    gaugeExample: 'Exemple',
+    gaugeExample: 'Démonstration',
+    demoTasks: [['Devis pour Awa Traoré', 9], ['Veille sur le cajou', 16], ['Présentation pour la banque', 22], ['Relance de 12 factures', 12], ['Compte rendu de réunion', 8], ['Analyse des ventes du mois', 18], ['Publication de lancement', 15]] as Array<[string, number]>,
+    demoLimit: 'Limite atteinte : la réponse en cours se termine.',
+    demoLater: '5 heures plus tard, la jauge repart de zéro.',
+    renewIn: 'Se renouvelle dans',
     steps: [
       ['Toutes les 5 heures', 'Une première jauge se remplit pendant que vous travaillez, et repart de zéro 5 heures après.'],
       ['Chaque semaine', 'Une seconde jauge couvre la semaine entière, pour que l’utilisation reste régulière.'],
@@ -71,7 +101,7 @@ const STRINGS = {
     },
     billingNone: 'Aucun',
     billingWeek: 'Chaque semaine, à la main',
-    billingMonth: 'Chaque mois',
+    billingMonth: 'Au mois ou à l’année (−19 %)',
     modelsFast: 'Rapides et économiques',
     modelsAll: 'Tous',
     usageLimited: 'Limitée',
@@ -135,11 +165,34 @@ const STRINGS = {
     start: 'Create my free account',
     soon: 'Payment coming soon',
     plans: {
-      decouverte: { tag: 'To try it', for: 'To try Baarali on real tasks.', points: ['Fast, low-cost models', 'Limited usage, renewed every 5 h and every week', 'Media with credits'] },
-      semaine: { tag: 'No commitment', for: 'For a busy week, paid with mobile money.', points: ['Every model', 'The usage of Essentiel, paid by the week', 'Nothing renews on its own'] },
-      essentiel: { tag: 'Everyday', for: 'To use it every day, at work or at home.', points: ['Every model', 'Usage for every day', 'Media with credits'] },
-      pro: { tag: 'For heavy use', for: 'To work with it all day long.', points: ['Every model', 'Five or ten times the usage of Essentiel', 'Media with credits'] },
-    } as Record<string, { tag: string; for: string; points: string[] }>,
+      decouverte: { tag: 'To try it', for: 'To try Baarali on real tasks.', plus: 'Included', points: ['Web research, summed up with its sources', 'Emails, quotes and minutes written in your tone', 'Documents, spreadsheets and slides ready to send', 'Your approval before anything is sent or published', 'Long tasks in the background, and routines', 'A memory: your clients, your prices, your habits', 'Videos, voices and music with media credits', 'The Mac and Windows apps', 'Fast, low-cost models', 'Limited usage, renewed every 5 h and every week'] },
+      semaine: { tag: 'No commitment', for: 'For a busy week, paid with mobile money.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', 'The usage of Essentiel for 7 days', '25 times the usage of Découverte', 'Paid with mobile money, when you need it', 'Nothing renews on its own'] },
+      essentiel: { tag: 'Everyday', for: 'To use it every day, at work or at home.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', '25 times the usage of Découverte', 'Enough to use it every day', 'Room for long tasks', 'Monthly, or yearly with 19% off'] },
+      pro: { tag: 'For heavy use', for: 'To work with it all day long.', plus: 'Everything in Essentiel, and:', points: ['Five or ten times the usage of Essentiel', 'For long tasks and daily routines', 'For someone who delegates a lot', 'Media still with credits', 'Monthly, or yearly with 19% off'] },
+    } as Record<string, { tag: string; for: string; plus: string; points: string[] }>,
+    period: 'Billing',
+    monthly: 'Monthly',
+    yearly: 'Yearly',
+    save: '−19%',
+    perMonthYear: 'per month, billed yearly',
+    billedYear: (total: string, saved: string) => `${total} a year · ${saved} saved`,
+    weekOnly: 'Weekly only',
+    proYear: 'Pro yearly',
+    bizKicker: 'Companies and institutions',
+    bizTitle: ['Your Baarali, ', 'on your premises', '.'],
+    bizLead: 'For banks, financial institutions, public administrations and large organisations: Baarali installed on your servers or in your cloud, under your control.',
+    bizFor: ['Banks and financial institutions', 'Public administrations and ministries', 'Large companies', 'NGOs and international organisations'],
+    bizPoints: [
+      ['Your own instance', 'On your servers, in your data centre or with the host of your choice, in your country.'],
+      ['Your data stays with you', 'Documents, memory and conversations never leave your infrastructure.'],
+      ['Your models', 'Open models installed on your side, or those your policy allows.'],
+      ['Your approval rules', 'What agents do alone and what waits for sign-off, set by your teams.'],
+      ['Your whole team', 'Accounts for every colleague, agents shared by department.'],
+      ['Support', 'Installation, team training and a tailored contract.'],
+    ] as Array<[string, string]>,
+    bizPrice: 'On quote',
+    bizCta: 'Talk to the team',
+    bizNote: 'We study each request with your technical and legal teams.',
     usageKicker: 'Usage',
     usageTitle: ['Two gauges, ', 'no meter', ' to watch.'],
     usageLead: 'Each plan gives a share of usage that renews by itself. You see it in the app, at any time.',
@@ -147,7 +200,11 @@ const STRINGS = {
     gaugeWeek: 'This week',
     gaugeFiveNote: 'Renews in 2 h 14',
     gaugeWeekNote: 'Renews on Monday',
-    gaugeExample: 'Example',
+    gaugeExample: 'Demonstration',
+    demoTasks: [['Quote for Awa Traoré', 9], ['Cashew price watch', 16], ['Deck for the bank', 22], ['Chasing 12 invoices', 12], ['Meeting minutes', 8], ['This month’s sales analysis', 18], ['Launch post', 15]] as Array<[string, number]>,
+    demoLimit: 'Limit reached: the answer under way still finishes.',
+    demoLater: '5 hours later, the gauge starts again from zero.',
+    renewIn: 'Renews in',
     steps: [
       ['Every 5 hours', 'A first gauge fills while you work, and starts again from zero 5 hours later.'],
       ['Every week', 'A second gauge covers the whole week, so usage stays steady.'],
@@ -168,7 +225,7 @@ const STRINGS = {
     },
     billingNone: 'None',
     billingWeek: 'Each week, by hand',
-    billingMonth: 'Each month',
+    billingMonth: 'Monthly or yearly (−19%)',
     modelsFast: 'Fast and low-cost',
     modelsAll: 'All',
     usageLimited: 'Limited',
@@ -255,12 +312,24 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
     return r >= 2 ? String(Math.round(r)) : '1';
   };
 
+  const other = (prices: Money[], p: Money) => (p.currency === 'EUR' ? priceOf(prices, 'XOF') : priceOf(prices, 'EUR')) ?? p;
+  const shown = (prices: Money[], per: string) =>
+    `<p class="price"><strong>${both(prices, lang, (p) => amount(p, lang))}</strong><span>${escape(per)}</span></p>
+      <p class="alt">${both(prices, lang, (p) => escape(formatPrice(other(prices, p), lang)))}</p>`;
+  // A year of a monthly plan: the month's price less the discount, to the
+  // cent or the franc, twelve times.
+  const yearly = (prices: Money[]) => prices.map((p) => ({ ...p, amount: Math.round(p.amount * (1 - ANNUAL_DISCOUNT)) }));
+  const times = (prices: Money[], n: number) => prices.map((p) => ({ ...p, amount: p.amount * n }));
+  const minus = (a: Money[], b: Money[]) => a.map((p, i) => ({ ...p, amount: p.amount - b[i].amount }));
   const priceBlock = (offer: Offer) => {
-    if (offer.billing.kind === 'free') return `<p class="price"><strong>${escape(t.free)}</strong><span>${escape(t.forever)}</span></p>`;
-    const per = offer.billing.period === 'week' ? t.perWeek : t.perMonth;
+    if (offer.billing.kind === 'free') return `<p class="price"><strong>${escape(t.free)}</strong><span>${escape(t.forever)}</span></p><p class="alt">&nbsp;</p>`;
     const prices = offer.billing.prices;
-    return `<p class="price"><strong>${both(prices, lang, (p) => amount(p, lang))}</strong><span>${escape(per)}</span></p>
-      <p class="alt">${both(prices, lang, (p) => escape(formatPrice(p.currency === 'EUR' ? priceOf(prices, 'XOF') ?? p : priceOf(prices, 'EUR') ?? p, lang)))}</p>`;
+    if (offer.billing.period === 'week') return `${shown(prices, t.perWeek)}<p class="note-y">${escape(t.weekOnly)}</p>`;
+    const year = yearly(prices);
+    const total = times(year, 12);
+    const saved = minus(times(prices, 12), total);
+    return `<div class="p-month">${shown(prices, t.perMonth)}</div>
+      <div class="p-year">${shown(year, t.perMonthYear)}<p class="note-y">${both(total, lang, (p) => escape(t.billedYear(formatPrice(p, lang), formatPrice(saved[total.indexOf(p)], lang))))}</p></div>`;
   };
 
   const card = (offer: Offer, extra = '') => {
@@ -273,6 +342,7 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
       <p class="for">${escape(copy.for)}</p>
       ${extra || priceBlock(offer)}
       ${offer.billing.kind === 'free' ? `<a class="cta cta-blue" href="/auth/v1/sign-in">${escape(t.start)}</a>` : `<p class="cta cta-off" aria-disabled="true">${escape(t.soon)}</p>`}
+      <p class="plus">${escape(copy.plus)}</p>
       <ul>${copy.points.map((p) => `<li>${CHECK}${escape(p)}</li>`).join('')}</ul>
     </article>`;
   };
@@ -418,9 +488,47 @@ h1 em, h2 em { font-family:"Instrument Serif", Georgia, serif; font-style:italic
 .plan.featured .cta-off { background:#17181d; border-color:#2c2e36; color:#a3a7b3; }
 .badge { position:absolute; top:-12px; left:24px; margin:0; background:var(--blue-deep); color:#fff; font-size:12.5px; font-weight:650; border-radius:999px; padding:4px 12px; }
 .fine { margin:20px 0 0; text-align:center; font-size:13.5px; color:var(--muted); }
+/* Monthly or yearly: a year shows only on the monthly plans. */
+.p-year, :root[data-period="year"] .p-month { display:none; }
+:root[data-period="year"] .p-year { display:block; }
+.note-y { margin:6px 0 0; font-size:13px; color:var(--blue-deep); font-weight:600; font-variant-numeric:tabular-nums; }
+.plan.featured .note-y { color:#8fb4ff; }
+.switches { display:flex; flex-wrap:wrap; justify-content:center; gap:12px 28px; margin-top:32px; }
+.switches .switch { margin-top:0; }
+.save { font-weight:700; font-size:12px; color:#fff; background:var(--blue-deep); border-radius:999px; padding:2px 7px; margin-left:4px; }
+.plus { margin:20px 0 0; padding-top:18px; border-top:1px solid var(--line); font-size:13px; font-weight:650; color:var(--ink); }
+.plan.featured .plus { color:#fff; border-color:#26282f; }
+.plan .plus + ul { margin-top:12px; padding-top:0; border-top:0; }
+/* Companies */
+.biz { margin-top:96px; background:var(--night); color:var(--night-muted); border-radius:32px; padding:56px 48px; }
+.biz h2 { color:#fff; }
+.biz h2 em { color:#8fb4ff; }
+.biz .kicker { color:#8fb4ff; }
+.biz .lead { color:#a3a7b3; }
+.biz-head { display:grid; grid-template-columns:minmax(0, 1fr) 260px; gap:40px; align-items:end; }
+.biz-side { display:flex; flex-direction:column; gap:10px; }
+.biz-price { margin:0; color:#fff; font-size:30px; font-weight:750; letter-spacing:-.03em; }
+.cta-white { background:#fff; color:#0a0a0a; margin:0; }
+.biz-mail { margin:0; font-size:13.5px; }
+.biz-for { list-style:none; margin:32px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
+.biz-for li { border:1px solid #2c2e36; border-radius:999px; padding:6px 14px; font-size:14px; color:#d3d5dc; }
+.biz-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1px; margin-top:32px; background:#26282f; border:1px solid #26282f; border-radius:20px; overflow:hidden; }
+.biz-grid div { background:#111216; padding:22px; }
+.biz-grid b { display:block; color:#fff; font-size:16px; margin-bottom:4px; }
+.biz-grid p { margin:0; font-size:14.5px; line-height:1.55; }
+.biz-note { margin:20px 0 0; font-size:13.5px; }
 /* Usage */
 .usage-grid { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:48px; align-items:center; margin-top:48px; }
 .gauges { background:var(--mist); border:1px solid var(--line); border-radius:24px; padding:28px; display:flex; flex-direction:column; gap:22px; }
+.live { display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; margin-right:8px; box-shadow:0 0 0 3px rgb(34 197 94 / .2); animation:pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity:.35; } }
+.bar i { transition:width .7s cubic-bezier(.2,.7,.2,1), background-color .3s; }
+.g-five.full .bar i { background:#f59e0b; }
+.g-five.full .g-note { color:#b45309; font-weight:600; }
+.feed { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; min-height:112px; }
+.feed li { display:flex; justify-content:space-between; gap:12px; font-size:13.5px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:7px 12px; animation:rise .4s ease both; }
+.feed li b { color:var(--blue-deep); font-variant-numeric:tabular-nums; }
+@keyframes rise { from { opacity:0; transform:translateY(6px); } }
 .gauges .ex { margin:0; font-size:12.5px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
 .gauge { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
 .gauge p { display:flex; justify-content:space-between; margin:0; font-size:14.5px; color:var(--ink); font-weight:600; }
@@ -493,17 +601,19 @@ footer a:hover { color:#fff; }
 :focus-visible { outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
 @media (max-width: 1040px) {
   .plans { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-  .usage-grid, .media-grid, .faq-grid { grid-template-columns:minmax(0, 1fr); gap:28px; }
+  .usage-grid, .media-grid, .faq-grid, .biz-head { grid-template-columns:minmax(0, 1fr); gap:28px; }
+  .biz-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .menu a:not(.btn) { display:none; }
 }
 @media (max-width: 680px) {
-  .plans, .pay, .packs { grid-template-columns:minmax(0, 1fr); }
+  .plans, .pay, .packs, .biz-grid { grid-template-columns:minmax(0, 1fr); }
+  .biz { padding:36px 22px; border-radius:24px; }
   .plan .for { min-height:0; }
   .section { padding-block:72px 0; }
   .final { padding:48px 22px; border-radius:24px; }
 }
 @media (max-width: 440px) { .menu .btn { display:none; } }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } .faq summary::after { transition:none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } .faq summary::after, .bar i { transition:none; } .live, .feed li { animation:none; } }
 </style>
 </head>
 <body>
@@ -525,8 +635,13 @@ footer a:hover { color:#fff; }
     <p class="kicker">${escape(t.kicker)}</p>
     <h1>${titled(t.heading)}</h1>
     <p class="lead">${escape(t.lead)}</p>
-    <div class="switch"><span id="cur">${escape(t.currency)}</span>
-      <div class="seg" role="radiogroup" aria-labelledby="cur"><button type="button" role="radio" data-currency="xof" aria-checked="true">F CFA</button><button type="button" role="radio" data-currency="eur" aria-checked="false">Euros</button></div>
+    <div class="switches">
+      <div class="switch"><span id="per">${escape(t.period)}</span>
+        <div class="seg seg-period" role="radiogroup" aria-labelledby="per"><button type="button" role="radio" data-period="month" aria-checked="true">${escape(t.monthly)}</button><button type="button" role="radio" data-period="year" aria-checked="false">${escape(t.yearly)} <b class="save">${escape(t.save)}</b></button></div>
+      </div>
+      <div class="switch"><span id="cur">${escape(t.currency)}</span>
+        <div class="seg seg-currency" role="radiogroup" aria-labelledby="cur"><button type="button" role="radio" data-currency="xof" aria-checked="true">F CFA</button><button type="button" role="radio" data-currency="eur" aria-checked="false">Euros</button></div>
+      </div>
     </div>
     <ul class="pills">${t.pills.map((p) => `<li>${CHECK}${escape(p)}</li>`).join('')}</ul>
   </div>
@@ -537,13 +652,24 @@ footer a:hover { color:#fff; }
   <section class="section" id="utilisation" aria-labelledby="usage-title">
     <div class="head"><p class="kicker">${escape(t.usageKicker)}</p><h2 id="usage-title">${titled(t.usageTitle)}</h2><p class="lead">${escape(t.usageLead)}</p></div>
     <div class="usage-grid">
-      <div class="gauges" aria-label="${escape(t.gaugeExample)}">
-        <p class="ex">${escape(t.gaugeExample)}</p>
-        <div class="gauge"><p>${escape(t.gaugeFive)}<span>62 %</span></p><div class="bar"><i class="w62"></i></div><small>${escape(t.gaugeFiveNote)}</small></div>
-        <div class="gauge"><p>${escape(t.gaugeWeek)}<span>34 %</span></p><div class="bar"><i class="w34"></i></div><small>${escape(t.gaugeWeekNote)}</small></div>
-      </div>
       <ol class="steps">${t.steps.map(([b, p]) => `<li><div><b>${escape(b)}</b><p>${escape(p)}</p></div></li>`).join('')}</ol>
+      <div class="gauges" aria-label="${escape(t.gaugeExample)}" data-tasks="${escape(JSON.stringify(t.demoTasks))}" data-limit="${escape(t.demoLimit)}" data-later="${escape(t.demoLater)}" data-renew="${escape(t.renewIn)}" data-five-note="${escape(t.gaugeFiveNote)}">
+        <p class="ex"><i class="live"></i>${escape(t.gaugeExample)}</p>
+        <div class="gauge g-five"><p>${escape(t.gaugeFive)}<span class="pct">62 %</span></p><div class="bar"><i class="w62"></i></div><small class="g-note">${escape(t.gaugeFiveNote)}</small></div>
+        <div class="gauge g-week"><p>${escape(t.gaugeWeek)}<span class="pct">34 %</span></p><div class="bar"><i class="w34"></i></div><small>${escape(t.gaugeWeekNote)}</small></div>
+        <ul class="feed" aria-live="off"></ul>
+      </div>
     </div>
+  </section>
+
+  <section class="biz" id="entreprises" aria-labelledby="biz-title">
+    <div class="biz-head">
+      <div><p class="kicker">${escape(t.bizKicker)}</p><h2 id="biz-title">${titled(t.bizTitle)}</h2><p class="lead">${escape(t.bizLead)}</p></div>
+      <div class="biz-side"><p class="biz-price">${escape(t.bizPrice)}</p><a class="cta cta-white" href="mailto:${CONTACT}?subject=Baarali%20Entreprise">${escape(t.bizCta)}</a><p class="biz-mail">${CONTACT}</p></div>
+    </div>
+    <ul class="biz-for">${t.bizFor.map((f) => `<li>${escape(f)}</li>`).join('')}</ul>
+    <div class="biz-grid">${t.bizPoints.map(([b, p]) => `<div><b>${escape(b)}</b><p>${escape(p)}</p></div>`).join('')}</div>
+    <p class="biz-note">${escape(t.bizNote)}</p>
   </section>
 
   <section class="section" id="comparer" aria-labelledby="compare-title">
@@ -594,8 +720,50 @@ document.querySelector(".theme").addEventListener("click", () => {
   root.dataset.theme = dark ? "light" : "dark";
   try { localStorage.setItem("baarali-theme", root.dataset.theme); } catch {}
 });
+// Monthly or yearly: the monthly plans show their year.
+const periods = [...document.querySelectorAll(".seg-period button")];
+for (const b of periods) b.addEventListener("click", () => {
+  if (b.dataset.period === "year") root.dataset.period = "year"; else delete root.dataset.period;
+  for (const o of periods) o.setAttribute("aria-checked", String(o === b));
+});
+// The gauges at work: tasks fill the 5 hours until the limit, then the
+// window renews; the week fills slowly underneath. Still, if motion is off.
+const demo = document.querySelector(".gauges");
+if (demo && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const tasks = JSON.parse(demo.dataset.tasks);
+  const five = demo.querySelector(".g-five"), week = demo.querySelector(".g-week"), feed = demo.querySelector(".feed");
+  const note = five.querySelector(".g-note");
+  const set = (g, v) => { g.querySelector(".bar i").style.width = v + "%"; g.querySelector(".pct").textContent = Math.round(v) + " %"; };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let f = 0, w = 12, i = 0;
+  const loop = async () => {
+    for (;;) {
+      const [name, cost] = tasks[i++ % tasks.length];
+      f = Math.min(100, f + cost); w = Math.min(96, w + cost / 6);
+      const li = document.createElement("li");
+      li.innerHTML = "<span></span><b></b>";
+      li.firstChild.textContent = name; li.lastChild.textContent = "+" + cost + " %";
+      feed.prepend(li);
+      while (feed.children.length > 3) feed.lastChild.remove();
+      set(five, f); set(week, w);
+      const h = Math.max(0, Math.round((100 - f) / 100 * 299));
+      note.textContent = demo.dataset.renew + " " + Math.floor(h / 60) + " h " + String(h % 60).padStart(2, "0");
+      await wait(1500);
+      if (f >= 100) {
+        five.classList.add("full"); note.textContent = demo.dataset.limit;
+        await wait(2600);
+        note.textContent = demo.dataset.later; f = 0; set(five, 0);
+        await wait(1800);
+        five.classList.remove("full");
+        if (w > 90) w = 12;
+      }
+    }
+  };
+  set(five, 0); set(week, w); note.textContent = demo.dataset.fiveNote;
+  setTimeout(loop, 600);
+}
 // CFA francs or euros: every price on the page follows, and it is remembered.
-const seg = [...document.querySelectorAll(".seg button")];
+const seg = [...document.querySelectorAll(".seg-currency button")];
 const showCurrency = (c) => {
   if (c === "eur") root.dataset.currency = "eur"; else delete root.dataset.currency;
   for (const b of seg) b.setAttribute("aria-checked", String(b.dataset.currency === c));
