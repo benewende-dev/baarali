@@ -3064,6 +3064,8 @@ export const FR: Dictionary = {
     "Get started": "Commencer",
     "Mac chat": "Discussion Mac",
     "Member": "Membre",
+    "Early access is full for now. You are signed in: your space opens as soon as a seat frees up.": "L’accès anticipé est complet pour le moment. Vous êtes connecté : votre espace s’ouvrira dès qu’une place se libère.",
+    "Your Baarali space is not answering right now. Try again in a few minutes: sign out, then sign in again.": "Votre espace Baarali ne répond pas pour le moment. Réessayez dans quelques minutes : déconnectez-vous puis reconnectez-vous.",
     // Activity's reason lines (renderer lib/spaces-activity.ts, out of the extractor's reach).
     "messaged you": "vous a écrit",
     "replied in a thread": "a répondu dans un fil",
