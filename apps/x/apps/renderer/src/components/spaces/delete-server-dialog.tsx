@@ -37,7 +37,7 @@ export function DeleteServerDialog({ org, open, onOpenChange, onDeleted }: {
     return <AlertDialog open={open} onOpenChange={close}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Delete the server {org.name}?</AlertDialogTitle>
+                <AlertDialogTitle>{`Delete the server ${org.name}?`}</AlertDialogTitle>
                 <AlertDialogDescription>Every space, message and file in this server is deleted for all its members. This cannot be undone.</AlertDialogDescription>
             </AlertDialogHeader>
             <label className="flex flex-col gap-1.5 text-sm">
