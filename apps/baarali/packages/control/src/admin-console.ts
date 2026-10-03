@@ -4,8 +4,9 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { isAdmin, type SoldPack } from './admin.js';
 import { adminPage, deniedPage } from './admin-page.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
-import { ASSUMPTIONS } from './catalog.js';
+import { ASSUMPTIONS, OFFERS } from './catalog.js';
 import { html } from './html.js';
+import { WEEKS_PER_MONTH } from './pricing.js';
 import type { Instances } from './instances.js';
 import { advance, budgetsForWeek, gauges, initialState, WEEK_MS } from './quota.js';
 import type { AccountSummary, ControlStore, InstanceRecord, Plan } from './store.js';
@@ -40,6 +41,17 @@ const XOF_PER_USD = 1 / ASSUMPTIONS.usdPerUnit.XOF;
 export function costOf(credits: number): { usd: number; xof: number } {
   const usd = credits / CREDITS_PER_DOLLAR;
   return { usd: Math.round(usd * 100) / 100, xof: Math.round(usd * XOF_PER_USD) };
+}
+
+/**
+ * What one subscriber of the plan brings in a month, in euros: a weekly plan
+ * (Semaine) has no monthly price, so its week counts 52/12 times.
+ */
+function monthlyEur(planId: string): number {
+  const billing = OFFERS.find((o) => o.id === planId)?.billing;
+  if (!billing || billing.kind !== 'paid') return 0;
+  const eur = billing.prices.find((p) => p.currency === 'EUR')?.amount ?? 0;
+  return (billing.period === 'week' ? eur * WEEKS_PER_MONTH : eur) / 100;
 }
 
 const percent = (used: number, of: number) => (of > 0 ? Math.min(100, Math.round((used / of) * 100)) : 0);
@@ -121,14 +133,14 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
       ? instances.filter((i) => i.managed && i.image !== deps.instances!.currentImage).length
       : 0;
     const paid = rows.filter((r) => plans.find((p) => p.id === r.planId)?.category !== 'free');
-    const monthlyEur = paid.reduce((sum, r) => sum + (plans.find((p) => p.id === r.planId)?.monthlyPrices.find((m) => m.currency === 'EUR')?.amount ?? 0), 0);
+    const monthly = paid.reduce((sum, r) => sum + monthlyEur(r.planId), 0);
     const weekCredits = list.reduce((sum, s) => sum + s.recentCredits, 0);
     return c.json({
       clients: rows.length,
       newThisWeek: rows.filter((r) => r.createdAt >= now - WEEK_MS).length,
       activeThisWeek: rows.filter((r) => r.lastActiveAt !== null && r.lastActiveAt >= now - WEEK_MS).length,
       paid: paid.length,
-      monthlyValueEur: monthlyEur / 100,
+      monthlyValueEur: Math.round(monthly),
       weekCost: costOf(weekCredits),
       plans: plans.map((p) => ({ id: p.id, name: planLabel(p), count: rows.filter((r) => r.planId === p.id).length })),
       attention: {
@@ -177,9 +189,11 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     const plan = typeof planId === 'string' ? await store.plan(planId) : null;
     if (!plan) return c.json({ error: { code: 'invalid_request', message: 'Unknown plan' } }, 400);
     if (plan.id === account.planId) return c.json({ changed: false });
-    await store.setPlan(id, plan.id);
+    // Named before the change: the memory store hands out the record it changes.
     const before = await store.plan(account.planId);
-    await log(actor, 'plan', id, `${before ? planLabel(before) : account.planId} → ${planLabel(plan)}`);
+    const from = before ? planLabel(before) : account.planId;
+    await store.setPlan(id, plan.id);
+    await log(actor, 'plan', id, `${from} → ${planLabel(plan)}`);
     return c.json({ changed: true });
   });
 

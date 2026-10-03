@@ -32,7 +32,7 @@ main { padding:28px 32px 60px; min-width:0; }
 .head { display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
 h1 { font:600 26px/1.2 "Source Serif 4", Georgia, serif; color:var(--ink); margin:0; text-wrap:balance; }
 .head p { margin:4px 0 0; color:var(--muted); }
-.head .actions { margin-left:auto; display:flex; gap:8px; }
+.head .actions { margin-left:auto; display:flex; gap:8px; align-items:center; }
 .btn { font:inherit; cursor:pointer; padding:7px 12px; border-radius:8px; border:1px solid var(--line); background:transparent; font-weight:500; color:var(--ink); font-size:13px; }
 .btn:hover { background:var(--mist); }
 .btn:disabled { opacity:.5; cursor:default; }
@@ -57,6 +57,7 @@ td.num { text-align:right; }
 .pill.ok { background:var(--ok-soft); color:var(--ok); }
 .pill.warn { background:var(--warn-soft); color:var(--warn); }
 .pill.bad { background:var(--bad-soft); color:var(--bad); }
+.pill.tag { margin-left:8px; }
 progress { width:90px; height:6px; vertical-align:middle; margin-right:6px; appearance:none; border:none; border-radius:9px; background:var(--mist); overflow:hidden; }
 progress::-webkit-progress-bar { background:var(--mist); border-radius:9px; }
 progress::-webkit-progress-value { background:var(--blue); border-radius:9px; }
@@ -84,7 +85,7 @@ input[type=search] { flex:1; min-width:180px; }
 .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--ink); color:var(--paper); padding:8px 14px; border-radius:10px; font-size:13px; z-index:9; }
 .code { font:500 13px ui-monospace, Menlo, monospace; color:var(--ink); background:var(--mist); padding:1px 6px; border-radius:5px; }
 @media (max-width:820px) {
-  .shell { grid-template-columns:1fr; }
+  .shell { grid-template-columns:minmax(0,1fr); }
   aside { border-right:0; border-bottom:1px solid var(--line); flex-direction:row; flex-wrap:wrap; padding:12px 16px; }
   .brand { width:100%; padding:0 8px 8px; }
   nav { display:flex; flex-wrap:wrap; gap:4px; }
@@ -343,7 +344,7 @@ function renderClients() {
       (state === "idle" && (c.lastActiveAt === null || Date.now() - c.lastActiveAt > 2 * week)) ||
       (state === "suspended" && c.suspendedAt !== null)));
   $("clients").replaceChildren(...(rows.length ? rows.map((c) => el("tr", { class: "row", onclick: () => openClient(c.id) },
-    el("td", {}, c.email || c.id, c.suspendedAt !== null ? el("span", { class: "pill bad" }, " Suspendu") : null),
+    el("td", {}, c.email || c.id, c.suspendedAt !== null ? el("span", { class: "pill bad tag" }, "Suspendu") : null),
     el("td", {}, el("span", { class: c.planId === "decouverte" ? "pill" : "pill blue" }, c.planName)),
     el("td", {}, bar(c.session)),
     el("td", {}, bar(c.week)),
@@ -404,10 +405,12 @@ async function loadInstances() {
   const r = await get("/instances");
   $("n-instances").textContent = String(r.data.length);
   $("current-image").textContent = r.currentImage ? "Version actuelle : " + r.currentImage : "Version actuelle inconnue";
+  // The button is kept: once awaited, the event no longer names it.
   const action = (i, what, label) => el("button", { class: "btn", type: "button", onclick: async (e) => {
-    e.currentTarget.disabled = true;
+    const b = e.currentTarget;
+    b.disabled = true;
     try { const res = await send("/instances/" + encodeURIComponent(i.accountId) + "/" + what); toast(res.done ? label + " : fait" : "Déjà à jour"); await loadInstances(); }
-    catch (err) { toast(err.message); e.currentTarget.disabled = false; }
+    catch (err) { toast(err.message); b.disabled = false; }
   } }, label);
   $("instances").replaceChildren(...(r.data.length ? r.data.map((i) => {
     const [word, tone] = STATES[i.state] || [i.state || "Non suivie", ""];
