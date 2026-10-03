@@ -38,6 +38,7 @@ h1 { font:600 26px/1.2 "Source Serif 4", Georgia, serif; color:var(--ink); margi
 .btn:disabled { opacity:.5; cursor:default; }
 .btn.primary { background:var(--blue); border-color:var(--blue); color:#fff; }
 .btn.danger { color:var(--bad); }
+a.btn { text-decoration:none; display:inline-block; }
 .stats { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:24px; }
 .stat { border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
 .stat b { display:block; font:600 24px "Source Serif 4", Georgia, serif; color:var(--ink); font-variant-numeric:tabular-nums; }
@@ -201,7 +202,8 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
   <div class="toolbar"><select id="d-plan"></select><button class="btn primary" id="d-plan-go" type="button">Changer</button></div>
   <div class="sub">Offrir des crédits médias</div>
   <div class="toolbar">
-    <input id="d-credits" type="number" min="1" max="10000" step="1" value="20" aria-label="Crédits">
+    <select id="d-pack" aria-label="Recharge"></select>
+    <input id="d-credits" type="number" min="1" max="10000" step="1" value="20" aria-label="Crédits" hidden>
     <input id="d-ref" placeholder="Référence de paiement (facultatif)" aria-label="Référence">
     <button class="btn" id="d-credits-go" type="button">Ajouter</button>
   </div>
@@ -291,6 +293,7 @@ $("signout").addEventListener("click", async () => {
 
 let clients = [];
 let plans = [];
+let packs = [];
 async function load(v) {
   try {
     if (v === "apercu") await loadOverview();
@@ -311,6 +314,7 @@ async function loadOverview() {
     stat(money(o.weekCost), "Coût des modèles, 7 j (privé)"),
   );
   const items = [];
+  for (const i of o.attention.failedInstances) items.push(el("div", { class: "it" }, el("span", { class: "pill bad" }, "Instance"), el("p", {}, "L'instance de " + (i.email || i.id) + " est en échec", el("br"), el("small", {}, "Ouvre Instances pour la mettre à jour ou la redémarrer"))));
   for (const c of o.attention.atLimit) items.push(el("div", { class: "it" }, el("span", { class: "pill warn" }, "Limite"), el("p", {}, (c.email || c.id) + " a atteint sa limite", el("br"), el("small", {}, "Bonne occasion de proposer un forfait au-dessus"))));
   if (o.attention.outdatedInstances) items.push(el("div", { class: "it" }, el("span", { class: "pill blue" }, "Instances"), el("p", {}, o.attention.outdatedInstances + " instance(s) sur une ancienne version", el("br"), el("small", {}, "Elles passent à la nouvelle à leur prochain réveil"))));
   if (o.attention.suspended) items.push(el("div", { class: "it" }, el("span", { class: "pill bad" }, "Suspendus"), el("p", {}, o.attention.suspended + " compte(s) suspendu(s)")));
@@ -324,7 +328,7 @@ async function loadOverview() {
 
 async function loadClients() {
   const r = await get("/clients");
-  clients = r.data; plans = r.plans;
+  clients = r.data; plans = r.plans; packs = r.packs;
   $("n-clients").textContent = fr.format(clients.length);
   const f = $("f-plan");
   if (f.options.length === 1) for (const p of plans) f.append(el("option", { value: p.id }, p.name));
@@ -367,14 +371,20 @@ let current = null;
 async function openClient(id) {
   const c = await get("/clients/" + encodeURIComponent(id));
   current = c;
-  if (!plans.length) { const r = await get("/clients"); plans = r.plans; }
+  if (!plans.length) { const r = await get("/clients"); plans = r.plans; packs = r.packs; }
   $("d-name").textContent = c.email || c.id;
   $("d-since").textContent = "Client depuis le " + day.format(c.createdAt) + " · dernière activité " + ago(c.lastActiveAt);
   const kv = [["Forfait", c.planName], ["Session 5 h", c.session + " %"], ["Semaine", c.week + " % · repart le " + stamp.format(c.weekResetsAt)],
-    ["Crédits médias", fr.format(c.mediaBalance)], ["Coût 7 j (privé)", money(c.cost) + " · " + c.cost.usd + " $"],
+    ["Crédits médias", fr.format(c.mediaBalance)], ["Coût 7 j (privé)", money(c.cost) + " · " + fr.format(c.cost.usd) + " $"],
     ["Instance", c.instance ? (c.instance.image || "?").split(":").pop() + (c.instance.managed ? "" : " · à la main") : "aucune"],
     ["État", c.suspendedAt !== null ? "Suspendu depuis le " + day.format(c.suspendedAt) : "Actif"]];
   $("d-kv").replaceChildren(...kv.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, v)]));
+  // A pack as sold, or any amount (« Montant libre »).
+  // Kept from one client to the next, once the list exists; the first pack otherwise.
+  const chosen = $("d-pack").options.length ? $("d-pack").value : null;
+  $("d-pack").replaceChildren(...packs.map((p) => el("option", { value: String(p.credits) }, "+" + p.credits + " (" + fr.format(p.eur) + " €)")), el("option", { value: "" }, "Montant libre…"));
+  if (chosen !== null && [...$("d-pack").options].some((o) => o.value === chosen)) $("d-pack").value = chosen;
+  $("d-credits").hidden = $("d-pack").value !== "";
   $("d-plan").replaceChildren(...plans.map((p) => el("option", { value: p.id }, p.name)));
   $("d-plan").value = c.planId;
   $("d-suspend").textContent = c.suspendedAt !== null ? "Rétablir le compte" : "Suspendre le compte";
@@ -395,7 +405,8 @@ async function run(button, path, body, done) {
   finally { button.disabled = false; }
 }
 $("d-plan-go").addEventListener("click", (e) => run(e.currentTarget, "/plan", { plan: $("d-plan").value }, (r) => r.changed ? "Forfait changé" : "C'était déjà ce forfait"));
-$("d-credits-go").addEventListener("click", (e) => run(e.currentTarget, "/credits", { credits: Number($("d-credits").value), reference: $("d-ref").value },
+$("d-pack").addEventListener("change", () => { $("d-credits").hidden = $("d-pack").value !== ""; if (!$("d-credits").hidden) $("d-credits").focus(); });
+$("d-credits-go").addEventListener("click", (e) => run(e.currentTarget, "/credits", { credits: Number($("d-pack").value || $("d-credits").value), reference: $("d-ref").value },
   (r) => r.duplicate ? "Cette référence a déjà été utilisée" : "+" + r.added + " crédits ajoutés"));
 $("d-reset").addEventListener("click", (e) => run(e.currentTarget, "/reset-session", {}, () => "Session remise à zéro"));
 $("d-suspend").addEventListener("click", (e) => run(e.currentTarget, "/suspend", { suspended: current.suspendedAt === null }, () => current.suspendedAt === null ? "Compte suspendu" : "Compte rétabli"));
@@ -419,7 +430,8 @@ async function loadInstances() {
       el("td", {}, el("span", { class: "pill " + tone }, word)),
       el("td", {}, (i.image || "?") + (i.outdated ? " · à mettre à jour" : "")),
       el("td", {}, el("span", { class: "code" }, i.machineId || i.app)),
-      el("td", {}, i.managed ? el("span", { class: "toolbar" }, action(i, "wake", "Réveiller"), i.outdated ? action(i, "update", "Mettre à jour") : null, action(i, "restart", "Redémarrer")) : el("small", { class: "muted" }, "déployée à la main")),
+      el("td", {}, i.managed ? el("span", { class: "toolbar" }, action(i, "wake", "Réveiller"), i.outdated ? action(i, "update", "Mettre à jour") : null, action(i, "restart", "Redémarrer"),
+        i.logsUrl ? el("a", { class: "btn", href: i.logsUrl, target: "_blank", rel: "noopener noreferrer" }, "Journaux") : null) : el("small", { class: "muted" }, "déployée à la main")),
     );
   }) : [el("tr", {}, el("td", { colspan: "5", class: "empty" }, "Aucune instance."))]));
 }

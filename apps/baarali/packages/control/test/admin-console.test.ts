@@ -11,6 +11,7 @@ import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js
 
 const T0 = Date.UTC(2026, 9, 3, 8, 0, 0);
 const FREE: Plan = { id: 'decouverte', category: 'free', displayName: 'Découverte', weekCredits: 1_000_000, monthlyPrices: [], models: null };
+const PRO100: Plan = { id: 'pro-100', category: 'pro', displayName: 'Pro', weekCredits: 25_000_000, monthlyPrices: [{ amount: 10000, currency: 'EUR' }], models: null };
 const PRO: Plan = { id: 'pro-200', category: 'pro', displayName: 'Pro', weekCredits: 50_000_000, monthlyPrices: [{ amount: 20000, currency: 'EUR' }], models: null };
 const OWNER: Account = { id: 'acc_owner', email: 'boss@example.test', planId: 'decouverte', createdAt: T0 };
 const AWA: Account = { id: 'acc_awa', email: 'awa@example.test', planId: 'decouverte', createdAt: T0 + 1000 };
@@ -35,7 +36,7 @@ function setup(opts: { adminEmails?: string[] } = {}) {
   const fly: FlyApi = {
     createVolume: async () => ({ id: 'vol_1' }),
     createMachine: async (_app, { config }: { region: string; config: MachineConfig }) => ({ id: 'm_1', state: 'started', config }),
-    machine: async (_app, id) => ({ id, state: 'suspended', config: { image: 'registry.fly.io/baarali-instances:v10' } }),
+    machine: async (_app, id) => ({ id, state: id === 'm_broken' ? 'failed' : 'suspended', config: { image: 'registry.fly.io/baarali-instances:v10' } }),
     updateMachine: async (_app, id, config) => {
       calls.push(`update ${id} ${config.image}`);
       return { id, state: 'started', config };
@@ -44,7 +45,7 @@ function setup(opts: { adminEmails?: string[] } = {}) {
     restart: async (_app, id) => void calls.push(`restart ${id}`),
     waitStarted: async () => {},
   };
-  const store = new MemoryStore(new Map([[hashToken('tok-owner'), OWNER], [hashToken('tok-awa'), AWA]]), [FREE, PRO]);
+  const store = new MemoryStore(new Map([[hashToken('tok-owner'), OWNER], [hashToken('tok-awa'), AWA]]), [FREE, PRO100, PRO]);
   let clock = T0 + 60_000;
   const instances = new Instances({
     store,
@@ -58,7 +59,7 @@ function setup(opts: { adminEmails?: string[] } = {}) {
     openRouterKey: 'k',
     publicUrl: 'https://app.baarali.test',
     appName: 'Baarali',
-    mediaPacks: [],
+    mediaPacks: [{ id: 'medias-2', credits: 71, prices: [{ amount: 200, currency: 'EUR' }] }],
     adminTokenHash: hashToken('operator-token'),
     adminEmails: opts.adminEmails ?? ['boss@example.test'],
     auth,
@@ -134,11 +135,13 @@ describe('who opens the console', () => {
 describe('what the console changes', () => {
   it('lists the clients, newest first, with what they cost', async () => {
     const { as } = setup();
-    const { data, plans } = (await (await as('boss', '/admin/api/clients')).json()) as { data: Array<{ id: string; planName: string; cost: { xof: number } }>; plans: Array<{ name: string }> };
+    const { data, plans, packs } = (await (await as('boss', '/admin/api/clients')).json()) as { data: Array<{ id: string; planName: string; cost: { xof: number } }>; plans: Array<{ name: string }>; packs: unknown };
     expect(data.map((c) => c.id)).toEqual([AWA.id, OWNER.id]);
     expect(data[0]).toMatchObject({ planName: 'Découverte', cost: { xof: 0 } });
-    // Two Pro levels share a name: the price tells them apart.
-    expect(plans.map((p) => p.name)).toEqual(['Découverte', 'Pro 200 €']);
+    // Two Pro levels share a name: the dearer is « Pro max ».
+    expect(plans.map((p) => p.name)).toEqual(['Découverte', 'Pro', 'Pro max']);
+    // The packs as sold, to give one in a click.
+    expect(packs).toEqual([{ id: 'medias-2', credits: 71, eur: 2 }]);
   });
 
   it('changes a plan, which the account\'s next call sees, and writes it down', async () => {
@@ -152,7 +155,7 @@ describe('what the console changes', () => {
     expect((await post('boss', '/admin/api/clients/acc_nobody/plan', { plan: 'pro-200' })).status).toBe(404);
 
     const { data } = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<Record<string, unknown>> };
-    expect(data).toEqual([expect.objectContaining({ actor: 'Boss@example.test', action: 'plan', account: AWA.email, detail: 'Découverte → Pro 200 €' })]);
+    expect(data).toEqual([expect.objectContaining({ actor: 'Boss@example.test', action: 'plan', account: AWA.email, detail: 'Découverte → Pro max' })]);
   });
 
   it('gives media credits once per payment reference, within a ceiling', async () => {
@@ -209,10 +212,20 @@ describe('instances from the console', () => {
     const body = await (await as('boss', '/admin/api/instances')).json();
     expect(body).toEqual({
       currentImage: 'v11',
-      data: [expect.objectContaining({ accountId: AWA.id, email: AWA.email, image: 'v10', outdated: true, state: 'suspended' })],
+      data: [expect.objectContaining({
+        accountId: AWA.id, email: AWA.email, image: 'v10', outdated: true, state: 'suspended',
+        logsUrl: 'https://fly.io/apps/baarali-instances/machines/m_awa',
+      })],
     });
-    const overview = (await (await as('boss', '/admin/api/overview')).json()) as { attention: { outdatedInstances: number } };
-    expect(overview.attention.outdatedInstances).toBe(1);
+    const overview = (await (await as('boss', '/admin/api/overview')).json()) as { attention: { outdatedInstances: number; failedInstances: unknown[] } };
+    expect(overview.attention).toMatchObject({ outdatedInstances: 1, failedInstances: [] });
+  });
+
+  it('puts a machine that failed to start first in what needs attention', async () => {
+    const { as, store } = await withInstance();
+    await store.saveInstance({ accountId: OWNER.id, app: 'baarali-instances', machineId: 'm_broken', volumeId: 'v', image: 'registry.fly.io/baarali-instances:v11', managed: true });
+    const overview = (await (await as('boss', '/admin/api/overview')).json()) as { attention: { failedInstances: unknown[] } };
+    expect(overview.attention.failedInstances).toEqual([{ id: OWNER.id, email: OWNER.email }]);
   });
 
   it('updates, restarts and wakes a machine, each written down', async () => {

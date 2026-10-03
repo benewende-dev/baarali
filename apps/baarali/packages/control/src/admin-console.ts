@@ -57,13 +57,13 @@ function monthlyEur(planId: string): number {
 const percent = (used: number, of: number) => (of > 0 ? Math.min(100, Math.round((used / of) * 100)) : 0);
 
 /** One account as the console shows it. */
-export function clientRow(s: AccountSummary, plan: Plan | null, now: number) {
+export function clientRow(s: AccountSummary, plan: Plan | null, now: number, label: (p: Plan) => string) {
   const g = gauges(s.quota ?? initialState(s.account.createdAt), budgetsForWeek(plan?.weekCredits ?? 0), now);
   return {
     id: s.account.id,
     email: s.account.email,
     planId: s.account.planId,
-    planName: plan ? planLabel(plan) : s.account.planId,
+    planName: plan ? label(plan) : s.account.planId,
     createdAt: s.account.createdAt,
     suspendedAt: s.account.suspendedAt ?? null,
     session: percent(g.session.usedCredits, g.session.sanctionedCredits),
@@ -75,10 +75,16 @@ export function clientRow(s: AccountSummary, plan: Plan | null, now: number) {
   };
 }
 
-/** Two Pro levels share a display name: the price tells them apart. */
-function planLabel(plan: Plan): string {
-  const eur = plan.monthlyPrices.find((p) => p.currency === 'EUR');
-  return plan.category === 'pro' && eur ? `${plan.displayName} ${eur.amount / 100} €` : plan.displayName;
+/**
+ * Two Pro levels share a display name: the dearer one is « Pro max », the
+ * owner's word for it (03/10/2026). Any other plan keeps its name.
+ */
+export function planLabeler(plans: Plan[]): (plan: Plan) => string {
+  const eur = (p: Plan) => p.monthlyPrices.find((m) => m.currency === 'EUR')?.amount ?? 0;
+  return (plan) => {
+    const twins = plans.filter((p) => p.displayName === plan.displayName);
+    return twins.length > 1 && eur(plan) === Math.max(...twins.map(eur)) ? `${plan.displayName} max` : plan.displayName;
+  };
 }
 
 export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
@@ -121,17 +127,23 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     const now = deps.now();
     const plans = await store.plans();
     const list = await store.listAccounts(now - WEEK_MS);
-    return { now, plans, list, rows: list.map((s) => clientRow(s, plans.find((p) => p.id === s.account.planId) ?? null, now)) };
+    const label = planLabeler(plans);
+    return { now, plans, label, list, rows: list.map((s) => clientRow(s, plans.find((p) => p.id === s.account.planId) ?? null, now, label)) };
   };
 
   app.get('/admin/api/overview', async (c) => {
     const actor = await api(c, false);
     if (actor instanceof Response) return actor;
-    const { now, plans, list, rows } = await summaries();
+    const { now, plans, label, list, rows } = await summaries();
     const instances = await store.allInstances();
     const outdated = deps.instances?.currentImage
       ? instances.filter((i) => i.managed && i.image !== deps.instances!.currentImage).length
       : 0;
+    // A machine that failed to start is the first thing to see (mockup of 03/10/2026).
+    const failed = deps.instances
+      ? (await Promise.all(instances.map((r) => deps.instances!.machineState(r).catch(() => null))))
+          .flatMap((m, i) => (m?.state === 'failed' ? [instances[i].accountId] : []))
+      : [];
     const paid = rows.filter((r) => plans.find((p) => p.id === r.planId)?.category !== 'free');
     const monthly = paid.reduce((sum, r) => sum + monthlyEur(r.planId), 0);
     const weekCredits = list.reduce((sum, s) => sum + s.recentCredits, 0);
@@ -142,11 +154,12 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
       paid: paid.length,
       monthlyValueEur: Math.round(monthly),
       weekCost: costOf(weekCredits),
-      plans: plans.map((p) => ({ id: p.id, name: planLabel(p), count: rows.filter((r) => r.planId === p.id).length })),
+      plans: plans.map((p) => ({ id: p.id, name: label(p), count: rows.filter((r) => r.planId === p.id).length })),
       attention: {
         atLimit: rows.filter((r) => r.week >= 100 || r.session >= 100).map((r) => ({ id: r.id, email: r.email })),
         suspended: rows.filter((r) => r.suspendedAt !== null).length,
         outdatedInstances: outdated,
+        failedInstances: failed.map((id) => ({ id, email: rows.find((r) => r.id === id)?.email ?? null })),
       },
     });
   });
@@ -154,8 +167,13 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
   app.get('/admin/api/clients', async (c) => {
     const actor = await api(c, false);
     if (actor instanceof Response) return actor;
-    const { rows, plans } = await summaries();
-    return c.json({ data: rows, plans: plans.map((p) => ({ id: p.id, name: planLabel(p) })) });
+    const { rows, plans, label } = await summaries();
+    return c.json({
+      data: rows,
+      plans: plans.map((p) => ({ id: p.id, name: label(p) })),
+      // The packs as sold, to give one in a click; any other amount stays possible.
+      packs: deps.mediaPacks.map((p) => ({ id: p.id, credits: p.credits, eur: (p.prices.find((m) => m.currency === 'EUR')?.amount ?? 0) / 100 })),
+    });
   });
 
   app.get('/admin/api/clients/:id', async (c) => {
@@ -190,10 +208,11 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     if (!plan) return c.json({ error: { code: 'invalid_request', message: 'Unknown plan' } }, 400);
     if (plan.id === account.planId) return c.json({ changed: false });
     // Named before the change: the memory store hands out the record it changes.
+    const label = planLabeler(await store.plans());
     const before = await store.plan(account.planId);
-    const from = before ? planLabel(before) : account.planId;
+    const from = before ? label(before) : account.planId;
     await store.setPlan(id, plan.id);
-    await log(actor, 'plan', id, `${from} → ${planLabel(plan)}`);
+    await log(actor, 'plan', id, `${from} → ${label(plan)}`);
     return c.json({ changed: true });
   });
 
@@ -255,6 +274,8 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
           app: r.app,
           machineId: r.machineId,
           managed: r.managed,
+          // Its logs and metrics, on Fly's dashboard (signed in there).
+          logsUrl: r.managed && r.machineId ? `https://fly.io/apps/${r.app}/machines/${r.machineId}` : null,
           image: imageLabel(r.image),
           outdated: Boolean(current && r.managed && r.image !== current),
           state: live === 'unknown' ? 'unknown' : (live?.state ?? null),
