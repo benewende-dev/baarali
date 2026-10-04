@@ -179,6 +179,8 @@ export function defaultModel(c: Catalog, plan: Plan): string | null {
 export interface PickerMeta {
   vendor: string;
   vendorName: string;
+  /** The vendor's place in the picker: the apps sort by it rather than keep their own copy of the order. */
+  vendorRank: number;
   strength: string;
   recommended: boolean;
   /** Set when the plan does not open it: the plan's name that does. */
@@ -203,8 +205,10 @@ export function presentFor(c: Catalog, plan: Plan, raw: string, planName: (id: s
   }
   if (!Array.isArray(parsed.data)) return null;
   const fallback = defaultModel(c, plan);
-  const data = parsed.data
-    .filter((m): m is RawModel => !!m && typeof m === 'object' && typeof (m as { id?: unknown }).id === 'string')
+  const listed = parsed.data.filter((m): m is RawModel => !!m && typeof m === 'object' && typeof (m as { id?: unknown }).id === 'string');
+  // Ranked among the vendors this plan sees, hidden ones left out.
+  const vendors = [...new Set(listed.filter((m) => accessFor(c, plan, m.id).kind !== 'hidden').map((m) => vendorOf(m.id)))].sort(compareVendors);
+  const data = listed
     .flatMap((m) => {
       const access = accessFor(c, plan, m.id);
       if (access.kind === 'hidden') return [];
@@ -213,6 +217,7 @@ export function presentFor(c: Catalog, plan: Plan, raw: string, planName: (id: s
       const baarali: PickerMeta = {
         vendor,
         vendorName: vendorName(vendor),
+        vendorRank: vendors.indexOf(vendor),
         strength: STRENGTHS[s?.strength ?? deduceStrength(m.id)],
         recommended: s?.recommended ?? false,
         ...(access.kind === 'locked' ? { unlock: planName(access.unlock) } : {}),
@@ -275,7 +280,7 @@ export function pickerGroups<T extends PickerModel>(models: T[]): Array<{ vendor
   for (const m of models) groups.set(m.baarali.vendor, [...(groups.get(m.baarali.vendor) ?? []), m]);
   const rank = (m: T) => (m.baarali.unlock ? 2 : m.baarali.recommended ? 0 : 1);
   return [...groups.entries()]
-    .sort(([a], [b]) => compareVendors(a, b))
+    .sort(([, a], [, b]) => a[0].baarali.vendorRank - b[0].baarali.vendorRank)
     .map(([vendor, list]) => ({
       vendor,
       name: list[0].baarali.vendorName,

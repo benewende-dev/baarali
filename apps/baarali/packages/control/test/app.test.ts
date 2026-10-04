@@ -168,7 +168,7 @@ describe('/v1/llm proxy', () => {
     const { call, seen, store } = setup(() => json({ data: [{ id: 'a/b' }] }));
     const res = await call('/v1/llm/models?output_modalities=image');
     // With what the picker needs beside the id (model-access.ts).
-    expect(await res.json()).toEqual({ data: [{ id: 'a/b', baarali: { vendor: 'a', vendorName: 'A', strength: 'Polyvalent', recommended: false } }] });
+    expect(await res.json()).toEqual({ data: [{ id: 'a/b', baarali: { vendor: 'a', vendorName: 'A', vendorRank: 0, strength: 'Polyvalent', recommended: false } }] });
     expect(seen[0].url).toBe('https://openrouter.ai/api/v1/models?output_modalities=image');
     expect(store.usage).toHaveLength(0);
   });

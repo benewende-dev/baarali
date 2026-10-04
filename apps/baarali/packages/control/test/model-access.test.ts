@@ -130,7 +130,8 @@ describe('the catalog as a plan\'s picker shows it', () => {
     expect(data[0]).toMatchObject({ name: 'Claude Sonnet', baarali: { vendor: 'anthropic', vendorName: 'Anthropic', recommended: true } });
     expect(data[1].baarali).toMatchObject({ vendorName: 'Meta', strength: 'Polyvalent' });
     // The dearer of the two Pro plans is « Pro max ».
-    expect(data[2].baarali).toEqual({ vendor: 'anthropic', vendorName: 'Anthropic', strength: 'Puissant', recommended: false, unlock: 'Pro max' });
+    expect(data[2].baarali).toEqual({ vendor: 'anthropic', vendorName: 'Anthropic', vendorRank: 0, strength: 'Puissant', recommended: false, unlock: 'Pro max' });
+    expect(data[1].baarali.vendorRank).toBe(1);
   });
 
   it('opens on the plan that has it', () => {
