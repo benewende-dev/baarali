@@ -2798,6 +2798,8 @@ export const FR: Dictionary = {
     "Name is required": "Le nom est obligatoire",
     "Navigated browser": "Navigation effectuée",
     "Navigating app": "Navigation dans l’app",
+    "Fast browsing": "Navigation rapide",
+    "Confirming browser action": "Validation d’une action dans le navigateur",
     "Navigating browser...": "Navigation…",
     "Navigation target cannot be empty.": "La destination ne peut pas être vide.",
     "Needs your input": "Attend votre réponse",

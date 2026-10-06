@@ -656,6 +656,8 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   'save-to-memory': 'Saving to memory',
   'app-navigation': 'Navigating app',
   'browser-control': 'Controlling browser',
+  'browser-run': 'Fast browsing',
+  'browser-confirm': 'Confirming browser action',
   'composio-list-toolkits': 'Listing integrations',
   'composio-search-tools': 'Searching tools',
   'composio-execute-tool': 'Running tool',
