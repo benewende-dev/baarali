@@ -16,12 +16,16 @@ import { GATEWAY_PATH, type Gateway } from './gateway.js';
 import { InstanceUnavailable, type Instances } from './instances.js';
 import { createGeneration, getGeneration, listMediaModels, mediaBalance, mediaHistory } from './media-route.js';
 import { advance, budgetsForWeek, gauges, initialState } from './quota.js';
-import { hashToken, type Account } from './store.js';
+import { hashToken, type Account, type ControlStore } from './store.js';
+import { speak } from './voice.js';
 
 export type ControlDeps = ProxyDeps & {
   /** Unset: media generation is off (503). */
   pixazoKey?: string;
   pixazoBase?: string;
+  /** Unset: voice answers 503 (voice.ts). */
+  deepgramKey?: string;
+  deepgramBase?: string;
   /** The media credit packs on sale (pricing.ts, packCredits). */
   mediaPacks: SoldPack[];
   /** SHA-256 of the operator token; unset: /v1/admin answers 404. */
@@ -59,6 +63,16 @@ const publicDevice = (d: { id: string; name: string; createdAt: number; lastSeen
   last_seen_at: d.lastSeenAt === null ? null : new Date(d.lastSeenAt).toISOString(),
   revoked_at: d.revokedAt === null ? null : new Date(d.revokedAt).toISOString(),
 });
+
+/** An instance token, or an access token our sign-in server issued; also the voice WebSocket's door (main.ts). */
+export function accountResolver(store: ControlStore, auth?: BaaraliAuth) {
+  return async (token: string): Promise<Account | null> => {
+    const byToken = await store.accountByToken(token);
+    if (byToken || !auth) return byToken;
+    const userId = await auth.userIdForAccessToken(token);
+    return userId ? store.accountForUser(userId) : null;
+  };
+}
 
 export function createApp(deps: ControlDeps) {
   // One cache of the console's model settings, for the proxy and the console (model-catalog.ts).
@@ -98,7 +112,7 @@ export function createApp(deps: ControlDeps) {
 
   // Unauthenticated, like the Rowboat Labs route: core reads it before login.
   app.get('/v1/config', async (c) =>
-    c.json(buildApiConfig({ publicUrl: deps.publicUrl, spacesUrl: deps.auth ? deps.spacesUrl : undefined }, await deps.store.plans())),
+    c.json(buildApiConfig({ publicUrl: deps.publicUrl, spacesUrl: deps.auth ? deps.spacesUrl : undefined, voice: Boolean(deps.deepgramKey) }, await deps.store.plans())),
   );
 
   // Where core looks for its OAuth server (`${supabaseUrl}/auth/v1`).
@@ -107,13 +121,7 @@ export function createApp(deps: ControlDeps) {
     app.all(`${AUTH_BASE_PATH}/*`, (c) => auth.handle(c.req.raw));
   }
 
-  // An instance token, or an access token our sign-in server issued.
-  const accountFor = async (token: string) => {
-    const byToken = await deps.store.accountByToken(token);
-    if (byToken || !deps.auth) return byToken;
-    const userId = await deps.auth.userIdForAccessToken(token);
-    return userId ? deps.store.accountForUser(userId) : null;
-  };
+  const accountFor = accountResolver(deps.store, deps.auth);
 
   const authed = createMiddleware<Env>(async (c, next) => {
     const token = bearer(c.req.header('authorization'));
@@ -128,6 +136,7 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/llm/*', authed);
   app.use('/v1/media/*', authed);
   app.use('/v1/spaces/*', authed);
+  app.use('/v1/voice/*', authed);
 
   // A cloud instance trades its token for a Spaces one (core
   // auth/spaces-exchange.ts): Spaces verify only our signed JWTs.
@@ -177,6 +186,12 @@ export function createApp(deps: ControlDeps) {
 
   app.all('/v1/llm/*', (c) => proxyLlm({ ...deps, models, upstreamModels }, c.get('account'), c.req.raw));
 
+  // Reading aloud (voice.ts); listening is the WebSocket of main.ts.
+  app.post('/v1/voice/text-to-speech/:voiceId', (c) =>
+    deps.deepgramKey
+      ? speak({ ...deps, deepgramKey: deps.deepgramKey }, c.get('account'), c.req.param('voiceId'), c.req.raw)
+      : c.json({ error: { code: 'voice_unavailable', message: 'Voice is not configured' } }, 503),
+  );
   app.get('/v1/media/models', (c) => listMediaModels({ ...deps, models }, c.get('account')));
   app.get('/v1/media/balance', (c) => mediaBalance(deps, c.get('account')));
   app.get('/v1/media/history', (c) => mediaHistory(deps, c.get('account')));
