@@ -23,7 +23,7 @@ import { useLiveTurn } from '@/lib/use-live-turn';
 import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
 import { baarasseurs } from '@x/shared';
-import { BaarasseurAvatar, useBaarasseurs } from './baarasseurs';
+import { BaarasseurAvatar, useBaarasseurs } from '@/lib/baarasseurs';
 
 // The home screen IS a chat (Claude/ChatGPT pattern). `id` picks the session;
 // empty/no id is the new-chat state — the session is created lazily on the
@@ -68,15 +68,39 @@ function Turn({ turnId, isLatest, onStreaming }: { turnId: string; isLatest: boo
 
 // Mac chat — reachable once a Mac is paired (Spaces is the app's home).
 export default function ChatScreen() {
+  const params = useLocalSearchParams<{ id?: string; agent?: string }>();
+  const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
+  return (
+    <ChatView
+      id={params.id || null}
+      agent={params.agent || null}
+      onCreated={(sessionId) => router.setParams({ id: sessionId })}
+      onEmptyPress={() => navigation.openDrawer()}
+    />
+  );
+}
+
+/**
+ * The conversation itself (BAARALI 06/10/2026: out of the screen, so the
+ * Baarasseurs page shows it beside its list on a wide screen — a foldable
+ * opened). `agent`: a new chat goes to that baarasseur. `embedded`: no
+ * floating header above it.
+ */
+export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false }: {
+  id: string | null;
+  agent: string | null;
+  onCreated: (sessionId: string) => void;
+  onEmptyPress?: () => void;
+  embedded?: boolean;
+}) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const models = useModels();
   const { pairing, sessions, events } = useConnection();
-  const params = useLocalSearchParams<{ id?: string; agent?: string }>();
-  const id = params.id || null;
-  // BAARALI(06/10/2026): opened from the Baarasseurs list, a new chat goes to that baarasseur.
-  const team = useBaarasseurs();
-  const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
+  const params = { agent };
+  const { team } = useBaarasseurs();
+  // The web search switch, as on the desktop's composer.
+  const [search, setSearch] = useState(false);
   const [session, setSession] = useState<sessionsShared.SessionState | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -139,14 +163,17 @@ export default function ChatScreen() {
       let sessionId = id;
       if (!sessionId) {
         sessionId = (await sessions.create({})).sessionId;
-        router.setParams({ id: sessionId });
+        onCreated(sessionId);
       }
       const agentId = turnRefs[turnRefs.length - 1]?.agentId ?? (params.agent || 'copilot');
       const model = models.current;
       await sessions.sendMessage(sessionId, { role: 'user', content }, {
         agent: {
           agentId,
-          ...(model ? { overrides: { model: { provider: model.provider, model: model.model } } } : {}),
+          overrides: {
+            ...(model ? { model: { provider: model.provider, model: model.model } } : {}),
+            ...(search ? { composition: { searchEnabled: true } } : {}),
+          },
         },
       });
       analytics.mobileMessageSent();
@@ -158,7 +185,7 @@ export default function ChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent]);
+  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent, search, onCreated]);
 
   // Seed the model pill's label once connected.
   const modelsRefresh = models.refresh;
@@ -182,6 +209,8 @@ export default function ChatScreen() {
   const agentNow = turnRefs[turnRefs.length - 1]?.agentId ?? params.agent;
   const baarasseurId = baarasseurs.baarasseurIdOf(agentNow);
   const baarasseur = baarasseurId ? team?.find((b) => b.id === baarasseurId) ?? null : null;
+  // Below the floating header on its own screen; at the top when embedded.
+  const top = embedded ? 8 : insets.top + 52;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
@@ -191,7 +220,7 @@ export default function ChatScreen() {
         keyboardVerticalOffset={process.env.EXPO_OS === 'ios' ? 92 : 0}
       >
         {/* Whom you are talking to, in a baarasseur's chat (below the floating header). */}
-        {baarasseur && id ? (
+        {baarasseur && id && !embedded ? (
           <View style={{ position: 'absolute', top: insets.top + 6, left: 64, right: 16, zIndex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>
             <BaarasseurAvatar b={baarasseur} size={30} />
             <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>
@@ -202,7 +231,7 @@ export default function ChatScreen() {
             ref={scrollRef}
             // The header is transparent (floating hamburger) — pad the content
             // below it by hand: safe area + standard header height.
-            contentContainerStyle={{ paddingTop: insets.top + 52, paddingHorizontal: 16, paddingBottom: 16, gap: 4 }}
+            contentContainerStyle={{ paddingTop: top, paddingHorizontal: 16, paddingBottom: 16, gap: 4 }}
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
           >
             {error && <Text selectable style={{ color: colors.destructive }}>{error}</Text>}
@@ -222,7 +251,7 @@ export default function ChatScreen() {
             {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}
           </View>
         ) : (
-          <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }} onPress={() => navigation.openDrawer()}>
+          <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }} onPress={onEmptyPress}>
             <Text style={{ fontSize: 22, fontWeight: '600', color: colors.label }}>Rowboat</Text>
             <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>
           </Pressable>
@@ -248,6 +277,20 @@ export default function ChatScreen() {
             multiline
           />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: search }}
+              accessibilityLabel="Web search"
+              onPress={() => setSearch((on) => !on)}
+              hitSlop={6}
+              style={{
+                width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 6,
+                backgroundColor: search ? colors.accent : 'transparent',
+                borderWidth: search ? 0 : 1, borderColor: colors.separator,
+              }}
+            >
+              <Image source="sf:globe" style={{ width: 16, height: 16 }} tintColor={search ? colors.onAccent : colors.secondaryLabel} />
+            </Pressable>
             <ModelPill models={models} />
             <View style={{ flex: 1 }} />
             {sending || latestStreaming ? (
