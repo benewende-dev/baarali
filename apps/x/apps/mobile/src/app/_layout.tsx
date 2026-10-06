@@ -59,6 +59,8 @@ export default function RootLayout() {
               })}
             />
             <Drawer.Screen name="spaces" options={{ title: 'Spaces', headerShown: false }} />
+            {/* BAARALI(06/10/2026): the baarasseurs, as contacts. */}
+            <Drawer.Screen name="baarasseurs" options={{ title: 'Baarasseurs', headerShown: true }} />
             <Drawer.Screen
               name="pairing"
               options={({ navigation }) => ({

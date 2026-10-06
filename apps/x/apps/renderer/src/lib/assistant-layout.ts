@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useReducer } from 'react'
 import { readAssistantPreference, writeAssistantPreference } from './assistant-dock'
 
-export type ChatLocation = 'assistant' | 'sidebar' | 'floating'
+// BAARALI(06/10/2026): 'baarasseur', the conversation open on the Baarasseurs page.
+export type ChatLocation = 'assistant' | 'sidebar' | 'floating' | 'baarasseur'
 export interface WindowSize { width: number; height: number }
 /** Floating windows sit in a row above the bottom strip (Gmail compose style):
  *  each keeps its own size; its position follows its place in the strip. */
@@ -13,6 +14,8 @@ export interface AssistantLayout {
   sidebarVisible: boolean
   floating: FloatingChat[]
   focused: string | null
+  /** The chat on the Baarasseurs page (Baarali); absent = none. */
+  baarasseur?: string | null
 }
 export type LayoutAction =
   | { type: 'place'; id: string; location: ChatLocation; replacing?: string; size: WindowSize }
@@ -31,6 +34,7 @@ export function initialAssistantLayout(id: string): AssistantLayout {
 export function chatLocation(layout: AssistantLayout, id: string): ChatLocation | null {
   if (layout.assistant === id) return 'assistant'
   if (layout.sidebar === id) return 'sidebar'
+  if (layout.baarasseur === id) return 'baarasseur'
   return layout.floating.some((entry) => entry.id === id) ? 'floating' : null
 }
 
@@ -46,6 +50,7 @@ export function assistantLayoutReducer(state: AssistantLayout, action: LayoutAct
         sidebarVisible: state.sidebar === action.id ? false : state.sidebarVisible,
         floating: state.floating.filter((entry) => entry.id !== action.id && entry.id !== action.replacing),
         focused: action.id,
+        ...(state.baarasseur === action.id ? { baarasseur: null } : {}),
       }
       if (action.location === 'floating') {
         const { width, height } = previous ?? action.size
@@ -65,6 +70,7 @@ export function assistantLayoutReducer(state: AssistantLayout, action: LayoutAct
       sidebarVisible: state.sidebar === action.id ? false : state.sidebarVisible,
       floating: state.floating.filter((entry) => entry.id !== action.id),
       focused: state.focused === action.id ? null : state.focused,
+      ...(state.baarasseur === action.id ? { baarasseur: null } : {}),
     }
     case 'focus': return { ...state, focused: action.id, floating: state.floating.map((entry) => entry.id === action.id ? { ...entry, minimized: false, layer } : entry) }
     case 'hide-sidebar': return { ...state, sidebarVisible: false }
@@ -107,6 +113,7 @@ export function restoreAssistantLayout(raw: string | null, ids: string[]): Assis
     }
     const assistant = take(saved.assistant)
     const sidebar = take(saved.sidebar)
+    const baarasseur = take(saved.baarasseur)
     const floating: FloatingChat[] = []
     for (const entry of saved.floating) {
       if (!entry || !['width', 'height', 'layer'].every((key) => Number.isFinite(entry[key]))) continue
@@ -117,7 +124,7 @@ export function restoreAssistantLayout(raw: string | null, ids: string[]): Assis
     const focused = [assistant, sidebar, ...floating.filter((entry) => !entry.minimized).map((entry) => entry.id)].includes(saved.focused) ? saved.focused : assistant
     // The sidebar starts hidden on every app launch. Its remembered chat stays
     // assigned so an explicit open can restore that same conversation.
-    return { assistant, sidebar, sidebarVisible: false, floating, focused }
+    return { assistant, sidebar, sidebarVisible: false, floating, focused, ...(baarasseur ? { baarasseur } : {}) }
   } catch { return fallback }
 }
 

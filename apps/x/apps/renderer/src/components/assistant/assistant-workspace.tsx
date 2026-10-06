@@ -15,6 +15,9 @@ interface AssistantWorkspaceProps extends ChatServices {
   dispatch: Dispatch<LayoutAction>
   pageHost: HTMLElement | null
   pageVisible: boolean
+  /** The Baarasseurs page's chat host, and whether that page shows (Baarali). */
+  baarasseurHost?: HTMLElement | null
+  baarasseurVisible?: boolean
   legacyPane: boolean
   workspaceSessionId?: string | null
   onMoveChat: (id: string, location: ChatLocation) => void
@@ -187,8 +190,8 @@ export function AssistantWorkspace(p: AssistantWorkspaceProps) {
       const location = chatLocation(layout, tab.id)
       if (!location) return []
       const floating = layout.floating.find((entry) => entry.id === tab.id)
-      const visible = location === 'assistant' ? p.pageVisible : location === 'sidebar' ? layout.sidebarVisible : !floating?.minimized
-      const host = location === 'assistant' ? p.pageHost : location === 'sidebar' ? hosts.sidebar : hosts[tab.id]
+      const visible = location === 'assistant' ? p.pageVisible : location === 'sidebar' ? layout.sidebarVisible : location === 'baarasseur' ? !!p.baarasseurVisible : !floating?.minimized
+      const host = location === 'assistant' ? p.pageHost : location === 'sidebar' ? hosts.sidebar : location === 'baarasseur' ? p.baarasseurHost ?? null : hosts[tab.id]
       // Closing is the sidebar's job, not the chat's: the container hands its
       // button into the chat's header row rather than stacking a strip above it.
       const controls = location === 'sidebar'

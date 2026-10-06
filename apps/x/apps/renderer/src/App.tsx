@@ -5578,16 +5578,19 @@ function App() {
     void navigateToView({ type: 'baarasseurs' })
   }, [navigateToView])
 
-  // A baarasseur's conversation: its latest chat, or a fresh one whose first
-  // message goes to it (the session then carries its agent id).
-  const writeToBaarasseur = useCallback((baarasseurAgent: string, runId: string | null) => {
-    if (runId) { openAssistantRun(runId); return }
-    const tab = newChatAt('assistant')
+  // A baarasseur's conversation, on the Baarasseurs page (its own chat slot,
+  // like a contact in a messenger): its latest chat, or a fresh one whose
+  // first message goes to it (the session then carries its agent id).
+  const [openBaarasseur, setOpenBaarasseur] = useState<string | null>(null)
+  const [baarasseurHost, setBaarasseurHost] = useState<HTMLDivElement | null>(null)
+  const showBaarasseurChat = useCallback((baarasseurAgent: string, runId: string | null) => {
+    setOpenBaarasseur(baarasseurAgent)
+    const current = assistantLayout.baarasseur ?? undefined
+    if (runId) { selectChatAt(runId, 'baarasseur', current); return }
+    const tab = newChatAt('baarasseur', current)
     agentByChatRef.current.set(tab.chatId, baarasseurAgent)
     noteChatAgent(tab.chatId, baarasseurAgent)
-    dismissBrowserOverlay()
-    closeAllSections()
-  }, [openAssistantRun, newChatAt, dismissBrowserOverlay, closeAllSections])
+  }, [assistantLayout.baarasseur, selectChatAt, newChatAt])
 
   // navigateToView early-returns when the apps view is already showing, so
   // `openAppsView` alone is a no-op while an app is open — the sidebar "Apps"
@@ -7784,7 +7787,8 @@ function App() {
               {sectionMounted('baarasseurs') && (
                 <KeepAliveSection visible={activeMiddle === 'baarasseurs'}>
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  <BaarasseursView runs={runs} onWrite={writeToBaarasseur} />
+                  <BaarasseursView runs={runs} openAgent={openBaarasseur} onOpen={showBaarasseurChat}
+                    onClose={() => setOpenBaarasseur(null)} chatHost={setBaarasseurHost} hasChat={!!assistantLayout.baarasseur} />
                 </div>
                 </KeepAliveSection>
               )}
@@ -8097,8 +8101,14 @@ function App() {
 
               <AssistantWorkspace
                 layout={assistantLayout} dispatch={dispatchAssistantLayout} pageHost={assistantPageHost} pageVisible={activeMiddle === 'chat'}
+                baarasseurHost={baarasseurHost} baarasseurVisible={activeMiddle === 'baarasseurs' && !!openBaarasseur}
                 legacyPane={isCodePaneActive} workspaceSessionId={activeCodeSession?.session.id ?? null}
-                onMoveChat={moveAssistantChat} onNewChatAt={newChatAt} onSelectChatAt={selectChatAt} onFocusChat={switchChatTab}
+                onMoveChat={moveAssistantChat} onSelectChatAt={selectChatAt} onFocusChat={switchChatTab}
+                onNewChatAt={(location, replacing) => {
+                  // A new conversation on the Baarasseurs page is with the same baarasseur.
+                  if (location === 'baarasseur' && openBaarasseur) showBaarasseurChat(openBaarasseur, null)
+                  else newChatAt(location, replacing)
+                }}
                 onHideSidebar={() => dispatchAssistantLayout({ type: 'hide-sidebar' })} onCloseChat={closeAssistantChat}
                 onSubmitForTab={(id, message, mentions, attachments, search, mode, permission) => handlePromptSubmit(message, mentions, attachments, search, mode, permission, id)}
                 voiceOwner={voiceOwner} callChatId={hoverRunId}
