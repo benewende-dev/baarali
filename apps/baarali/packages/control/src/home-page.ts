@@ -1381,8 +1381,11 @@ document.querySelector(".theme").addEventListener("click", () => {
   root.dataset.theme = dark ? "light" : "dark";
   try { localStorage.setItem("baarali-theme", root.dataset.theme); } catch {}
 });
-const top = document.querySelector(".top");
-const onScroll = () => top.classList.toggle("scrolled", window.scrollY > 8);
+// Not "top": that global is the browser's own (window.top, which cannot be
+// redeclared), and declaring it threw before any line ran (06/10/2026: the
+// theme switch, the sliders and the header all did nothing).
+const bar = document.querySelector(".top");
+const onScroll = () => bar.classList.toggle("scrolled", window.scrollY > 8);
 window.addEventListener("scroll", onScroll, { passive: true });
 onScroll();
 // The bars of the voice scene, each its own height.

@@ -200,3 +200,22 @@ describe('the pricing page', () => {
     expect(page).toContain('href="/tarifs"');
   });
 });
+
+// 06/10/2026: `const top = …` in the page's script threw at once in every
+// browser (window.top cannot be redeclared), so nothing on the page ran —
+// the theme switch first. The scripts must parse, and declare none of the
+// browser's own globals at their top level.
+describe('the scripts of the site pages', () => {
+  const OWN_GLOBALS = ['top', 'window', 'document', 'location', 'self', 'parent', 'frames'];
+  for (const path of ['/', '/tarifs']) {
+    it(`run on ${path}: they parse and leave the browser's globals alone`, async () => {
+      const page = await (await app.request(path)).text();
+      const scripts = [...page.matchAll(/<script nonce="[^"]*">([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+      expect(scripts.length).toBeGreaterThan(0);
+      for (const code of scripts) {
+        expect(() => new Function(code)).not.toThrow();
+        for (const name of OWN_GLOBALS) expect(code).not.toMatch(new RegExp(`^(const|let|var|class|function)\\s+${name}\\b`, 'm'));
+      }
+    });
+  }
+});
