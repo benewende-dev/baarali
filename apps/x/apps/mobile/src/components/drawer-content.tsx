@@ -64,6 +64,11 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   };
 
   const paired = Boolean(pairing);
+  const go = (path: '/baarasseurs' | '/spaces' | '/notes') => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
+    router.push(path);
+    props.navigation.closeDrawer();
+  };
   const connected = status === 'connected';
 
   return (
@@ -93,6 +98,17 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         </Pressable>
       </View>
       ) : null}
+
+      {/* BAARALI(06/10/2026): the destinations as tiles, as the validated mobile
+          mockup draws them (claude.ai/artifact/5hiVQMibobFRRitE7ictcw). The
+          tiles of steps 2 and 3 (E-mail, Tasks, Routines, Meetings, Apps)
+          join as their screens land. */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingBottom: 10 }}>
+        {paired ? <Tile icon="sf:bubble.left" label="Chat" onPress={() => openChat()} /> : null}
+        {paired ? <Tile icon="sf:person.2.fill" label="Baarasseurs" onPress={() => go('/baarasseurs')} /> : null}
+        <Tile icon="sf:square.grid.2x2" label="Spaces" onPress={() => go('/spaces')} />
+        {paired ? <Tile icon="sf:books.vertical" label="Library" onPress={() => go('/notes')} /> : null}
+      </View>
 
       {/* History */}
       {paired ? (
@@ -132,34 +148,6 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
       {/* Foot: Brain, then the connection row */}
       <View style={{ borderTopWidth: 0.5, borderTopColor: colors.separator, paddingTop: 6, paddingBottom: insets.bottom + 8, gap: 2 }}>
-        <FootRow
-          icon="sf:person.2"
-          label="Spaces"
-          onPress={() => {
-            router.push('/spaces');
-            props.navigation.closeDrawer();
-          }}
-        />
-        {paired ? (
-        <FootRow
-          icon="sf:person.crop.circle.badge.checkmark"
-          label="Baarasseurs"
-          onPress={() => {
-            router.push('/baarasseurs');
-            props.navigation.closeDrawer();
-          }}
-        />
-        ) : null}
-        {paired ? (
-        <FootRow
-          icon="sf:brain"
-          label="Brain"
-          onPress={() => {
-            router.push('/notes');
-            props.navigation.closeDrawer();
-          }}
-        />
-        ) : null}
         <FootRow
           icon="sf:bell"
           label="Notifications"
@@ -221,6 +209,25 @@ function FootRow({ icon, label, onPress, detail, detailColor, onDetail }: {
           <Text style={{ fontSize: 13, color: detailColor ?? colors.secondaryLabel }}>{detail}</Text>
         </Pressable>
       ) : null}
+    </Pressable>
+  );
+}
+
+/** A destination tile: an icon over its name, three to a row. */
+function Tile({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => ({
+        width: '31.5%', height: 72, borderRadius: 16, borderCurve: 'continuous',
+        alignItems: 'center', justifyContent: 'center', gap: 6,
+        backgroundColor: pressed ? colors.separator : colors.secondaryBackground,
+      })}
+    >
+      <Image source={icon} style={{ width: 22, height: 22 }} tintColor={colors.label} />
+      <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: colors.label }}>{label}</Text>
     </Pressable>
   );
 }

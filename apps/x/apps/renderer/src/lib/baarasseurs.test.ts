@@ -30,3 +30,24 @@ describe('the baarasseurs, app side (06/10/2026)', () => {
     }
   })
 })
+
+describe('the shared save, desktop and phone alike (06/10/2026)', () => {
+  it('keeps a rule learned meanwhile, drops a forgotten one, and resets its hours', async () => {
+    const { saveTeam, upsertChange } = await import('@x/shared/dist/baarasseur.js')
+    const stored = { id: 'mariama', name: 'Mariama', role: '', mission: '', color: 'clay', tools: [], memory: ['old rule', 'learned meanwhile'], createdAt: 'x', schedule: null }
+    const calls: Array<[string, unknown]> = []
+    let file = JSON.stringify({ baarasseurs: [stored] })
+    const invoke = async (channel: string, args: unknown) => {
+      calls.push([channel, args])
+      if (channel === 'workspace:readFile') return { data: file }
+      if (channel === 'workspace:writeFile') file = (args as { data: string }).data
+      return { success: true }
+    }
+    const edited = { ...stored, mission: 'Relance', memory: [], schedule: { every: 'week' as const, day: 1, hour: 8 } }
+    const team = await saveTeam(invoke, upsertChange(edited, ['old rule']), { id: 'mariama' }, 'fr')
+    expect(team[0].memory).toEqual(['learned meanwhile'])
+    expect(calls.map(([c]) => c)).toEqual(['workspace:readFile', 'workspace:writeFile', 'agent-schedule:deleteAgent', 'agent-schedule:updateAgent'])
+    expect(calls[3][1]).toMatchObject({ agentName: 'baarasseur-mariama', entry: { schedule: { type: 'cron', expression: '0 8 * * 1' } } })
+    expect((calls[3][1] as { entry: { startingMessage: string } }).entry.startingMessage).toMatch(/^C’est l’heure/)
+  })
+})

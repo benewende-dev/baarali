@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ArrowLeft, ArrowUp, Check, Loader2, MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react'
-import { personaInstructions, baarasseurAgentId } from '@x/shared/dist/baarasseur.js'
+import { baarasseurAgentId } from '@x/shared/dist/baarasseur.js'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +10,7 @@ import { formatRelativeTime } from '@/lib/relative-time'
 import { appLang } from '@/lib/prompt-library'
 import { cn } from '@/lib/utils'
 import {
-  HOURS, TEMPLATES, TINTS, TOOLS, TRYOUT_NOTE, WEEKDAYS, describeSystem, idFor, parseDescribed, templateToBaarasseur, tint,
+  HOURS, TEMPLATES, TINTS, TOOLS, WEEKDAYS, describeSystem, tryoutRequest, idFor, parseDescribed, templateToBaarasseur, tint,
   useBaarasseurs, type Baarasseur, type BaarasseurSchedule,
 } from '@/lib/baarasseurs'
 
@@ -341,13 +341,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
     const turns: Turn[] = [...trial, { role: 'user', text }]
     setTrial(turns); setAsk(''); setBusy('try')
     try {
-      const speaker = (t: Turn) => (t.role === 'user' ? 'USER' : b.name || 'Baarasseur')
-      const transcript = turns.map((t) => `${speaker(t)}: ${t.text}`).join('\n\n')
-      const res = await window.ipc.invoke('llm:generate', {
-        prompt: `${transcript}\n\n${b.name || 'Baarasseur'}:`,
-        system: `${personaInstructions({ ...b, name: b.name || 'Baarasseur' })}\n\n${TRYOUT_NOTE}`,
-        ...(b.model ? { model: b.model, provider: b.provider } : {}),
-      })
+      const res = await window.ipc.invoke('llm:generate', tryoutRequest(b, turns))
       setTrial([...turns, { role: 'assistant', text: res.text?.trim() || '…' }])
     } catch {
       setTrial([...turns, { role: 'assistant', text: '…' }])
