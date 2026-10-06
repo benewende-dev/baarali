@@ -253,16 +253,25 @@ export function createListenRelay(deps: ListenDeps) {
     };
     socket.on('error', () => socket.destroy());
     const key = req.headers['sec-websocket-key'];
-    if (url.pathname !== LISTEN_PATH || typeof key !== 'string') return refuse('404 Not Found');
+    if (url.pathname !== LISTEN_PATH || typeof key !== 'string') {
+      console.warn('[voice] listen refused: not a WebSocket handshake');
+      return refuse('404 Not Found');
+    }
     const token = listenToken(req);
     const offeredBearer = String(req.headers['sec-websocket-protocol'] ?? '').toLowerCase().startsWith('bearer');
 
     void (async () => {
       const account = token ? await deps.accountFor(token) : null;
-      if (!account) return refuse('401 Unauthorized');
+      if (!account) {
+        console.warn(`[voice] listen refused: ${token ? 'unknown token' : 'no token'}`);
+        return refuse('401 Unauthorized');
+      }
       if (account.suspendedAt) return refuse('403 Forbidden');
       const gate = await enter(deps, account);
-      if (!gate.ok) return refuse(gate.status === 429 ? '429 Too Many Requests' : '403 Forbidden');
+      if (!gate.ok) {
+        console.warn(`[voice] listen refused for ${account.id}: ${String(gate.error.code)}`);
+        return refuse(gate.status === 429 ? '429 Too Many Requests' : '403 Forbidden');
+      }
 
       const params = upstreamQuery(url);
       const channels = channelsOf(params);
@@ -288,6 +297,9 @@ export function createListenRelay(deps: ListenDeps) {
       let total = 0;
       let timer: ReturnType<typeof setInterval> | undefined;
       let closed = false;
+      let startedAt = 0;
+      let heard = 0;
+      let said = 0;
       const meter = async () => {
         const now = deps.now();
         const credits = sttCredits(now - billed, channels);
@@ -303,6 +315,7 @@ export function createListenRelay(deps: ListenDeps) {
         socket.destroy();
         if (!opened) return;
         await meter();
+        console.log(`[voice] listen closed for ${account.id}: ${Math.round((deps.now() - startedAt) / 1000)} s, ${heard} bytes heard, ${said} bytes back`);
         await deps.store.appendUsage({
           accountId: account.id, at: deps.now(), path: '/voice/listen', model: 'nova-3', requestedModel: null,
           status: 101, credits: total, estimated: false, useCase: 'voice', agentName: null,
@@ -340,6 +353,10 @@ export function createListenRelay(deps: ListenDeps) {
         socket.pipe(upstream);
         opened = true;
         billed = deps.now();
+        startedAt = billed;
+        console.log(`[voice] listen open for ${account.id} (${params.get('encoding') ?? 'auto'}, ${channels} channel(s))`);
+        socket.on('data', (d: Buffer) => (heard += d.length));
+        upstream.on('data', (d: Buffer) => (said += d.length));
         timer = setInterval(() => {
           void meter()
             .then(() => stillAdmitted(deps, account))
