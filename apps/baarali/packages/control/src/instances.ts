@@ -104,6 +104,23 @@ export class Instances {
     return Boolean(image && record.managed && (record.image !== image || record.keys !== KEYS));
   }
 
+  /**
+   * At start: the token each machine runs with opens /v1 (idempotent). A
+   * machine moved to new keys by a wake or the console before 06/10/2026 got
+   * a token that was never granted, and the app's relaunch never repairs it
+   * (ensure runs only when a new device signs in): the model picker said 401.
+   * Returns how many tokens were granted.
+   */
+  async grantRunningTokens(): Promise<number> {
+    let n = 0;
+    for (const record of await this.deps.store.allInstances()) {
+      if (!record.machineId && !record.app) continue;
+      await this.deps.store.grantToken(this.instanceToken(record.accountId, record.keys), record.accountId);
+      n++;
+    }
+    return n;
+  }
+
   /** The machine now runs the current keys: the previous instance token opens nothing. */
   private async retireKeys(record: InstanceRecord): Promise<void> {
     if (record.keys !== KEYS) await this.deps.store.revokeToken(this.instanceToken(record.accountId, record.keys));
