@@ -21,6 +21,7 @@ export * as bases from './bases.js';
 export * as browserControl from './browser-control.js';
 export * as billing from './billing.js';
 export * as baarasseurs from './baarasseur.js';
+export * as promptLibrary from './prompt-library.js';
 export * as credits from './credits.js';
 export * as notificationSettings from './notification-settings.js';
 export * as turnLimits from './turn-limits.js';

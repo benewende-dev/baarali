@@ -19,7 +19,7 @@ export default function NotesLayout() {
       <Stack.Screen
         name="index"
         options={({ navigation }) => ({
-          title: 'Brain',
+          title: 'Library',
           // Plain hamburger, matching the standard drawer header look.
           headerLeft: () => (
             <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} hitSlop={10}>
