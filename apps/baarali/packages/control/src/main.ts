@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import pg from 'pg';
-import { createApp } from './app.js';
+import { accountResolver, createApp } from './app.js';
 import { FlyMachines } from './fly.js';
 import { createGateway } from './gateway.js';
 import { Instances, settleOwnerInstance, type InstancesConfig } from './instances.js';
@@ -10,6 +10,7 @@ import { ASSUMPTIONS, MEDIA_PACKS, OFFERS } from './catalog.js';
 import { packCredits, plansFrom } from './pricing.js';
 import { migrate, poolDb } from './db.js';
 import { PgStore } from './pg-store.js';
+import { LISTEN_PATH, createListenRelay } from './voice.js';
 import { MemoryStore, hashToken, type Account, type ControlStore } from './store.js';
 
 // Entry point (roadmap §4): the owner, their instance token, the plan catalog
@@ -147,6 +148,9 @@ if (process.env.BAARALI_GATEWAY_SECRET) {
 }
 const gateway = instances ? createGateway({ store, instances, now: Date.now, fetch: globalThis.fetch }) : undefined;
 
+const deepgramKey = process.env.DEEPGRAM_API_KEY || undefined;
+console.log(`[control] voice: ${deepgramKey ? 'deepgram' : 'off'}`);
+
 const app = createApp({
   store,
   openRouterKey: required('OPENROUTER_API_KEY'),
@@ -154,6 +158,8 @@ const app = createApp({
   appName: process.env.BAARALI_APP_NAME ?? 'Baarali',
   // Optional: without it, media generation answers 503 and text still works.
   pixazoKey: process.env.PIXAZO_API_KEY || undefined,
+  // Optional: without it, reading aloud answers 503 and listening is refused.
+  deepgramKey,
   mediaPacks,
   home: {
     offers: OFFERS,
@@ -177,6 +183,12 @@ const port = Number(process.env.PORT ?? '8080');
 const server = serve({ fetch: app.fetch, port }, () => {
   console.log(`[control] listening on :${port}`);
 });
-// The instance's event WebSocket goes through the gateway too.
-if (gateway) server.on('upgrade', gateway.upgrade);
-else server.on('upgrade', (_req, socket) => socket.destroy());
+// Two WebSockets: listening (voice.ts), and the instance's events through the gateway.
+const listen = deepgramKey
+  ? createListenRelay({ store, deepgramKey, fetch: globalThis.fetch, now: Date.now, accountFor: accountResolver(store, auth) })
+  : undefined;
+server.on('upgrade', (req, socket, head) => {
+  if (listen && (req.url ?? '').split('?')[0] === LISTEN_PATH) listen(req, socket, head);
+  else if (gateway) gateway.upgrade(req, socket, head);
+  else socket.destroy();
+});

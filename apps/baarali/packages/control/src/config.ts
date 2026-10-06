@@ -10,6 +10,8 @@ export interface ControlSettings {
   publicUrl: string;
   /** Our Spaces server (Harbor), once deployed; unset: the apps hide Spaces. */
   spacesUrl?: string;
+  /** Deepgram is configured: the apps listen through `/deepgram/v1/listen` here (voice.ts). */
+  voice?: boolean;
 }
 
 /**
@@ -19,8 +21,9 @@ export interface ControlSettings {
  *
  * - `supabaseUrl` is the OIDC issuer base: core appends `/auth/v1`. The
  *   control plane is that issuer (architecture §3.5, login by phone).
- * - `websocketApiUrl` stays empty until the voice phase (roadmap phase 8):
- *   core then fails voice with an explicit error instead of calling Rowboat.
+ * - `websocketApiUrl` is this server in `wss:` once Deepgram is configured
+ *   (roadmap phase 8, voice.ts); empty without it, and core then fails
+ *   voice with an explicit error instead of calling Rowboat.
  * - `spacesApexUrl` is our own Harbor (apps/harbor) once it is deployed,
  *   null before: the apps never reach the Rowboat Labs fleet (decided
  *   02/10/2026: we host Spaces ourselves).
@@ -36,7 +39,7 @@ export function buildApiConfig(settings: ControlSettings, plans: Plan[] = []): A
   const base = settings.publicUrl.replace(/\/+$/, '');
   return {
     appUrl: base,
-    websocketApiUrl: '',
+    websocketApiUrl: settings.voice ? base.replace(/^http/, 'ws') : '',
     supabaseUrl: base,
     spacesApexUrl: settings.spacesUrl ? settings.spacesUrl.replace(/\/+$/, '') : null,
     composio: false,
