@@ -118,7 +118,12 @@ export class Instances {
     const existing = await this.deps.store.instance(account.id);
     // The owner's instance of phase 0 is deployed by hand: only reached.
     if (existing && !existing.managed) return existing;
-    if (existing?.machineId && existing.image === this.deps.config?.image && existing.keys === KEYS) return existing;
+    if (existing?.machineId && existing.image === this.deps.config?.image && existing.keys === KEYS) {
+      // A machine moved before 06/10/2026 by a wake or the console runs a token
+      // that was never granted: granting again (idempotent) mends it.
+      await this.deps.store.grantToken(this.instanceToken(account.id), account.id);
+      return existing;
+    }
     const running = this.building.get(account.id);
     if (running) return running;
     const build = this.build(account, existing).finally(() => this.building.delete(account.id));
@@ -311,6 +316,9 @@ export class Instances {
     const { fly, config, store } = this.deps;
     const current = await store.instance(record.accountId);
     if (!fly || !config || !current?.machineId || !current.volumeId) return;
+    // The new token opens /v1 before the machine boots with it (06/10/2026:
+    // without this, a machine moved by a wake or by « Mettre à jour » got 401).
+    await store.grantToken(this.instanceToken(current.accountId), current.accountId);
     await fly.updateMachine(current.app, current.machineId, this.machineConfig(current.accountId, current.volumeId, config));
     await this.retireKeys(current);
     await store.saveInstance({ ...current, image: config.image, keys: KEYS });
