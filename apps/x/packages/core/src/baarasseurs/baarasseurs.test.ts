@@ -44,8 +44,10 @@ describe('the baarasseurs (06/10/2026)', () => {
         expect(carriesSkillsForward('baarasseur-mariama')).toBe(true);
     });
 
-    it('fails clearly when the baarasseur was removed', async () => {
-        await expect(loadAgent('baarasseur-kofi')).rejects.toThrow('baarasseur not found: kofi');
+    it('hands a removed baarasseur\'s old conversations to the assistant', async () => {
+        const agent = await loadAgent('baarasseur-kofi');
+        expect(agent).toMatchObject({ name: 'baarasseur-kofi', instructions: 'COPILOT' });
+        expect(Object.keys(agent.tools ?? {})).toEqual(['web-search']);
     });
 
     it('remembers a rule once, keeps the rest of the file, and shows it in the next prompt', async () => {

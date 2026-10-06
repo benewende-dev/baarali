@@ -42,6 +42,13 @@ export function useBaarasseurs() {
     () => team,
   )
   useEffect(() => { if (!loaded) void load() }, [])
+  // Read again when the window comes back: the phone may have recruited one,
+  // or a baarasseur kept a rule (the core writes its memory) meanwhile.
+  useEffect(() => {
+    const again = () => { if (loaded) void load() }
+    window.addEventListener('focus', again)
+    return () => window.removeEventListener('focus', again)
+  }, [])
   /** Saves it; `forgotten` are the rules the person removed in the form. */
   const upsert = useCallback(async (b: Baarasseur, forgotten: string[] = []) => {
     await save(upsertChange(b, forgotten), { id: b.id })

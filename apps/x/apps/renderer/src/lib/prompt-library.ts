@@ -1,5 +1,6 @@
 import { CalendarClock, Clapperboard, FileText, Image, Mail, Megaphone, Mic, Share2, type LucideIcon } from 'lucide-react'
 import raw from './prompt-library.json?raw'
+import { PROMPT_CATEGORIES as CATEGORY_DATA, PROMPT_LIBRARY } from '@x/shared/dist/prompt-library.js'
 
 // The Prompts page (Baarali, 03/10/2026, validated mockup): ready-made
 // requests for a small business, and the workshop that improves one's own,
@@ -21,8 +22,6 @@ export interface Genre { id: string; name: Words; hint: Words; guide: string }
 export interface Level { id: string; name: Words; hint: Words; minRank: number; depth: string }
 
 interface Data {
-  categories: { id: string; name: Words; icon: string }[]
-  library: LibraryPrompt[]
   genres: Genre[]
   levels: Level[]
   architect: { intro: string; kind: string; cover: string; depth: string; rules: string; format: string[]; fr: string; en: string }
@@ -32,8 +31,8 @@ const DATA = JSON.parse(raw) as Data
 
 const ICONS: Record<string, LucideIcon> = { Mail, Megaphone, Share2, Image, Clapperboard, Mic, FileText, CalendarClock }
 
-export const PROMPT_CATEGORIES: PromptCategory[] = DATA.categories.map((c) => ({ ...c, icon: ICONS[c.icon] ?? FileText }))
-export const LIBRARY: LibraryPrompt[] = DATA.library
+export const PROMPT_CATEGORIES: PromptCategory[] = CATEGORY_DATA.map((c) => ({ ...c, icon: ICONS[c.icon] ?? FileText }))
+export const LIBRARY: LibraryPrompt[] = PROMPT_LIBRARY
 export const GENRES: Genre[] = DATA.genres
 export const LEVELS: Level[] = DATA.levels
 

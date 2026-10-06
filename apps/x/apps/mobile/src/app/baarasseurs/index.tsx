@@ -1,4 +1,4 @@
-import { Redirect, router } from 'expo-router';
+import { Redirect, router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
@@ -28,7 +28,9 @@ export default function BaarasseursScreen() {
   const { width } = useWindowDimensions();
   const wide = width >= TWO_PANES_AT;
   const { pairing, sessions, events } = useConnection();
-  const { team } = useBaarasseurs();
+  const { team, reload } = useBaarasseurs();
+  // Read again on each visit: the computer may have changed the team.
+  useFocusEffect(useCallback(() => { void reload(); }, [reload]));
   const [entries, setEntries] = useState<Entry[]>([]);
   // On a wide screen: the open conversation (its baarasseur, and its session once there is one).
   const [open, setOpen] = useState<{ agent: string; id: string | null } | null>(null);

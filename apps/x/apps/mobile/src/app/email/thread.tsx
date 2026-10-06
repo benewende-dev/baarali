@@ -1,6 +1,6 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,12 +24,19 @@ export default function ThreadScreen() {
   const thread = useMemo(() => openThread(id), [id]);
   const [reply, setReply] = useState(thread?.draft_response ?? '');
   const [busy, setBusy] = useState<'send' | null>(null);
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => {
+    void rpc?.call('gmail:getAccountEmail', {}).then((r) => setMe(r.email?.toLowerCase() ?? null), () => {});
+  }, [rpc]);
 
   if (!thread) {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator /></View>;
   }
   const messages = (thread.messages ?? []).filter((m) => !m.isDraft);
   const last = messages[messages.length - 1];
+  // The reply goes to the other person: the latest message not from the
+  // account itself (when the person wrote last, it is not to themselves).
+  const theirs = [...messages].reverse().find((m) => me && address(m.from).toLowerCase() !== me) ?? last;
 
   const send = async () => {
     const text = reply.trim();
@@ -39,7 +46,7 @@ export default function ThreadScreen() {
       const subject = thread.subject ?? last.subject ?? '';
       const res = (await rpc.call('gmail:sendReply', {
         threadId: thread.threadId,
-        to: address(last.from),
+        to: address(theirs.from),
         subject: /^re:/i.test(subject) ? subject : `Re: ${subject}`,
         bodyText: text,
         bodyHtml: escape(text).replace(/\n/g, '<br>'),

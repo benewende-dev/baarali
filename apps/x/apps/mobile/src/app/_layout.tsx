@@ -65,6 +65,11 @@ export default function RootLayout() {
             <Drawer.Screen name="email" options={{ title: 'Email', headerShown: false }} />
             <Drawer.Screen name="tasks" options={{ title: 'Tasks', headerShown: true }} />
             <Drawer.Screen name="routines" options={{ title: 'Routines', headerShown: true }} />
+            {/* BAARALI(06/10/2026): step 3 of the mobile mockup. */}
+            <Drawer.Screen name="meetings" options={{ title: 'Meetings', headerShown: true }} />
+            <Drawer.Screen name="projects" options={{ title: 'Projects', headerShown: true }} />
+            <Drawer.Screen name="apps" options={{ title: 'Apps and prompts', headerShown: true }} />
+            <Drawer.Screen name="settings" options={{ title: 'Settings', headerShown: true }} />
             <Drawer.Screen
               name="pairing"
               options={({ navigation }) => ({
@@ -84,7 +89,7 @@ export default function RootLayout() {
                 ),
               })}
             />
-            <Drawer.Screen name="notes" options={{ title: 'Brain', headerShown: false }} />
+            <Drawer.Screen name="notes" options={{ title: 'Library', headerShown: false }} />
             <Drawer.Screen name="pair-dev" options={{ title: 'Dev pairing', headerShown: false }} />
             <Drawer.Screen name="notifications" options={{ title: 'Notifications', headerShown: true }} />
           </Drawer>

@@ -87,8 +87,9 @@ export async function loadAgent(id: string): Promise<z.infer<typeof Agent>> {
     const baarasseurId = baarasseurIdOf(id);
     if (baarasseurId) {
         const b = await findBaarasseur(baarasseurId);
-        if (!b) throw new Error(`baarasseur not found: ${baarasseurId}`);
         const copilot = await buildCopilotAgent();
+        // Let go of since: its old conversations go on with the assistant.
+        if (!b) return { ...copilot, name: id };
         return {
             ...copilot,
             name: id,

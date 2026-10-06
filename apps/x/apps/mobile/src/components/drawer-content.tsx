@@ -64,7 +64,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   };
 
   const paired = Boolean(pairing);
-  const go = (path: '/baarasseurs' | '/spaces' | '/notes' | '/email' | '/tasks' | '/routines') => {
+  const go = (path: '/baarasseurs' | '/spaces' | '/notes' | '/email' | '/tasks' | '/routines' | '/meetings' | '/projects' | '/apps' | '/settings') => {
     if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
     router.push(path);
     props.navigation.closeDrawer();
@@ -100,9 +100,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
       ) : null}
 
       {/* BAARALI(06/10/2026): the destinations as tiles, as the validated mobile
-          mockup draws them (claude.ai/artifact/5hiVQMibobFRRitE7ictcw). The
-          tiles of step 3 (Meetings, Apps and prompts, Settings) join as their
-          screens land. */}
+          mockup draws them (claude.ai/artifact/5hiVQMibobFRRitE7ictcw). */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingBottom: 10 }}>
         {paired ? <Tile icon="sf:bubble.left" label="Chat" onPress={() => openChat()} /> : null}
         {paired ? <Tile icon="sf:person.2.fill" label="Baarasseurs" onPress={() => go('/baarasseurs')} /> : null}
@@ -110,7 +108,10 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         {paired ? <Tile icon="sf:envelope" label="Email" onPress={() => go('/email')} /> : null}
         {paired ? <Tile icon="sf:checkmark.square" label="Tasks" onPress={() => go('/tasks')} /> : null}
         {paired ? <Tile icon="sf:clock" label="Routines" onPress={() => go('/routines')} /> : null}
+        {paired ? <Tile icon="sf:mic" label="Meetings" onPress={() => go('/meetings')} /> : null}
         {paired ? <Tile icon="sf:books.vertical" label="Library" onPress={() => go('/notes')} /> : null}
+        {paired ? <Tile icon="sf:folder" label="Projects" onPress={() => go('/projects')} /> : null}
+        {paired ? <Tile icon="sf:square.grid.2x2.fill" label="Apps and prompts" onPress={() => go('/apps')} /> : null}
       </View>
 
       {/* History */}
@@ -151,6 +152,13 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
       {/* Foot: Brain, then the connection row */}
       <View style={{ borderTopWidth: 0.5, borderTopColor: colors.separator, paddingTop: 6, paddingBottom: insets.bottom + 8, gap: 2 }}>
+        {paired ? (
+        <FootRow
+          icon="sf:gearshape"
+          label="Settings"
+          onPress={() => go('/settings')}
+        />
+        ) : null}
         <FootRow
           icon="sf:bell"
           label="Notifications"
