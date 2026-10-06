@@ -68,12 +68,13 @@ function Turn({ turnId, isLatest, onStreaming }: { turnId: string; isLatest: boo
 
 // Mac chat — reachable once a Mac is paired (Spaces is the app's home).
 export default function ChatScreen() {
-  const params = useLocalSearchParams<{ id?: string; agent?: string }>();
+  const params = useLocalSearchParams<{ id?: string; agent?: string; draft?: string }>();
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
   return (
     <ChatView
       id={params.id || null}
       agent={params.agent || null}
+      initialDraft={params.draft}
       onCreated={(sessionId) => router.setParams({ id: sessionId })}
       onEmptyPress={() => navigation.openDrawer()}
     />
@@ -86,12 +87,14 @@ export default function ChatScreen() {
  * opened). `agent`: a new chat goes to that baarasseur. `embedded`: no
  * floating header above it.
  */
-export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false }: {
+export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false, initialDraft }: {
   id: string | null;
   agent: string | null;
   onCreated: (sessionId: string) => void;
   onEmptyPress?: () => void;
   embedded?: boolean;
+  /** Text put in the composer, e.g. « New routine: » from the Routines screen. */
+  initialDraft?: string;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -102,7 +105,8 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false 
   // The web search switch, as on the desktop's composer.
   const [search, setSearch] = useState(false);
   const [session, setSession] = useState<sessionsShared.SessionState | null>(null);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(initialDraft ?? '');
+  useEffect(() => { if (initialDraft) setDraft(initialDraft); }, [initialDraft]);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
