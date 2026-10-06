@@ -7,7 +7,7 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { accountResolver, createApp } from '../src/app.js';
 import { buildApiConfig } from '../src/config.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
-import { VOICES, createListenRelay, guessLang, splitForSpeech, sttCredits, ttsCredits, voiceFor } from '../src/voice.js';
+import { ELEVEN_USD_PER_1K_CHARS, ELEVEN_VOICES, VOICES, createListenRelay, speakerFor, guessLang, splitForSpeech, sttCredits, ttsCredits, voiceFor } from '../src/voice.js';
 
 const T0 = Date.UTC(2026, 9, 6, 8, 0, 0);
 const PLANS: Plan[] = [{ id: 'pro', category: 'pro', displayName: 'pro', weekCredits: 20 * CREDITS_PER_DOLLAR, monthlyPrices: [], models: null }];
@@ -59,6 +59,35 @@ describe('voice, choices', () => {
   it('serves the WebSocket URL only with Deepgram', () => {
     expect(buildApiConfig({ publicUrl: 'https://baarali.com' }).websocketApiUrl).toBe('');
     expect(buildApiConfig({ publicUrl: 'https://baarali.com', voice: true }).websocketApiUrl).toBe('wss://baarali.com');
+  });
+});
+
+describe('voice, who reads', () => {
+  const deps = { store: store(), deepgramKey: 'dg', fetch: globalThis.fetch, now: () => T0, elevenLabs: { key: 'el' } };
+  const pro = PLANS[0];
+  const starter: Plan = { ...pro, id: 'essentiel', category: 'starter' };
+
+  it('gives ElevenLabs Flash to the Pro plans, Aura-2 to the others', () => {
+    expect(speakerFor(deps, pro, 'x', 'Bonjour à vous').model).toBe(`elevenlabs/eleven_flash_v2_5:${ELEVEN_VOICES.fr}`);
+    expect(speakerFor(deps, pro, 'x', 'Bonjour à vous').usdPer1k).toBe(ELEVEN_USD_PER_1K_CHARS);
+    expect(speakerFor(deps, starter, 'x', 'Bonjour à vous').model).toBe(VOICES.fr);
+  });
+
+  it('keeps Aura-2 for everyone without an ElevenLabs key, and honours a chosen voice', () => {
+    expect(speakerFor({ ...deps, elevenLabs: undefined }, pro, 'x', 'Bonjour').model).toBe(VOICES.fr);
+    expect(speakerFor({ ...deps, elevenLabs: { key: 'el', voices: { fr: 'myVoice' } } }, pro, 'x', 'Bonjour').model).toBe('elevenlabs/eleven_flash_v2_5:myVoice');
+  });
+
+  it('calls ElevenLabs with its key and the language', async () => {
+    let seen: { url: string; init: RequestInit } | undefined;
+    const fetch = (async (url: string, init: RequestInit) => {
+      seen = { url, init };
+      return new Response('mp3');
+    }) as typeof globalThis.fetch;
+    await speakerFor({ ...deps, fetch }, pro, 'x', 'Here is the answer you asked for').call('Here is the answer');
+    expect(seen?.url).toBe(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICES.en}/stream?output_format=mp3_44100_128`);
+    expect((seen?.init.headers as Record<string, string>)['xi-api-key']).toBe('el');
+    expect(JSON.parse(String(seen?.init.body))).toMatchObject({ model_id: 'eleven_flash_v2_5', language_code: 'en' });
   });
 });
 

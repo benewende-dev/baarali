@@ -3,7 +3,7 @@ import tls from 'node:tls';
 import type { Duplex } from 'node:stream';
 import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { admit, budgetsForWeek, charge, initialState, open, type QuotaState } from './quota.js';
-import type { Account, ControlStore } from './store.js';
+import type { Account, ControlStore, Plan } from './store.js';
 
 // Voice (roadmap phase 8): reading answers aloud and listening, both with
 // Deepgram, whose key never leaves the control plane (architecture §3.14).
@@ -17,11 +17,21 @@ export const LISTEN_PATH = '/deepgram/v1/listen';
 
 /** Aura-2, in dollars per 1 000 characters. */
 export const TTS_USD_PER_1K_CHARS = 0.03;
+/**
+ * ElevenLabs Flash v2.5, in dollars per 1 000 characters: 0.04 at volume,
+ * more on the small subscriptions, so the quota counts 0.05.
+ */
+export const ELEVEN_USD_PER_1K_CHARS = 0.05;
+export const ELEVEN_MODEL = 'eleven_flash_v2_5';
+/** Built-in voices, usable on every ElevenLabs subscription; ELEVENLABS_VOICE_FR / _EN choose others. */
+export const ELEVEN_VOICES = { fr: 'EXAVITQu4vr4xnSDxMaL', en: 'EXAVITQu4vr4xnSDxMaL' } as const;
 /** Nova-3 multilingual streaming, in dollars per minute and channel (regular price). */
 export const STT_USD_PER_MINUTE = 0.0092;
 
 /** Deepgram's limit per /v1/speak request is 2 000 characters: we cut below it. */
 const SPEAK_CHUNK = 1800;
+/** ElevenLabs takes far more; longer pieces keep the intonation whole. */
+const ELEVEN_CHUNK = 4800;
 /** Longer texts are refused: an answer read aloud stays far below. */
 export const MAX_TTS_CHARS = 20_000;
 /** A live transcription is charged as it goes, so the quota can stop it. */
@@ -35,6 +45,8 @@ export interface VoiceDeps {
   fetch: typeof fetch;
   now: () => number;
   deepgramBase?: string;
+  /** Unset: every plan reads with Aura-2. Set: the Pro plans read with ElevenLabs. */
+  elevenLabs?: { key: string; voices?: Partial<Record<'fr' | 'en', string>>; base?: string };
 }
 
 export interface ListenDeps extends VoiceDeps {
@@ -76,7 +88,7 @@ export function splitForSpeech(text: string, max = SPEAK_CHUNK): string[] {
   return pieces;
 }
 
-export const ttsCredits = (chars: number) => Math.ceil((chars / 1000) * TTS_USD_PER_1K_CHARS * CREDITS_PER_DOLLAR);
+export const ttsCredits = (chars: number, usdPer1k = TTS_USD_PER_1K_CHARS) => Math.ceil((chars / 1000) * usdPer1k * CREDITS_PER_DOLLAR);
 export const sttCredits = (ms: number, channels: number) => Math.ceil((ms / 60_000) * STT_USD_PER_MINUTE * channels * CREDITS_PER_DOLLAR);
 
 const errorResponse = (status: number, error: Record<string, unknown>) =>
@@ -86,7 +98,7 @@ async function stateOf(store: ControlStore, account: Account): Promise<QuotaStat
   return (await store.quotaState(account.id)) ?? initialState(account.createdAt);
 }
 
-type Gate = { ok: true } | { ok: false; status: number; error: Record<string, unknown> };
+type Gate = { ok: true; plan: Plan } | { ok: false; status: number; error: Record<string, unknown> };
 
 /** The quota's door, as for the models: refused before anything is spent. */
 async function enter(deps: VoiceDeps, account: Account): Promise<Gate> {
@@ -108,7 +120,7 @@ async function enter(deps: VoiceDeps, account: Account): Promise<Gate> {
     };
   }
   await deps.store.saveQuotaState(account.id, open(before, now));
-  return { ok: true };
+  return { ok: true, plan };
 }
 
 /** Counts spent credits; re-read, since other calls may have been charged meanwhile. */
@@ -125,6 +137,52 @@ async function stillAdmitted(deps: VoiceDeps, account: Account): Promise<boolean
   return admit(await stateOf(deps.store, account), budgetsForWeek(plan.weekCredits), deps.now()).ok;
 }
 
+interface Speaker {
+  /** As written in the usage log. */
+  model: string;
+  usdPer1k: number;
+  pieces: string[];
+  call: (piece: string) => Promise<Response>;
+}
+
+/**
+ * Who reads (proposed 06/10/2026): ElevenLabs Flash, the most natural voice
+ * at a conversation's pace, for the Pro plans; Aura-2 for the others, whose
+ * week budget would not last with a dearer voice.
+ */
+export function speakerFor(deps: VoiceDeps, plan: Plan, voiceId: string, text: string): Speaker {
+  const lang = guessLang(text);
+  const el = deps.elevenLabs;
+  if (el && plan.category === 'pro') {
+    const voice = el.voices?.[lang] ?? ELEVEN_VOICES[lang];
+    const base = el.base ?? 'https://api.elevenlabs.io';
+    return {
+      model: `elevenlabs/${ELEVEN_MODEL}:${voice}`,
+      usdPer1k: ELEVEN_USD_PER_1K_CHARS,
+      pieces: splitForSpeech(text, ELEVEN_CHUNK),
+      call: (piece) =>
+        deps.fetch(`${base}/v1/text-to-speech/${voice}/stream?output_format=mp3_44100_128`, {
+          method: 'POST',
+          headers: { 'xi-api-key': el.key, 'content-type': 'application/json', accept: 'audio/mpeg' },
+          body: JSON.stringify({ text: piece, model_id: ELEVEN_MODEL, language_code: lang }),
+        }),
+    };
+  }
+  const model = voiceFor(voiceId, text);
+  const base = deps.deepgramBase ?? `https://${DEEPGRAM_HOST}`;
+  return {
+    model,
+    usdPer1k: TTS_USD_PER_1K_CHARS,
+    pieces: splitForSpeech(text),
+    call: (piece) =>
+      deps.fetch(`${base}/v1/speak?model=${model}&encoding=mp3`, {
+        method: 'POST',
+        headers: { authorization: `Token ${deps.deepgramKey}`, 'content-type': 'application/json', accept: 'audio/mpeg' },
+        body: JSON.stringify({ text: piece }),
+      }),
+  };
+}
+
 /** `POST /v1/voice/text-to-speech/:voiceId`: mp3, streamed piece after piece. */
 export async function speak(deps: VoiceDeps, account: Account, voiceId: string, req: Request): Promise<Response> {
   let text: unknown;
@@ -139,22 +197,14 @@ export async function speak(deps: VoiceDeps, account: Account, voiceId: string, 
   const gate = await enter(deps, account);
   if (!gate.ok) return errorResponse(gate.status, gate.error);
 
-  const model = voiceFor(voiceId, text);
-  const pieces = splitForSpeech(text);
-  const base = deps.deepgramBase ?? `https://${DEEPGRAM_HOST}`;
-  const call = (piece: string) =>
-    deps.fetch(`${base}/v1/speak?model=${model}&encoding=mp3`, {
-      method: 'POST',
-      headers: { authorization: `Token ${deps.deepgramKey}`, 'content-type': 'application/json', accept: 'audio/mpeg' },
-      body: JSON.stringify({ text: piece }),
-    });
+  const { model, usdPer1k, pieces, call } = speakerFor(deps, gate.plan, voiceId, text);
 
   let spoken = 0;
   let settled = false;
   const settle = async (status: number) => {
     if (settled) return;
     settled = true;
-    const credits = ttsCredits(spoken);
+    const credits = ttsCredits(spoken, usdPer1k);
     await spend(deps, account, credits);
     await deps.store.appendUsage({
       accountId: account.id, at: deps.now(), path: '/voice/text-to-speech', model, requestedModel: null,
