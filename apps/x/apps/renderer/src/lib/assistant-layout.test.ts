@@ -88,4 +88,14 @@ describe('assistant container ownership', () => {
     const saved = { assistant: 'a', sidebar: 'b', sidebarVisible: true, floating: [], focused: 'b' }
     expect(restoreAssistantLayout(JSON.stringify(saved), ['a', 'b'])).toMatchObject({ sidebar: 'b', sidebarVisible: false })
   })
+
+  it('holds the Baarasseurs page conversation in its own slot (Baarali, 06/10/2026)', () => {
+    let state = reduce(initialAssistantLayout('a'), { type: 'place', id: 'm', location: 'baarasseur', size })
+    expect(state).toMatchObject({ assistant: 'a', baarasseur: 'm' })
+    expect(chatLocation(state, 'm')).toBe('baarasseur')
+    state = reduce(state, { type: 'place', id: 'm', location: 'sidebar', size })
+    expect(state).toMatchObject({ baarasseur: null, sidebar: 'm' })
+    state = reduce(state, { type: 'place', id: 'i', location: 'baarasseur', size })
+    expect(restoreAssistantLayout(JSON.stringify(state), ['a', 'm', 'i'])).toMatchObject({ baarasseur: 'i' })
+  })
 })

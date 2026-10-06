@@ -172,14 +172,6 @@ export function ChatSessionPane({
       data-chat-tab-panel={tab.id}
       aria-hidden={!isActive}
     >
-      {/* Baarali (06/10/2026): whom you are talking to, in a baarasseur's chat. */}
-      {baarasseur && (
-        <div className="mx-auto flex w-full max-w-4xl items-center gap-2.5 border-b border-border px-4 py-2">
-          <Avatar b={baarasseur} size="sm" />
-          <span className="truncate text-[13px] font-semibold" data-no-translate>{baarasseur.name}</span>
-          {baarasseur.role && <span className="truncate text-xs text-muted-foreground" data-no-translate>{baarasseur.role}</span>}
-        </div>
-      )}
       <Conversation
         scrollMode={isCodeSession ? 'code' : 'chat'}
         scrollMemoryKey={tab.chatId}

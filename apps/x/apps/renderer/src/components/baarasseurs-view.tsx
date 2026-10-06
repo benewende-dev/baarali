@@ -53,106 +53,220 @@ function blank(taken: string[]): Baarasseur {
   return { id: idFor('baarasseur', taken), name: '', role: '', mission: '', color: 'clay', tools: [], schedule: null, memory: [], createdAt: new Date().toISOString() }
 }
 
-export function BaarasseursView({ runs, onWrite }: {
+/** The newest conversation of each baarasseur, by agent id. */
+function latestByAgent(runs: BaarasseurRun[]) {
+  const by = new Map<string, BaarasseurRun>()
+  for (const r of runs) {
+    const prev = by.get(r.agentId)
+    if (!prev || r.modifiedAt > prev.modifiedAt) by.set(r.agentId, r)
+  }
+  return by
+}
+
+/**
+ * The page, as WhatsApp lays it out (the founder's call, 06/10/2026): the
+ * baarasseurs as contacts on the left, the open one's conversation on the
+ * right with its card beside it. With none open, the right side is the
+ * overview: every card, and the templates to recruit from.
+ */
+export function BaarasseursView({ runs, openAgent, onOpen, onClose, chatHost, hasChat }: {
   runs: BaarasseurRun[]
+  /** The baarasseur whose conversation is open (agent id), if any. */
+  openAgent: string | null
   /** Opens its conversation: the run to resume, or null for a fresh one. */
-  onWrite: (agentId: string, runId: string | null) => void
+  onOpen: (agentId: string, runId: string | null) => void
+  onClose: () => void
+  /** Where the app mounts the open conversation. */
+  chatHost: (element: HTMLDivElement | null) => void
+  hasChat: boolean
 }) {
   const { team, upsert, remove } = useBaarasseurs()
   const [editing, setEditing] = useState<{ draft: Baarasseur; isNew: boolean } | null>(null)
-  const [confirming, setConfirming] = useState<string | null>(null)
-  const { namesByKey } = useModels()
-
-  const latest = useMemo(() => {
-    const by = new Map<string, BaarasseurRun>()
-    for (const r of runs) {
-      const prev = by.get(r.agentId)
-      if (!prev || r.modifiedAt > prev.modifiedAt) by.set(r.agentId, r)
-    }
-    return by
-  }, [runs])
-
+  const [query, setQuery] = useState('')
+  const latest = useMemo(() => latestByAgent(runs), [runs])
   const taken = team.map((b) => b.id)
-  const templates = TEMPLATES.filter((t) => !team.some((b) => b.name === t.name))
+  const open = team.find((b) => baarasseurAgentId(b.id) === openAgent) ?? null
+  const q = query.trim().toLowerCase()
+  // Contacts as in a messenger: the latest conversation first.
+  const contacts = team
+    .filter((b) => !q || `${b.name} ${b.role}`.toLowerCase().includes(q))
+    .sort((a, b) => (latest.get(baarasseurAgentId(b.id))?.modifiedAt ?? b.createdAt).localeCompare(latest.get(baarasseurAgentId(a.id))?.modifiedAt ?? a.createdAt))
 
-  if (editing) {
-    return (
-      <Recruit
-        initial={editing.draft}
-        isNew={editing.isNew}
-        onCancel={() => setEditing(null)}
-        onSave={async (b, forgotten) => {
-          const id = editing.isNew ? idFor(b.name, taken) : b.id
-          await upsert({ ...b, id }, forgotten)
-          setEditing(null)
-          if (editing.isNew) onWrite(baarasseurAgentId(id), null)
-        }}
-      />
-    )
+  const openOne = (b: Baarasseur) => {
+    setEditing(null)
+    const agentId = baarasseurAgentId(b.id)
+    onOpen(agentId, latest.get(agentId)?.id ?? null)
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-7">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="font-serif text-[28px] font-semibold tracking-tight">Your baarasseurs</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Workers who work for you: each one has a name, a mission, its tools and its model.</p>
-          </div>
-          <Button onClick={() => setEditing({ draft: blank(taken), isNew: true })}>
+    <div className="flex min-h-0 flex-1">
+      <aside aria-label="Baarasseurs" className="flex w-[290px] shrink-0 flex-col border-r border-border bg-muted/30">
+        <div className="flex items-center gap-2 px-4 pb-2 pt-4">
+          <h1 className="flex-1 font-serif text-xl font-semibold tracking-tight">Baarasseurs</h1>
+          <Button size="sm" onClick={() => { onClose(); setEditing({ draft: blank(taken), isNew: true }) }}>
             <Plus className="size-4" /><span>Recruit</span>
           </Button>
         </div>
+        {team.length > 3 && (
+          <div className="px-3 pb-2">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search" aria-label="Search" className="h-8" />
+          </div>
+        )}
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
+          {contacts.map((b) => {
+            const agentId = baarasseurAgentId(b.id)
+            const run = latest.get(agentId)
+            const active = agentId === openAgent && !editing
+            return (
+              <button key={b.id} type="button" aria-current={active ? 'page' : undefined} onClick={() => openOne(b)}
+                className={cn('flex items-center gap-3 rounded-xl px-2.5 py-2 text-left', active ? 'bg-primary/10' : 'hover:bg-muted')}>
+                <Avatar b={b} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline gap-2">
+                    <b className="flex-1 truncate text-sm font-semibold" data-no-translate>{b.name}</b>
+                    {run && <span className="shrink-0 text-[11px] text-muted-foreground" data-no-translate>{formatRelativeTime(run.modifiedAt)}</span>}
+                  </span>
+                  <span className="block truncate text-[12.5px] text-muted-foreground" data-no-translate>{run?.title || b.role}</span>
+                </span>
+              </button>
+            )
+          })}
+          {team.length === 0 && <p className="px-3 py-4 text-[13px] text-muted-foreground">Your baarasseurs appear here, like contacts.</p>}
+        </nav>
+      </aside>
 
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {editing ? (
+          <Recruit
+            initial={editing.draft}
+            isNew={editing.isNew}
+            onCancel={() => setEditing(null)}
+            onSave={async (b, forgotten) => {
+              const id = editing.isNew ? idFor(b.name, taken) : b.id
+              await upsert({ ...b, id }, forgotten)
+              setEditing(null)
+              if (editing.isNew) onOpen(baarasseurAgentId(id), null)
+            }}
+            onRemove={editing.isNew ? undefined : async () => {
+              await remove(editing.draft.id)
+              setEditing(null)
+              if (openAgent === baarasseurAgentId(editing.draft.id)) onClose()
+            }}
+          />
+        ) : open ? (
+          <Conversation b={open} chatHost={chatHost} hasChat={hasChat}
+            onEdit={() => setEditing({ draft: open, isNew: false })}
+            onNew={() => onOpen(baarasseurAgentId(open.id), null)} />
+        ) : (
+          <Overview team={team} latest={latest} taken={taken} onOpen={openOne}
+            onRecruit={(draft) => setEditing({ draft, isNew: true })} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** The open conversation: its header, the chat, and its card beside it. */
+function Conversation({ b, chatHost, hasChat, onEdit, onNew }: {
+  b: Baarasseur
+  chatHost: (element: HTMLDivElement | null) => void
+  hasChat: boolean
+  onEdit: () => void
+  onNew: () => void
+}) {
+  const { namesByKey } = useModels()
+  const modelName = b.model ? namesByKey[`${b.provider ?? ''}/${b.model}`] ?? b.model : null
+  return (
+    <>
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-2.5">
+        <Avatar b={b} />
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-[15px] font-semibold" data-no-translate>{b.name}</h2>
+          <div className="truncate text-xs text-muted-foreground">
+            {b.role && <span data-no-translate>{b.role} · </span>}
+            {modelName ? <span data-no-translate>{modelName}</span> : <span>Automatic</span>}
+          </div>
+        </div>
+        <Button size="sm" variant="outline" onClick={onNew}><Plus className="size-3.5" /><span>New conversation</span></Button>
+        <Button size="sm" variant="outline" onClick={onEdit}><Pencil className="size-3.5" /><span>Edit</span></Button>
+      </header>
+      <div className="flex min-h-0 flex-1">
+        <div ref={chatHost} className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {!hasChat && <div className="m-auto"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>}
+        </div>
+        <aside aria-label="Its card" className="hidden w-[260px] shrink-0 flex-col gap-5 overflow-y-auto border-l border-border px-5 py-5 xl:flex">
+          <section>
+            <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">Mission</h3>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed" data-no-translate>{b.mission}</p>
+          </section>
+          <section>
+            <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">Works on its own</h3>
+            <p className="text-[13px]">{b.schedule ? <Hours s={b.schedule} /> : <span>Only when I write</span>}</p>
+          </section>
+          {b.tools.length > 0 && (
+            <section>
+              <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">Tools</h3>
+              <div className="flex flex-wrap gap-1.5">{b.tools.map((t) => <span key={t} className="rounded-md bg-muted px-2 py-0.5 text-xs">{t}</span>)}</div>
+            </section>
+          )}
+          <section>
+            <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">What it remembers</h3>
+            {b.memory.length > 0
+              ? <ul className="list-disc space-y-1 pl-4 text-[13px]">{b.memory.map((m) => <li key={m} data-no-translate>{m}</li>)}</ul>
+              : <p className="text-[13px] text-muted-foreground">Nothing yet: give it a rule and it keeps it.</p>}
+          </section>
+        </aside>
+      </div>
+    </>
+  )
+}
+
+/** With no conversation open: every card, then the templates. */
+function Overview({ team, latest, taken, onOpen, onRecruit }: {
+  team: Baarasseur[]
+  latest: Map<string, BaarasseurRun>
+  taken: string[]
+  onOpen: (b: Baarasseur) => void
+  onRecruit: (draft: Baarasseur) => void
+}) {
+  const { namesByKey } = useModels()
+  const templates = TEMPLATES.filter((t) => !team.some((b) => b.name === t.name))
+  const lang = appLang()
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-7">
+        <div>
+          <h2 className="font-serif text-[28px] font-semibold tracking-tight">Your baarasseurs</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Workers who work for you: each one has a name, a mission, its tools and its model.</p>
+        </div>
         {team.length > 0 ? (
           <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
             {team.map((b) => {
-              const agentId = baarasseurAgentId(b.id)
-              const run = latest.get(agentId)
+              const run = latest.get(baarasseurAgentId(b.id))
               const modelName = b.model ? namesByKey[`${b.provider ?? ''}/${b.model}`] ?? b.model : null
               return (
-                <article key={b.id} className="group flex flex-col gap-2.5 rounded-xl border border-border p-4">
-                  <div className="flex items-center gap-3">
+                <button key={b.id} type="button" onClick={() => onOpen(b)}
+                  className="flex flex-col gap-2.5 rounded-xl border border-border p-4 text-left hover:border-primary/50">
+                  <span className="flex items-center gap-3">
                     <Avatar b={b} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[15px] font-semibold" data-no-translate>{b.name}</div>
-                      <div className="truncate text-[13px] text-muted-foreground" data-no-translate>{b.role}</div>
-                    </div>
-                    <button type="button" aria-label="Edit" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      onClick={() => setEditing({ draft: b, isNew: false })}>
-                      <Pencil className="size-4" />
-                    </button>
-                    <button type="button" aria-label="Remove" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
-                      onClick={() => setConfirming(b.id)}>
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
-                  <p className="line-clamp-3 text-[13px] leading-relaxed text-foreground/80" data-no-translate>{b.mission}</p>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold" data-no-translate>{b.name}</span>
+                      <span className="block truncate text-[13px] text-muted-foreground" data-no-translate>{b.role}</span>
+                    </span>
+                    <MessageSquare className="size-4 text-muted-foreground" />
+                  </span>
+                  <span className="line-clamp-3 text-[13px] leading-relaxed text-foreground/80" data-no-translate>{b.mission}</span>
                   {b.tools.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <span className="flex flex-wrap gap-1.5">
                       {b.tools.map((t) => <span key={t} className="rounded-md bg-muted px-2 py-0.5 text-xs">{t}</span>)}
-                    </div>
+                    </span>
                   )}
-                  <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
+                  <span className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
                     {modelName ? <span data-no-translate>{modelName}</span> : <span>Automatic</span>}
                     {b.schedule && <><span aria-hidden>·</span><Hours s={b.schedule} /></>}
-                    {run && <span className="ml-auto truncate" title={run.title}><span data-no-translate>{formatRelativeTime(run.modifiedAt)}</span></span>}
-                  </div>
-                  {confirming === b.id ? (
-                    <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-[13px]">
-                      <span className="flex-1"><span>Remove this baarasseur?</span> <span>Its conversations stay.</span></span>
-                      <Button size="sm" variant="destructive" onClick={() => { setConfirming(null); void remove(b.id) }}>Remove</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>Cancel</Button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Button size="sm" className="flex-1" onClick={() => onWrite(agentId, run?.id ?? null)}>
-                        <MessageSquare className="size-3.5" /><span>Write to</span> <span data-no-translate>{b.name}</span>
-                      </Button>
-                      {run && <Button size="sm" variant="outline" onClick={() => onWrite(agentId, null)}>New conversation</Button>}
-                    </div>
-                  )}
-                </article>
+                    {run && <span className="ml-auto" data-no-translate>{formatRelativeTime(run.modifiedAt)}</span>}
+                  </span>
+                </button>
               )
             })}
           </div>
@@ -162,25 +276,21 @@ export function BaarasseursView({ runs, onWrite }: {
             <p className="mt-1 text-sm text-muted-foreground">Recruit your first one: describe it in a sentence, or start from a template below.</p>
           </div>
         )}
-
         {templates.length > 0 && (
           <section aria-labelledby="baarasseur-templates" className="flex flex-col gap-2.5">
             <h2 id="baarasseur-templates" className="text-sm font-semibold">Start from a template</h2>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
-              {templates.map((t) => {
-                const lang = appLang()
-                return (
-                  <button key={t.id} type="button"
-                    className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3 text-left hover:border-primary/60 hover:bg-primary/5"
-                    onClick={() => setEditing({ draft: templateToBaarasseur(t, taken), isNew: true })}>
-                    <Avatar b={{ name: t.name, color: t.color }} size="sm" />
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13px] font-semibold" data-no-translate>{t.name} · {t.role[lang]}</span>
-                      <span className="line-clamp-2 text-xs text-muted-foreground" data-no-translate>{t.mission[lang]}</span>
-                    </span>
-                  </button>
-                )
-              })}
+              {templates.map((t) => (
+                <button key={t.id} type="button"
+                  className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3 text-left hover:border-primary/60 hover:bg-primary/5"
+                  onClick={() => onRecruit(templateToBaarasseur(t, taken))}>
+                  <Avatar b={{ name: t.name, color: t.color }} size="sm" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-semibold" data-no-translate>{t.name} · {t.role[lang]}</span>
+                    <span className="line-clamp-2 text-xs text-muted-foreground" data-no-translate>{t.mission[lang]}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
         )}
@@ -191,12 +301,14 @@ export function BaarasseursView({ runs, onWrite }: {
 
 type Turn = { role: 'user' | 'assistant'; text: string }
 
-function Recruit({ initial, isNew, onCancel, onSave }: {
+function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
   initial: Baarasseur
   isNew: boolean
   onCancel: () => void
   onSave: (b: Baarasseur, forgotten: string[]) => Promise<void>
+  onRemove?: () => Promise<void>
 }) {
+  const [confirming, setConfirming] = useState(false)
   const [b, setB] = useState<Baarasseur>(initial)
   const [tab, setTab] = useState<'describe' | 'setup'>(isNew && !initial.mission ? 'describe' : 'setup')
   const [sentence, setSentence] = useState('')
@@ -277,6 +389,15 @@ function Recruit({ initial, isNew, onCancel, onSave }: {
             </button>
           ))}
         </div>
+        {onRemove && (confirming ? (
+          <span className="flex items-center gap-2 rounded-lg bg-destructive/10 px-2.5 py-1 text-[13px]">
+            <span>Remove this baarasseur?</span>
+            <Button size="sm" variant="destructive" onClick={() => void onRemove()}>Remove</Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+          </span>
+        ) : (
+          <Button variant="ghost" size="sm" aria-label="Remove" onClick={() => setConfirming(true)}><Trash2 className="size-4" /></Button>
+        ))}
         <Button onClick={() => void save()} disabled={busy === 'save'}>
           {busy === 'save' ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
           {isNew ? <span>Recruit</span> : <span>Save</span>}

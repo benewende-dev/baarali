@@ -56,7 +56,8 @@ export function Chat({ tab, location, visible, focused, services: p, onMove, onN
     <header data-chat-header className="rowboat-header titlebar-no-drag flex shrink-0 items-center border-b border-border px-1">
       <ChatHeader activeTitle={title} activeRunId={tab.runId} sessionUsage={state.sessionUsage}
         onNewChatTab={onNew} recentRuns={p.recentRuns} onSelectRun={onSelect} onOpenChatHistory={p.onOpenChatHistory} />
-      {destinations.filter((destination) => destination.location !== location).map(({ location, label, Icon }) => <Tooltip key={location}>
+      {/* A baarasseur's chat stays on its page (Baarali). */}
+      {destinations.filter((destination) => location !== 'baarasseur' && destination.location !== location).map(({ location, label, Icon }) => <Tooltip key={location}>
         <TooltipTrigger asChild><button type="button" aria-label={label} onClick={() => onMove(location)} className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><Icon className="size-4" /></button></TooltipTrigger>
         <TooltipContent side="bottom">{label}</TooltipContent>
       </Tooltip>)}

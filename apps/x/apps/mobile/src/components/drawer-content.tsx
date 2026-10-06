@@ -142,6 +142,16 @@ export function DrawerContent(props: DrawerContentComponentProps) {
         />
         {paired ? (
         <FootRow
+          icon="sf:person.crop.circle.badge.checkmark"
+          label="Baarasseurs"
+          onPress={() => {
+            router.push('/baarasseurs');
+            props.navigation.closeDrawer();
+          }}
+        />
+        ) : null}
+        {paired ? (
+        <FootRow
           icon="sf:brain"
           label="Brain"
           onPress={() => {

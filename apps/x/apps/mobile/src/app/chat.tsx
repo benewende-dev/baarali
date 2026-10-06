@@ -22,6 +22,8 @@ import { useConnection } from '@/lib/connection';
 import { useLiveTurn } from '@/lib/use-live-turn';
 import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
+import { baarasseurs } from '@x/shared';
+import { BaarasseurAvatar, useBaarasseurs } from './baarasseurs';
 
 // The home screen IS a chat (Claude/ChatGPT pattern). `id` picks the session;
 // empty/no id is the new-chat state — the session is created lazily on the
@@ -70,8 +72,10 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const models = useModels();
   const { pairing, sessions, events } = useConnection();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; agent?: string }>();
   const id = params.id || null;
+  // BAARALI(06/10/2026): opened from the Baarasseurs list, a new chat goes to that baarasseur.
+  const team = useBaarasseurs();
   const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
   const [session, setSession] = useState<sessionsShared.SessionState | null>(null);
   const [draft, setDraft] = useState('');
@@ -137,7 +141,7 @@ export default function ChatScreen() {
         sessionId = (await sessions.create({})).sessionId;
         router.setParams({ id: sessionId });
       }
-      const agentId = turnRefs[turnRefs.length - 1]?.agentId ?? 'copilot';
+      const agentId = turnRefs[turnRefs.length - 1]?.agentId ?? (params.agent || 'copilot');
       const model = models.current;
       await sessions.sendMessage(sessionId, { role: 'user', content }, {
         agent: {
@@ -154,7 +158,7 @@ export default function ChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [draft, sessions, id, turnRefs, refresh, models.current]);
+  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent]);
 
   // Seed the model pill's label once connected.
   const modelsRefresh = models.refresh;
@@ -175,6 +179,10 @@ export default function ChatScreen() {
   }
   if (pairing === null) return <Redirect href="/pairing" />;
 
+  const agentNow = turnRefs[turnRefs.length - 1]?.agentId ?? params.agent;
+  const baarasseurId = baarasseurs.baarasseurIdOf(agentNow);
+  const baarasseur = baarasseurId ? team?.find((b) => b.id === baarasseurId) ?? null : null;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
       <KeyboardAvoidingView
@@ -182,6 +190,13 @@ export default function ChatScreen() {
         behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={process.env.EXPO_OS === 'ios' ? 92 : 0}
       >
+        {/* Whom you are talking to, in a baarasseur's chat (below the floating header). */}
+        {baarasseur && id ? (
+          <View style={{ position: 'absolute', top: insets.top + 6, left: 64, right: 16, zIndex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>
+            <BaarasseurAvatar b={baarasseur} size={30} />
+            <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>
+          </View>
+        ) : null}
         {id ? (
           <ScrollView
             ref={scrollRef}
@@ -200,6 +215,12 @@ export default function ChatScreen() {
               />
             ))}
           </ScrollView>
+        ) : baarasseur ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 32 }}>
+            <BaarasseurAvatar b={baarasseur} size={72} />
+            <Text style={{ fontSize: 22, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>
+            {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}
+          </View>
         ) : (
           <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }} onPress={() => navigation.openDrawer()}>
             <Text style={{ fontSize: 22, fontWeight: '600', color: colors.label }}>Rowboat</Text>
@@ -220,7 +241,7 @@ export default function ChatScreen() {
         >
           <TextInput
             style={{ fontSize: 16, color: colors.label, maxHeight: 120, paddingHorizontal: 2 }}
-            placeholder="Message Rowboat"
+            placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}
             placeholderTextColor={colors.tertiaryLabel}
             value={draft}
             onChangeText={setDraft}
