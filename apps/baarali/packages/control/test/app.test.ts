@@ -216,6 +216,22 @@ describe('/v1/llm on a plan with a model policy (Découverte)', () => {
     expect(await store.quotaState('acc')).toBeNull();
   });
 
+  it('routes « Automatique » within its list, and sends it to its default if the router has no model left', async () => {
+    const { call, seen, store } = setup((s) => {
+      if (s.url.endsWith('/models')) return json({ data: [{ id: 'typesafe/jev-router' }, { id: first }, { id: second }, { id: 'anthropic/claude-opus-4.7' }] });
+      const routed = sent(s).model === 'typesafe/jev-router';
+      return routed ? json({ error: { code: 404, message: 'No model left' } }, 404) : json({ usage: { cost: 0.0001 } });
+    }, 'free');
+    await call('/v1/llm/models');
+    const res = await call('/v1/llm/chat/completions', chat({ model: 'typesafe/jev-router' }));
+    expect(res.status).toBe(200);
+    const [routed, fallback] = seen.slice(1).map(sent);
+    expect(routed.plugins).toEqual([{ id: 'jev-router', models: [first, second], excluded_models: ['anthropic/*'] }]);
+    expect(fallback).toMatchObject({ model: first, models: [first, second] });
+    expect(store.usage).toHaveLength(1);
+    expect(store.usage[0]).toMatchObject({ model: first, requestedModel: 'typesafe/jev-router', status: 200 });
+  });
+
   it('shows only its models in the catalog', async () => {
     const { call } = setup(() => json({ data: [{ id: first }, { id: 'anthropic/claude-opus-4.7' }, { id: second }] }), 'free');
     const { data } = (await (await call('/v1/llm/models')).json()) as { data: Array<{ id: string }> };

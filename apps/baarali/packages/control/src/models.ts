@@ -11,7 +11,14 @@ export interface ModelPolicy {
 }
 
 export type PolicyResult =
-  | { ok: true; body: string; requested: string | null; served: string }
+  | {
+      ok: true;
+      body: string;
+      requested: string | null;
+      served: string;
+      /** The call without the router, sent if the routed one fails (llm-proxy.ts). */
+      fallback?: { body: string; served: string };
+    }
   | { ok: false; status: number; code: string; message: string };
 
 /** Only chat completions: the call core makes for text (core models/gateway.ts). */

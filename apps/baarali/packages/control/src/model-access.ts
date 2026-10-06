@@ -354,9 +354,15 @@ export function fitCall(c: Catalog, plan: Plan, path: string, raw: string, known
   const fitted = fitModel(c, plan, path, raw, known);
   if (!fitted?.ok || fitted.served !== AUTO_MODEL) return fitted;
   const within = routeWithin(c, plan, JSON.parse(fitted.body) as Record<string, unknown>, known);
-  if (within) return { ...fitted, body: JSON.stringify(within) };
-  // Cannot be bounded: fitted again as if « Automatique » were closed.
+  // Cannot be bounded, or refused upstream: fitted again as if « Automatique » were closed.
   const again = fitModel(withoutAuto(c), plan, path, raw, known);
+  if (within) {
+    // Its pool is TypeSafe's: if the plan's models are not in it, the
+    // exclusions leave nothing and OpenRouter answers 404. The call is then
+    // sent to the plan's own default once (llm-proxy.ts).
+    const fallback = again?.ok ? { body: again.body, served: again.served } : undefined;
+    return { ...fitted, body: JSON.stringify(within), ...(fallback ? { fallback } : {}) };
+  }
   return again && again.ok ? { ...again, requested: fitted.requested } : (again ?? { ok: false, status: 503, code: 'no_model', message: 'No model is available for this plan right now' });
 }
 
