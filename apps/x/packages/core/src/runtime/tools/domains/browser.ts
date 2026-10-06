@@ -38,8 +38,13 @@ const costOf = (data: Record<string, unknown>) => {
     return typeof cost === "number" && Number.isFinite(cost) ? cost : 0;
 };
 
-/** The small model that writes a field's text when the goal describes it without giving it. */
-const TEXT_MODEL = "inception/mercury-2.5";
+/**
+ * The small model that writes a field's text when the goal describes it
+ * without giving it (the founder's choice, 06/10/2026: OpenAI's cheapest
+ * recent model, DeepSeek's flash if it fails). Découverte's calls go to its
+ * own list instead.
+ */
+const TEXT_MODELS = ["openai/gpt-6-luna", "deepseek/deepseek-v4.1-flash"];
 
 
 export const browserTools: z.infer<typeof BuiltinToolsSchema> = {
@@ -171,7 +176,8 @@ export const browserTools: z.infer<typeof BuiltinToolsSchema> = {
                 },
                 write: async ({ system, user }) => {
                     const data = await gatewayPost('/chat/completions', {
-                        model: TEXT_MODEL,
+                        model: TEXT_MODELS[0],
+                        models: TEXT_MODELS,
                         max_tokens: 600,
                         reasoning: { enabled: false },
                         messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
