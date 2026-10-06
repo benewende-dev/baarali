@@ -40,11 +40,11 @@ const costOf = (data: Record<string, unknown>) => {
 
 /**
  * The small model that writes a field's text when the goal describes it
- * without giving it (the founder's choice, 06/10/2026: OpenAI's cheapest
- * recent model, DeepSeek's flash if it fails). Découverte's calls go to its
+ * without giving it (the founder's choice, 06/10/2026: Qwen 3.8 Flash, good
+ * French for pennies; GPT-6 Luna if it fails). Découverte's calls go to its
  * own list instead.
  */
-const TEXT_MODELS = ["openai/gpt-6-luna", "deepseek/deepseek-v4.1-flash"];
+const TEXT_MODELS = ["qwen/qwen3.8-flash", "openai/gpt-6-luna"];
 
 
 export const browserTools: z.infer<typeof BuiltinToolsSchema> = {
