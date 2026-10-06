@@ -64,7 +64,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   };
 
   const paired = Boolean(pairing);
-  const go = (path: '/baarasseurs' | '/spaces' | '/notes') => {
+  const go = (path: '/baarasseurs' | '/spaces' | '/notes' | '/email' | '/tasks' | '/routines') => {
     if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
     router.push(path);
     props.navigation.closeDrawer();
@@ -101,12 +101,15 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
       {/* BAARALI(06/10/2026): the destinations as tiles, as the validated mobile
           mockup draws them (claude.ai/artifact/5hiVQMibobFRRitE7ictcw). The
-          tiles of steps 2 and 3 (E-mail, Tasks, Routines, Meetings, Apps)
-          join as their screens land. */}
+          tiles of step 3 (Meetings, Apps and prompts, Settings) join as their
+          screens land. */}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12, paddingBottom: 10 }}>
         {paired ? <Tile icon="sf:bubble.left" label="Chat" onPress={() => openChat()} /> : null}
         {paired ? <Tile icon="sf:person.2.fill" label="Baarasseurs" onPress={() => go('/baarasseurs')} /> : null}
         <Tile icon="sf:square.grid.2x2" label="Spaces" onPress={() => go('/spaces')} />
+        {paired ? <Tile icon="sf:envelope" label="Email" onPress={() => go('/email')} /> : null}
+        {paired ? <Tile icon="sf:checkmark.square" label="Tasks" onPress={() => go('/tasks')} /> : null}
+        {paired ? <Tile icon="sf:clock" label="Routines" onPress={() => go('/routines')} /> : null}
         {paired ? <Tile icon="sf:books.vertical" label="Library" onPress={() => go('/notes')} /> : null}
       </View>
 
