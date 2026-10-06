@@ -33,6 +33,9 @@ function hasTrait(
     agentId: string | null | undefined,
     trait: keyof AgentTraits,
 ): boolean {
+    // BAARALI(06/10/2026): a baarasseur is the copilot with a persona, so it
+    // has the copilot's traits (no import: this module stays a leaf).
+    if (agentId?.startsWith("baarasseur-")) return COPILOT_TRAITS[trait] === true;
     return (
         agentId != null &&
         Object.hasOwn(agentTraits, agentId) &&

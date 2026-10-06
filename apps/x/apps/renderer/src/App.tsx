@@ -43,6 +43,8 @@ import { LiveNotesView } from '@/components/live-notes-view';
 import { BgTasksView } from '@/components/bg-tasks-view';
 import { AppsView } from '@/components/apps/apps-view';
 import { PromptsView } from '@/components/prompts-view';
+import { BaarasseursView } from '@/components/baarasseurs-view';
+import { noteChatAgent, noteRunAgents } from '@/lib/baarasseurs';
 import { SpacesView, type SpaceSelection } from '@/components/spaces-view';
 import { KeepAliveSection } from '@/components/keep-alive-section';
 import { railKey, readRailSelection, type RailSelection } from '@/lib/spaces-selection';
@@ -125,6 +127,7 @@ import { isChatListSession } from '@x/shared/src/sessions.js'
 import type { SessionOrigin, SpaceThreadOrigin } from '@x/shared/src/origins.js'
 import { AgentScheduleConfig } from '@x/shared/dist/agent-schedule.js'
 import { AgentScheduleState } from '@x/shared/dist/agent-schedule-state.js'
+import { baarasseurIdOf } from '@x/shared/dist/baarasseur.js'
 import { toast } from "sonner"
 import { useVoiceMode } from '@/hooks/useVoiceMode'
 import { CALL_VOICE_HOLDER, acquireVoice, releaseVoice, useVoiceOwner, voiceOwnerId } from '@/lib/voice-ownership'
@@ -205,11 +208,11 @@ function toSpeakableText(markdown: string): string {
 // (overlays, file editors, the full-screen chat) mount and unmount as before.
 type MiddleView =
   | 'browser' | 'home' | 'suggested-topics' | 'meetings' | 'code' | 'live-notes'
-  | 'bg-tasks' | 'apps' | 'prompts' | 'spaces' | 'email' | 'workspace' | 'knowledge'
+  | 'bg-tasks' | 'apps' | 'prompts' | 'baarasseurs' | 'spaces' | 'email' | 'workspace' | 'knowledge'
   | 'chat-history' | 'bases' | 'graph' | 'file' | 'task' | 'chat'
 
 const KEEP_ALIVE_SECTIONS: ReadonlySet<MiddleView> = new Set<MiddleView>([
-  'home', 'meetings', 'code', 'bg-tasks', 'apps', 'prompts', 'spaces', 'email', 'workspace', 'knowledge',
+  'home', 'meetings', 'code', 'bg-tasks', 'apps', 'prompts', 'baarasseurs', 'spaces', 'email', 'workspace', 'knowledge',
 ])
 
 const MACOS_TRAFFIC_LIGHTS_RESERVED_PX = 16 + 12 * 3 + 8 * 2
@@ -645,6 +648,8 @@ export type HomeComposeTarget =
   | { kind: 'comment'; key: string; itemText: string; quote?: string }
   | { kind: 'chatReply'; sessionId: string; title: string; quote?: string }
 
+const isBaarasseurAgent = (agentId: string | null | undefined) => baarasseurIdOf(agentId) !== null
+
 type ViewState =
   | { type: 'chat'; runId: string | null }
   | { type: 'file'; path: string }
@@ -662,6 +667,7 @@ type ViewState =
   | { type: 'bg-tasks' }
   | { type: 'apps' }
   | { type: 'prompts' }
+  | { type: 'baarasseurs' }
   | {
       type: 'spaces'
       orgId?: string
@@ -767,6 +773,8 @@ function parseDeepLink(input: string): ViewState | null {
       return { type: 'apps' }
     case 'prompts':
       return { type: 'prompts' }
+    case 'baarasseurs':
+      return { type: 'baarasseurs' }
     case 'spaces': {
       // Only the orgId form resolves synchronously here (notifications write
       // it). The org's own landings name the org by ADDRESS and may point at
@@ -978,6 +986,8 @@ function App() {
   const [isAppsOpen, setIsAppsOpen] = useState(false)
   // Baarali (03/10/2026): the Prompts page.
   const [isPromptsOpen, setIsPromptsOpen] = useState(false)
+  // Baarali (06/10/2026): the Baarasseurs page.
+  const [isBaarasseursOpen, setIsBaarasseursOpen] = useState(false)
   const [isSpacesOpen, setIsSpacesOpen] = useState(false)
   // The space open in the Spaces view (org + space); the sidebar highlights it.
   const [spaceSelection, setSpaceSelection] = useState<SpaceSelection>(null)
@@ -1211,6 +1221,8 @@ function App() {
       : []
   ), [sessionChat.error])
   const [agentId] = useState<string>('copilot')
+  // BAARALI(06/10/2026): a fresh chat opened to write to a baarasseur sends as it.
+  const agentByChatRef = useRef(new Map<string, string>())
   const [presetMessage, setPresetMessage] = useState<string | undefined>(undefined)
 
   // Voice mode state
@@ -3627,6 +3639,9 @@ function App() {
     loadRuns()
   }, [loadRuns])
 
+  // Baarali: which chats are a baarasseur's, for the chat pane's strip.
+  useEffect(() => { noteRunAgents(runs) }, [runs])
+
   // Keep the runs list live: the session index publishes index-changed on
   // every write (session created, turn settled, title change, delete), so the
   // list stays current without re-fetching.
@@ -4424,7 +4439,10 @@ function App() {
       // A to-do item's session keeps its own agent on continuation — typing
       // in that chat steers the item's work, it doesn't summon the copilot.
       const sessionAgentId = runs.find((r) => r.id === currentRunId)?.agentId
-      const effectiveAgentId = sessionAgentId === 'todo-item-agent' ? sessionAgentId : agentId
+      // A baarasseur's chat stays its own the same way (Baarali, 06/10/2026).
+      const effectiveAgentId = sessionAgentId === 'todo-item-agent' || isBaarasseurAgent(sessionAgentId)
+        ? sessionAgentId!
+        : agentByChatRef.current.get(submitTab.chatId) ?? agentId
       const sendConfig = {
         agent: {
           agentId: effectiveAgentId,
@@ -4609,7 +4627,7 @@ function App() {
             title: inferredTitle,
             createdAt,
             modifiedAt: createdAt,
-            agentId,
+            agentId: effectiveAgentId,
           }, ...withoutCurrent]
         })
       }
@@ -4863,7 +4881,7 @@ function App() {
   // scroll controller now — see lib/chat-scroll.ts (keyed by tab.chatId).
 
   // No section, file, or task open: the Assistant page.
-  const isFullScreenChat = !selectedPath && !isGraphOpen && !isSuggestedTopicsOpen && !isMeetingsOpen && !isLiveNotesOpen && !isBgTasksOpen && !isAppsOpen && !isPromptsOpen && !isSpacesOpen && !isEmailOpen && !isKnowledgeViewOpen && !isChatHistoryOpen && !isHomeOpen && !isCodeOpen && !selectedBackgroundTask && !isBrowserOpen
+  const isFullScreenChat = !selectedPath && !isGraphOpen && !isSuggestedTopicsOpen && !isMeetingsOpen && !isLiveNotesOpen && !isBgTasksOpen && !isAppsOpen && !isPromptsOpen && !isBaarasseursOpen && !isSpacesOpen && !isEmailOpen && !isKnowledgeViewOpen && !isChatHistoryOpen && !isHomeOpen && !isCodeOpen && !selectedBackgroundTask && !isBrowserOpen
 
   const currentViewState = React.useMemo<ViewState>(() => {
     if (selectedBackgroundTask) return { type: 'task', name: selectedBackgroundTask }
@@ -4878,13 +4896,14 @@ function App() {
     if (isBgTasksOpen) return { type: 'bg-tasks' }
     if (isAppsOpen) return { type: 'apps' }
     if (isPromptsOpen) return { type: 'prompts' }
+    if (isBaarasseursOpen) return { type: 'baarasseurs' }
     // The org-level surface (Activity) belongs in here too: without it, history
     // records Activity as a plain space view and ‹ lands somewhere else.
     if (isSpacesOpen) return spaceSelection ? { type: 'spaces', orgId: spaceSelection.orgId, spaceId: spaceSelection.spaceId, rail: railSelection, ...(spaceSelection.view ? { view: spaceSelection.view } : {}) } : { type: 'spaces' }
     if (selectedPath) return { type: 'file', path: selectedPath }
     if (isGraphOpen) return { type: 'graph' }
     return { type: 'chat', runId }
-  }, [selectedBackgroundTask, isEmailOpen, isMeetingsOpen, isLiveNotesOpen, isBgTasksOpen, isAppsOpen, isPromptsOpen, isSpacesOpen, spaceSelection, railSelection, isSuggestedTopicsOpen, selectedPath, isGraphOpen, isKnowledgeViewOpen, knowledgeViewFolderPath, knowledgeViewMode, isChatHistoryOpen, isHomeOpen, isCodeOpen, runId])
+  }, [selectedBackgroundTask, isEmailOpen, isMeetingsOpen, isLiveNotesOpen, isBgTasksOpen, isAppsOpen, isPromptsOpen, isBaarasseursOpen, isSpacesOpen, spaceSelection, railSelection, isSuggestedTopicsOpen, selectedPath, isGraphOpen, isKnowledgeViewOpen, knowledgeViewFolderPath, knowledgeViewMode, isChatHistoryOpen, isHomeOpen, isCodeOpen, runId])
 
   // Navigation handlers can be invoked from closures frozen in older renders
   // (Spaces' MessageRow memoizes by data and ignores handler identity), so
@@ -4913,6 +4932,7 @@ function App() {
       case 'bg-tasks': return 'Background tasks'
       case 'apps': return 'Apps'
       case 'prompts': return 'Prompts'
+      case 'baarasseurs': return 'Baarasseurs'
       case 'spaces': {
         const org = spacesOrgs.find((o) => o.id === currentViewState.orgId)
         if (org && currentViewState.view === 'activity') return 'Activity'
@@ -4947,6 +4967,7 @@ function App() {
     setIsBgTasksOpen(false)
     setIsAppsOpen(false)
     setIsPromptsOpen(false)
+    setIsBaarasseursOpen(false)
     setIsSpacesOpen(false)
     setIsEmailOpen(false)
     setIsKnowledgeViewOpen(false)
@@ -5282,7 +5303,7 @@ function App() {
   // the view *type* so switching files/threads inside a view doesn't re-fire.
   useEffect(() => {
     // Baarali's Prompts page is not one of the upstream's analytics views.
-    if (currentViewState.type !== 'prompts') analytics.viewOpened(currentViewState.type)
+    if (currentViewState.type !== 'prompts' && currentViewState.type !== 'baarasseurs') analytics.viewOpened(currentViewState.type)
   }, [currentViewState.type])
 
   // Safety net: Radix modal dialogs set `pointer-events: none` on <body> and
@@ -5374,6 +5395,9 @@ function App() {
         return
       case 'prompts':
         setIsPromptsOpen(true)
+        return
+      case 'baarasseurs':
+        setIsBaarasseursOpen(true)
         return
       case 'spaces': {
         // Feature-flag gate: every route into Spaces (sidebar, palette, deep
@@ -5549,6 +5573,21 @@ function App() {
   const openPromptsView = useCallback(() => {
     void navigateToView({ type: 'prompts' })
   }, [navigateToView])
+
+  const openBaarasseursView = useCallback(() => {
+    void navigateToView({ type: 'baarasseurs' })
+  }, [navigateToView])
+
+  // A baarasseur's conversation: its latest chat, or a fresh one whose first
+  // message goes to it (the session then carries its agent id).
+  const writeToBaarasseur = useCallback((baarasseurAgent: string, runId: string | null) => {
+    if (runId) { openAssistantRun(runId); return }
+    const tab = newChatAt('assistant')
+    agentByChatRef.current.set(tab.chatId, baarasseurAgent)
+    noteChatAgent(tab.chatId, baarasseurAgent)
+    dismissBrowserOverlay()
+    closeAllSections()
+  }, [openAssistantRun, newChatAt, dismissBrowserOverlay, closeAllSections])
 
   // navigateToView early-returns when the apps view is already showing, so
   // `openAppsView` alone is a no-op while an app is open — the sidebar "Apps"
@@ -7246,7 +7285,7 @@ function App() {
   const selectedTask = selectedBackgroundTask
     ? backgroundTasks.find(t => t.name === selectedBackgroundTask)
     : null
-  const isRightPaneContext = Boolean(selectedPath || isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isAppsOpen || isPromptsOpen || isSpacesOpen || isEmailOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen || isCodeOpen || isBrowserOpen)
+  const isRightPaneContext = Boolean(selectedPath || isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isAppsOpen || isPromptsOpen || isBaarasseursOpen || isSpacesOpen || isEmailOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen || isCodeOpen || isBrowserOpen)
   // Code mode with a session selected: the chat is the main surface — the
   // middle pane is just the session rail and the chat fills the rest, with
   // the workspace drawer at its edge. Before a session is picked the empty
@@ -7309,6 +7348,7 @@ function App() {
     : isBgTasksOpen ? 'bg-tasks'
     : isAppsOpen ? 'apps'
     : isPromptsOpen ? 'prompts'
+    : isBaarasseursOpen ? 'baarasseurs'
     : isSpacesOpen ? 'spaces'
     : isEmailOpen ? 'email'
     : isKnowledgeViewOpen ? 'knowledge'
@@ -7348,17 +7388,19 @@ function App() {
       : isBgTasksOpen ? 'agents'
       : isAppsOpen ? 'apps'
       : isPromptsOpen ? 'prompts'
+      : isBaarasseursOpen ? 'baarasseurs'
       : isSpacesOpen ? 'spaces'
       // Full-screen chat (no section, file, or task open) is the Assistant's
       // own surface — it carries the dock dot and the switcher's MRU rank.
       : isFullScreenChat ? 'assistant'
       : null
-    ) as 'assistant' | 'home' | 'email' | 'meetings' | 'code' | 'knowledge' | 'agents' | 'apps' | 'prompts' | 'spaces' | 'workspaces' | null,
+    ) as 'assistant' | 'home' | 'email' | 'meetings' | 'code' | 'knowledge' | 'agents' | 'apps' | 'prompts' | 'baarasseurs' | 'spaces' | 'workspaces' | null,
     onOpenMeetings: openMeetingsView,
     onOpenCode: openCodeView,
     onOpenBgTasks: () => { setBgTaskInitialSlug(null); setBgTaskSlugVersion((v) => v + 1); openBgTasksView() },
     onOpenApps: openAppsGrid,
     onOpenPrompts: openPromptsView,
+    onOpenBaarasseurs: openBaarasseursView,
     onOpenApp: (folder: string) => { setAppInitialId(folder); setAppIdVersion((v) => v + 1); openAppsView() },
     onOpenSpace: openSpace,
     onOpenActivity: openActivity,
@@ -7736,6 +7778,13 @@ function App() {
                 <KeepAliveSection visible={activeMiddle === 'prompts'}>
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   <PromptsView onUse={(text) => prefillChat(text)} />
+                </div>
+                </KeepAliveSection>
+              )}
+              {sectionMounted('baarasseurs') && (
+                <KeepAliveSection visible={activeMiddle === 'baarasseurs'}>
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  <BaarasseursView runs={runs} onWrite={writeToBaarasseur} />
                 </div>
                 </KeepAliveSection>
               )}

@@ -25,6 +25,8 @@ import type { useVoiceMode } from '@/hooks/useVoiceMode'
 import type { PermissionDecision } from '@x/shared/src/code-mode.js'
 import type { QueuedSessionMessage } from '@x/shared/src/sessions.js'
 import { ChatEmptyState } from './chat-empty-state'
+import { Avatar } from './baarasseurs-view'
+import { useChatBaarasseur } from '@/lib/baarasseurs'
 import { ChatInputWithMentions, type CallPreset, type PermissionMode, type StagedAttachment, type ModelSelection } from './chat-input-with-mentions'
 import { type ChatTab } from './tab-bar'
 import { useReportTabMeta } from '@/lib/tab-meta'
@@ -101,6 +103,7 @@ export function ChatSessionPane({
   emptyStateVariant = 'default',
   isCodeSession = false,
 }: ChatSessionPaneProps) {
+  const baarasseur = useChatBaarasseur(tab)
   // Content-owned tab meta (see lib/tab-meta.ts). Both live instances of a
   // chat (full-screen App pane + side-pane chat) report the same values, so
   // the store's dedupe keeps this quiet; the refcount inside useReportTabMeta
@@ -169,6 +172,14 @@ export function ChatSessionPane({
       data-chat-tab-panel={tab.id}
       aria-hidden={!isActive}
     >
+      {/* Baarali (06/10/2026): whom you are talking to, in a baarasseur's chat. */}
+      {baarasseur && (
+        <div className="mx-auto flex w-full max-w-4xl items-center gap-2.5 border-b border-border px-4 py-2">
+          <Avatar b={baarasseur} size="sm" />
+          <span className="truncate text-[13px] font-semibold" data-no-translate>{baarasseur.name}</span>
+          {baarasseur.role && <span className="truncate text-xs text-muted-foreground" data-no-translate>{baarasseur.role}</span>}
+        </div>
+      )}
       <Conversation
         scrollMode={isCodeSession ? 'code' : 'chat'}
         scrollMemoryKey={tab.chatId}
@@ -179,7 +190,13 @@ export function ChatSessionPane({
         className="relative flex-1"
       >
         <ConversationContent className={tabConversationContentClassName}>
-          {!tabHasConversation ? (
+          {!tabHasConversation && baarasseur ? (
+            <div className="mx-auto flex w-full max-w-4xl flex-col items-start gap-3 px-4 py-6">
+              <Avatar b={baarasseur} size="lg" />
+              <div className="text-2xl font-semibold tracking-tight"><span>Write to</span> <span data-no-translate>{baarasseur.name}</span></div>
+              {baarasseur.mission && <p className="line-clamp-3 max-w-2xl text-[15px] text-muted-foreground" data-no-translate>{baarasseur.mission}</p>}
+            </div>
+          ) : !tabHasConversation ? (
             <ChatEmptyState
               wide
               variant={emptyStateVariant}
