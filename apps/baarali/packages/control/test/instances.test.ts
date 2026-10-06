@@ -149,6 +149,22 @@ describe('Instances.ensure', () => {
     expect(instances.target(moved).key).toBe(instances.serverKey(ME.id));
   });
 
+  it('grants the new token when the console or a wake moves the keys, and mends a machine moved without it', async () => {
+    const { store, instances } = setup();
+    const record = await instances.ensure(ME);
+    await store.saveInstance({ ...record, keys: 1 });
+    await store.revokeToken(instances.instanceToken(ME.id));
+    await store.grantToken(instances.instanceToken(ME.id, 1), ME.id);
+    expect(await instances.updateNow((await store.instance(ME.id))!)).toBe(true);
+    expect((await store.accountByToken(instances.instanceToken(ME.id)))?.id).toBe(ME.id);
+    expect(await store.accountByToken(instances.instanceToken(ME.id, 1))).toBeNull();
+
+    // Moved by the old code: current keys, token never granted. A connection mends it.
+    await store.revokeToken(instances.instanceToken(ME.id));
+    await instances.ensure(ME);
+    expect((await store.accountByToken(instances.instanceToken(ME.id)))?.id).toBe(ME.id);
+  });
+
   it('creates none beyond the cap, and none at all without Fly', async () => {
     const { instances } = setup({ ...CONFIG, maxInstances: 1 });
     await instances.ensure(ME);
