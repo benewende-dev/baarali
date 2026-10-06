@@ -149,7 +149,7 @@ if (process.env.BAARALI_GATEWAY_SECRET) {
 const gateway = instances ? createGateway({ store, instances, now: Date.now, fetch: globalThis.fetch }) : undefined;
 
 const deepgramKey = process.env.DEEPGRAM_API_KEY || undefined;
-console.log(`[control] voice: ${deepgramKey ? 'deepgram' : 'off'}`);
+console.log(`[control] voice: ${deepgramKey ? 'deepgram' : 'off'}${process.env.ELEVENLABS_API_KEY ? ', elevenlabs for pro' : ''}`);
 
 const app = createApp({
   store,
@@ -160,6 +160,12 @@ const app = createApp({
   pixazoKey: process.env.PIXAZO_API_KEY || undefined,
   // Optional: without it, reading aloud answers 503 and listening is refused.
   deepgramKey,
+  elevenLabs: process.env.ELEVENLABS_API_KEY
+    ? {
+        key: process.env.ELEVENLABS_API_KEY,
+        voices: { fr: process.env.ELEVENLABS_VOICE_FR || undefined, en: process.env.ELEVENLABS_VOICE_EN || undefined },
+      }
+    : undefined,
   mediaPacks,
   home: {
     offers: OFFERS,

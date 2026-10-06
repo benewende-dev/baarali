@@ -17,7 +17,7 @@ import { InstanceUnavailable, type Instances } from './instances.js';
 import { createGeneration, getGeneration, listMediaModels, mediaBalance, mediaHistory } from './media-route.js';
 import { advance, budgetsForWeek, gauges, initialState } from './quota.js';
 import { hashToken, type Account, type ControlStore } from './store.js';
-import { speak } from './voice.js';
+import { speak, type VoiceDeps } from './voice.js';
 
 export type ControlDeps = ProxyDeps & {
   /** Unset: media generation is off (503). */
@@ -26,6 +26,8 @@ export type ControlDeps = ProxyDeps & {
   /** Unset: voice answers 503 (voice.ts). */
   deepgramKey?: string;
   deepgramBase?: string;
+  /** Unset: the Pro plans read with Aura-2 too (voice.ts). */
+  elevenLabs?: VoiceDeps['elevenLabs'];
   /** The media credit packs on sale (pricing.ts, packCredits). */
   mediaPacks: SoldPack[];
   /** SHA-256 of the operator token; unset: /v1/admin answers 404. */
