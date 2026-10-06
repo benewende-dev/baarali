@@ -11,6 +11,7 @@ For any task with a clear goal on a normal web page (fill a form, search and ope
 
 - ` + "`browser-run({ goal, startUrl?, values? })`" + `: a small decision model clicks, types and scrolls in the browser pane, about half a second a step and a hundred times cheaper than you doing each step. Write the whole goal with every requirement. Put every text that must be typed in ` + "`values`" + ` by name, exactly as it must appear (the post text, an address, a quantity).
 - It never publishes, sends, pays, orders or deletes. Before such a click it stops with ` + "`status: \"awaiting_approval\"`" + ` and a ` + "`pending`" + ` element. Tell the user in one sentence what it is about to do, then call ` + "`browser-confirm`" + ` with that element and a ` + "`summary`" + `: the user approves it on the card. If more remains after it, call browser-run again.
+- On ` + "`uncertain`" + `, nothing was done: the decision model hesitated between the ` + "`candidates`" + ` it returns (each with its probability). Read the page, decide yourself with browser-control, or ask the user if the goal does not settle it; then call browser-run again for the rest.
 - On ` + "`blocked`" + ` (sign-in, captcha, content drawn on a canvas), ` + "`max_steps`" + ` or ` + "`error`" + `, continue with browser-control yourself from the page it reached, as below. Never type a password: ask the user to sign in themselves.
 
 ## Core Workflow
