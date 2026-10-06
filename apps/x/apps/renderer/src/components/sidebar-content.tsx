@@ -7,6 +7,7 @@ import {
   AppWindow,
   NotebookPen,
   MessagesSquare,
+  UsersRound,
   ArrowUpRight,
   CalendarClock,
   Library,
@@ -200,6 +201,8 @@ type SidebarContentPanelProps = {
   onOpenApps?: () => void
   /** Baarali: the Prompts page (03/10/2026). */
   onOpenPrompts?: () => void
+  /** Baarali: the Baarasseurs page (06/10/2026). */
+  onOpenBaarasseurs?: () => void
   /** Open a specific app (pinned in the sidebar) inside the Apps view. */
   onOpenApp?: (folder: string) => void
   /** Open one space (org + space) in the Spaces view. */
@@ -223,7 +226,7 @@ type SidebarContentPanelProps = {
   /** Starts the mascot-guided product tour. */
   onStartTour?: () => void
   /** Which primary destination is currently active, for nav highlighting. */
-  activeNav?: 'assistant' | 'home' | 'email' | 'meetings' | 'code' | 'knowledge' | 'agents' | 'apps' | 'prompts' | 'spaces' | 'workspaces' | null
+  activeNav?: 'assistant' | 'home' | 'email' | 'meetings' | 'code' | 'knowledge' | 'agents' | 'apps' | 'prompts' | 'baarasseurs' | 'spaces' | 'workspaces' | null
   /** Live meeting recording state, so the recording row can show its indicator/stop. */
   meetingRecordingState?: 'idle' | 'connecting' | 'recording' | 'stopping'
   recordingMeetingSource?: string | null
@@ -463,6 +466,7 @@ export function SidebarContentPanel({
   onOpenBgTasks,
   onOpenApps,
   onOpenPrompts,
+  onOpenBaarasseurs,
   onOpenApp,
   onOpenSpace,
   activeSpace,
@@ -847,6 +851,14 @@ export function SidebarContentPanel({
                 >
                   <MessagesSquare className="size-4 shrink-0" />
                   <span className="flex-1 truncate font-medium" data-no-translate>Chat</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* Baarali (06/10/2026): the baarasseurs, between the chat and the
+                  team spaces, as the founder placed them. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeNav === 'baarasseurs'} onClick={() => onOpenBaarasseurs?.()}>
+                  <UsersRound className="size-4 shrink-0" />
+                  <span className="flex-1 truncate font-medium" data-no-translate>Baarasseurs</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

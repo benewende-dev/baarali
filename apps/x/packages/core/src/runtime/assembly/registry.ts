@@ -12,6 +12,8 @@ import { getRaw as getInlineTaskAgentRaw } from "../../knowledge/inline_task_age
 import { getRaw as getAgentNotesAgentRaw } from "../../knowledge/agent_notes_agent.js";
 import { lazyResolve } from "../../di/lazy-resolve.js";
 import type { IAgentsRepo } from "./repo.js";
+import { baarasseurIdOf, personaInstructions } from "@x/shared/dist/baarasseur.js";
+import { findBaarasseur } from "../../baarasseurs/repo.js";
 
 // The registry of built-in agents: one table instead of the historical
 // if (id === ...) ladder. An entry owns its builder. Traits (which replace
@@ -79,6 +81,23 @@ export async function loadAgent(id: string): Promise<z.infer<typeof Agent>> {
         : undefined;
     if (builtin) {
         return builtin.build();
+    }
+    // BAARALI(06/10/2026): a baarasseur is the copilot with its persona on
+    // top, its memory tool, and its own model when it has one.
+    const baarasseurId = baarasseurIdOf(id);
+    if (baarasseurId) {
+        const b = await findBaarasseur(baarasseurId);
+        if (!b) throw new Error(`baarasseur not found: ${baarasseurId}`);
+        const copilot = await buildCopilotAgent();
+        return {
+            ...copilot,
+            name: id,
+            description: `${b.name}, a baarasseur`,
+            instructions: `${copilot.instructions}\n\n${personaInstructions(b)}`,
+            tools: { ...copilot.tools, "baarasseur-remember": { type: "builtin", name: "baarasseur-remember" } },
+            ...(b.model ? { model: b.model } : {}),
+            ...(b.provider ? { provider: b.provider } : {}),
+        };
     }
     // User-defined agents (lazyResolve: no static DI edge from this module).
     const repo = await lazyResolve<IAgentsRepo>("agentsRepo");
