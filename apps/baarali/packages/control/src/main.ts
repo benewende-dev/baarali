@@ -143,6 +143,7 @@ if (process.env.BAARALI_GATEWAY_SECRET) {
     console.log('[control] owner instance retired; a managed one comes at the next sign-in');
   }
   console.log(`[control] instances: ${config ? `${config.app}, ${config.maxInstances} at most` : 'owner only'}`);
+  console.log(`[control] instance tokens granted: ${await instances.grantRunningTokens()}`);
 }
 const gateway = instances ? createGateway({ store, instances, now: Date.now, fetch: globalThis.fetch }) : undefined;
 

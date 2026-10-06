@@ -165,6 +165,15 @@ describe('Instances.ensure', () => {
     expect((await store.accountByToken(instances.instanceToken(ME.id)))?.id).toBe(ME.id);
   });
 
+  it('grants at start the token each machine runs with, even one moved without it', async () => {
+    const { store, instances } = setup();
+    await instances.ensure(ME);
+    await store.revokeToken(instances.instanceToken(ME.id));
+    expect(await store.accountByToken(instances.instanceToken(ME.id))).toBeNull();
+    expect(await instances.grantRunningTokens()).toBe(1);
+    expect((await store.accountByToken(instances.instanceToken(ME.id)))?.id).toBe(ME.id);
+  });
+
   it('creates none beyond the cap, and none at all without Fly', async () => {
     const { instances } = setup({ ...CONFIG, maxInstances: 1 });
     await instances.ensure(ME);
