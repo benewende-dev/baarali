@@ -141,11 +141,13 @@ export async function proxyLlm(deps: ProxyDeps, account: Account, req: Request):
   // Checked before the quota: a refused call must not open a session.
   let raw = await req.text();
   let requestedModel: string | null = null;
+  let fallback: { body: string; served: string } | undefined;
   const fitted = fitCall(catalog, plan, subpath, raw, deps.upstreamModels?.knownIds());
   if (fitted) {
     if (!fitted.ok) return errorResponse(fitted.status, { code: fitted.code, message: fitted.message });
     raw = fitted.body;
     requestedModel = fitted.requested !== fitted.served ? fitted.requested : null;
+    fallback = fitted.fallback;
   }
   const budgets = budgetsForWeek(plan.weekCredits);
 
@@ -162,7 +164,7 @@ export async function proxyLlm(deps: ProxyDeps, account: Account, req: Request):
   }
   await deps.store.saveQuotaState(account.id, open(before, started));
 
-  const { body, model } = withUsageAccounting(raw, subpath);
+  let { body, model } = withUsageAccounting(raw, subpath);
   headers['content-type'] = req.headers.get('content-type') ?? 'application/json';
 
   let settled = false;
@@ -192,6 +194,15 @@ export async function proxyLlm(deps: ProxyDeps, account: Account, req: Request):
   let upstream: Response;
   try {
     upstream = await deps.fetch(target, { method: req.method, headers, body });
+    // « Automatique » left with no model (404) or refusing its bounds (400):
+    // once more, on the plan's own default. Failed calls are not billed.
+    if (fallback && (upstream.status === 404 || upstream.status === 400)) {
+      console.warn(`[llm] router refused (${upstream.status}); sent to ${fallback.served}`);
+      await upstream.body?.cancel().catch(() => undefined);
+      ({ body, model } = withUsageAccounting(fallback.body, subpath));
+      requestedModel = requestedModel ?? 'typesafe/jev-router';
+      upstream = await deps.fetch(target, { method: req.method, headers, body });
+    }
   } catch {
     await settle(502, undefined, false);
     return errorResponse(502, { code: 'upstream_unreachable', message: 'Model provider unreachable' });

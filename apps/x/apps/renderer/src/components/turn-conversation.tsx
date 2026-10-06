@@ -12,6 +12,7 @@ import { ReasoningRow } from '@/components/reasoning-row'
 import { PermissionRequest } from '@/components/ai-elements/permission-request'
 import { AutoPermissionDecision } from '@/components/ai-elements/auto-permission-decision'
 import { WebSearchResult } from '@/components/ai-elements/web-search-result'
+import { FastBrowseCard, getFastBrowseData } from '@/components/ai-elements/fast-browse-card'
 import { AppActionCard } from '@/components/ai-elements/app-action-card'
 import { ComposioConnectCard } from '@/components/ai-elements/composio-connect-card'
 import { AskHumanSettled } from '@/components/ai-elements/ask-human-request'
@@ -295,6 +296,10 @@ export function TurnConversation({
       const appActionData = getAppActionCardData(item)
       if (appActionData) {
         return <AppActionCard key={item.id} data={appActionData} status={item.status} />
+      }
+      const fastBrowseData = getFastBrowseData(item)
+      if (fastBrowseData) {
+        return <FastBrowseCard key={item.id} data={fastBrowseData} status={item.status} />
       }
       const webSearchData = getWebSearchCardData(item)
       if (webSearchData) {
