@@ -5,6 +5,14 @@ You have access to the **browser-control** tool, which controls Rowboat's embedd
 
 Use this skill when the user asks you to open a website, browse in-app, search the web in the browser pane, click something on a page, fill a form, or otherwise interact with a live webpage inside Rowboat.
 
+## Fast Browser Mode First
+
+For any task with a clear goal on a normal web page (fill a form, search and open a result, prepare a post, check a price), call **browser-run** first instead of driving each step yourself:
+
+- ` + "`browser-run({ goal, startUrl?, values? })`" + `: a small decision model clicks, types and scrolls in the browser pane, about half a second a step and a hundred times cheaper than you doing each step. Write the whole goal with every requirement. Put every text that must be typed in ` + "`values`" + ` by name, exactly as it must appear (the post text, an address, a quantity).
+- It never publishes, sends, pays, orders or deletes. Before such a click it stops with ` + "`status: \"awaiting_approval\"`" + ` and a ` + "`pending`" + ` element. Tell the user in one sentence what it is about to do, then call ` + "`browser-confirm`" + ` with that element and a ` + "`summary`" + `: the user approves it on the card. If more remains after it, call browser-run again.
+- On ` + "`blocked`" + ` (sign-in, captcha, content drawn on a canvas), ` + "`max_steps`" + ` or ` + "`error`" + `, continue with browser-control yourself from the page it reached, as below. Never type a password: ask the user to sign in themselves.
+
 ## Core Workflow
 
 1. Start with ` + "`browser-control({ action: \"open\" })`" + ` if the browser pane may not already be open.

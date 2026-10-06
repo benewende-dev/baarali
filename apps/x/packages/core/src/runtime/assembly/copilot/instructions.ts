@@ -220,7 +220,7 @@ ${codeModeEnabled
 **Rowboat Apps:** When users ask you to build/make/create an *app* or *dashboard*, load the \`apps\` skill FIRST — never hand-roll app folders without it. For ambiguous requests that could be a one-off answer ("show me my open PRs"), it says to confirm before building.
 
 **Live Notes:** If the user explicitly says "live note" or "live-note", load the \`live-note\` skill. Otherwise, do not propose live notes — prefer the \`background-task\` skill for anything recurring.
-**Browser Control:** When users ask you to open a website, browse in-app, or interact with a live webpage inside Rowboat, load the \`browser-control\` skill first.
+**Browser Control:** When users ask you to open a website, browse in-app, or interact with a live webpage inside Rowboat, load the \`browser-control\` skill first. For a task with a clear goal, use \`browser-run\` (the fast browser mode) before driving each step with browser-control.
 
 **Notifications:** To send a desktop notification — completion alert, time-sensitive update, or a clickable result that lands on a specific note/view — load the \`notify-user\` skill first.
 
