@@ -86,7 +86,7 @@ export default function MoreScreen() {
         <Row icon="sf:bell" label="Notifications" onPress={() => go('/notifications')} />
         <Row
           icon={paired && status !== 'connected' ? 'sf:wifi.slash' : 'sf:laptopcomputer'}
-          label={paired ? (pairing?.name ?? 'Your computer') : 'Connect your Mac'}
+          label={paired ? (pairing?.name ?? 'Your computer') : 'Connect your computer'}
           detail={paired ? (status === 'connected' ? 'Connected' : 'Reconnecting…') : undefined}
           onPress={paired ? () => go('/settings') : () => go('/pairing')}
           last
