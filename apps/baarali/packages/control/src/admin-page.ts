@@ -119,6 +119,31 @@ input[type=search] { flex:1; min-width:180px; }
 .nowrap { white-space:nowrap; }
 .push { margin-left:auto; }
 .picker .opt .mark { width:16px; flex:none; }
+.hint { font-size:12px; color:var(--muted); margin:0 0 12px; }
+.form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.form .wide { grid-column:1/-1; }
+label.f { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
+label.f input, label.f select { width:100%; }
+.formbar { margin:4px 0 0; }
+.fl { display:flex; justify-content:space-between; gap:8px; }
+label.f input:disabled { opacity:.5; }
+#a-list .it time { min-width:170px; }
+#a-list .it p { flex:1; }
+.spacer { flex:1; }
+.spaced { margin-top:16px; }
+.preview { border:1px dashed var(--line); border-radius:12px; padding:14px; background:var(--mist); }
+.appmock { background:var(--paper); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.banner { display:flex; gap:10px; align-items:center; margin:10px; border:1px solid var(--blue); background:var(--blue-soft); border-radius:10px; padding:8px 12px; color:var(--ink); font-size:13px; }
+.banner.important { border-color:var(--warn); background:var(--warn-soft); }
+.banner .btn.small { margin-left:auto; padding:3px 10px; }
+.banner .close { color:var(--muted); }
+.chatmock { padding:16px 14px 14px; display:flex; flex-direction:column; gap:10px; align-items:center; }
+.chatmock b { font:600 17px "Source Serif 4", Georgia, serif; color:var(--ink); }
+.composer { width:100%; border:1px solid var(--line); border-radius:12px; padding:9px 12px; color:var(--muted); font-size:13px; }
+.stats3 { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:12px; }
+.stats3 div { border:1px solid var(--line); border-radius:10px; padding:10px; }
+.stats3 b { display:block; font:600 20px "Source Serif 4", Georgia, serif; color:var(--ink); font-variant-numeric:tabular-nums; }
+.stats3 span { font-size:12px; color:var(--muted); }
 @media (max-width:820px) {
   .shell { grid-template-columns:minmax(0,1fr); }
   aside { border-right:0; border-bottom:1px solid var(--line); flex-direction:row; flex-wrap:wrap; padding:12px 16px; }
@@ -129,6 +154,7 @@ input[type=search] { flex:1; min-width:180px; }
   main { padding:20px 16px 48px; }
   .stats { grid-template-columns:repeat(2, minmax(0,1fr)); }
   .grid2 { grid-template-columns:1fr; }
+  .form { grid-template-columns:1fr; }
 }`;
 
 function shell(nonce: string, title: string, body: string, script = ''): string {
@@ -176,6 +202,8 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
     <button data-v="clients">Clients <span class="count" id="n-clients"></span></button>
     <button data-v="instances">Instances <span class="count" id="n-instances"></span></button>
     <button data-v="modeles">Modèles <span class="count" id="n-models"></span></button>
+    <h6>Faire grandir</h6>
+    <button data-v="annonces">Annonces <span class="count" id="n-announce"></span></button>
     <h6>Garder la trace</h6>
     <button data-v="journal">Journal</button>
   </nav>
@@ -260,6 +288,42 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
         <p class="muted" id="pv-note">Rangé par éditeur. Les modèles « Conseillé » passent en tête de leur éditeur ; ceux d'un forfait au-dessus restent visibles, avec un cadenas et le forfait qui les ouvre.</p>
       </section>
     </div>
+  </div>
+
+  <div data-p="annonces" hidden>
+    <div class="head"><div><h1>Annonces</h1><p>Un bandeau en haut du Chat, sur le Mac et le téléphone. Un seul visible à la fois ; le client peut le fermer.</p></div></div>
+    <div class="grid2">
+      <section class="card"><h2>Bandeau</h2>
+        <p class="hint">Arrive chez les clients en 10 minutes au plus. Publier remplace l'annonce en cours.</p>
+        <form class="form" id="a-form">
+          <label class="f wide"><span class="fl">Texte<span id="a-count"></span></span><input id="a-text" maxlength="160" required placeholder="Nouveau : parle à Baarali, il te répond à voix haute."></label>
+          <label class="f">Mène vers<select id="a-target">
+            <option value="none">Nulle part (pas de bouton)</option>
+            <option value="voice">Le mode conversation</option>
+            <option value="plans">Les forfaits</option>
+            <option value="usage">Utilisation</option>
+            <option value="link">Un lien…</option>
+          </select></label>
+          <label class="f">Bouton<input id="a-button" maxlength="24" placeholder="Essayer"></label>
+          <label class="f wide" id="a-link-row" hidden>Lien<input id="a-link" type="url" placeholder="https://baarali.com/…"></label>
+          <label class="f">Visible pour<select id="a-audience"><option value="all">Tous</option><option value="free">Découverte</option><option value="paid">Forfaits payants</option></select></label>
+          <label class="f">Couleur<select id="a-tone"><option value="info">Bleu (nouveauté)</option><option value="important">Orange (important)</option></select></label>
+          <label class="f">Du<input id="a-start" type="date"></label>
+          <label class="f">Au<input id="a-end" type="date" required></label>
+          <div class="wide toolbar formbar"><span class="spacer"></span><button class="btn primary" type="submit" id="a-publish">Publier</button></div>
+        </form>
+      </section>
+      <section class="card"><h2>Aperçu dans l'app</h2>
+        <div class="preview">
+          <div class="appmock">
+            <div class="banner" id="pv-banner"><span id="pv-text"></span><button class="btn primary small" type="button" id="pv-button"></button><span class="close" aria-hidden="true">✕</span></div>
+            <div class="chatmock"><b>Que fait-on aujourd'hui ?</b><div class="composer">Écris à Baarali…</div></div>
+          </div>
+        </div>
+        <div class="stats3" id="a-stats"></div>
+      </section>
+    </div>
+    <section class="card spaced"><h2>Annonces</h2><div class="list" id="a-list"></div></section>
   </div>
 
   <div data-p="journal" hidden>
@@ -352,7 +416,7 @@ function bar(p) {
 }
 
 // Navigation, remembered in the address (#clients…).
-const views = ["apercu", "clients", "instances", "modeles", "journal"];
+const views = ["apercu", "clients", "instances", "modeles", "annonces", "journal"];
 function show(v) {
   if (!views.includes(v)) v = "apercu";
   for (const s of document.querySelectorAll("[data-p]")) s.hidden = s.dataset.p !== v;
@@ -377,6 +441,7 @@ async function load(v) {
     if (v === "instances") await loadInstances();
     if (v === "journal") await loadJournal();
     if (v === "modeles") await loadModels();
+    if (v === "annonces") await loadAnnouncements();
   } catch (e) { if (e.message !== "signed out") toast("Chargement impossible. Réessaie."); }
 }
 
@@ -704,6 +769,62 @@ function renderMediaPreview() {
   }
   if (items.length === 1) items.push(el("p", { class: "empty" }, "Aucun média pour ce forfait."));
   $("picker").replaceChildren(...items);
+}
+
+// Announcements: the form, its live preview, and what each one did.
+const STATUS = { live: ["En ligne", "ok"], scheduled: ["Programmée", "blue"], ended: ["Terminée", ""], removed: ["Retirée", ""] };
+const TARGETS = { none: "", voice: "Le mode conversation", plans: "Les forfaits", usage: "Utilisation", link: "Un lien" };
+const dateInput = (t) => new Date(t - new Date(t).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+function previewBanner() {
+  const target = $("a-target").value;
+  $("a-link-row").hidden = target !== "link";
+  $("a-button").disabled = target === "none";
+  $("pv-text").textContent = $("a-text").value.trim() || "Ton texte ici.";
+  $("pv-button").textContent = $("a-button").value.trim() || "Bouton";
+  $("pv-button").hidden = target === "none";
+  $("pv-banner").className = "banner" + ($("a-tone").value === "important" ? " important" : "");
+  $("a-count").textContent = $("a-text").value.length + " / 160";
+}
+for (const id of ["a-text", "a-button", "a-target", "a-tone"]) $(id).addEventListener("input", previewBanner);
+$("a-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const start = $("a-start").value;
+  const end = $("a-end").value;
+  // The end day is included, to its last minute; no start means now.
+  const body = {
+    text: $("a-text").value, button: $("a-button").value, target: $("a-target").value, link: $("a-link").value,
+    audience: $("a-audience").value, tone: $("a-tone").value,
+    startsAt: start && start > dateInput(Date.now()) ? new Date(start + "T00:00").getTime() : undefined,
+    endsAt: end ? new Date(end + "T23:59").getTime() : undefined,
+  };
+  const b = $("a-publish"); b.disabled = true;
+  try { await send("/announcements", body); toast("Annonce publiée"); $("a-form").reset(); setEndDefault(); previewBanner(); await loadAnnouncements(); }
+  catch (err) { toast(err.message); }
+  finally { b.disabled = false; }
+});
+function setEndDefault() { $("a-end").value = dateInput(Date.now() + 14 * 864e5); }
+setEndDefault();
+previewBanner();
+async function loadAnnouncements() {
+  const r = await get("/announcements");
+  const live = r.data.find((a) => a.status === "live");
+  $("n-announce").textContent = live ? "1" : "";
+  const stat = (n, label) => el("div", {}, el("b", {}, fr.format(n)), el("span", {}, label));
+  $("a-stats").replaceChildren(...(live ? [stat(live.stats.view, "vues"), stat(live.stats.click, "clics"), stat(live.stats.dismiss, "fermées")] : []));
+  $("a-list").replaceChildren(...(r.data.length ? r.data.map((a) => {
+    const [word, tone] = STATUS[a.status];
+    const until = a.status === "live" || a.status === "scheduled";
+    return el("div", { class: "it" },
+      el("time", {}, day.format(a.startsAt) + " → " + day.format(a.endsAt)),
+      el("p", {}, el("b", {}, a.text), " ", el("span", { class: "pill " + tone }, word), el("br"),
+        el("small", {}, [{ all: "Tous", free: "Découverte", paid: "Forfaits payants" }[a.audience], a.button ? a.button + " → " + TARGETS[a.target] : null,
+          a.stats.view + " vues · " + a.stats.click + " clics · " + a.stats.dismiss + " fermées", "par " + a.createdBy].filter(Boolean).join(" · "))),
+      until ? el("button", { class: "btn danger", type: "button", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { await send("/announcements/" + encodeURIComponent(a.id) + "/remove"); toast("Annonce retirée"); await loadAnnouncements(); }
+        catch (err) { toast(err.message); e.currentTarget.disabled = false; }
+      } }, "Retirer") : null);
+  }) : [el("p", { class: "empty" }, "Aucune annonce pour l'instant.")]));
 }
 
 async function loadJournal() {

@@ -1,3 +1,4 @@
+import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import type { ModelSetting } from './model-access.js';
 import { createHash } from 'node:crypto';
 import type { ModelPolicy } from './models.js';
@@ -191,12 +192,23 @@ export interface ControlStore {
   appendAdminLog(entry: AdminLogEntry): Promise<void>;
   /** Newest first; with `accountId`, that account's entries only. */
   adminLog(limit: number, accountId?: string): Promise<AdminLogEntry[]>;
+  /** Newest first. */
+  announcements(limit: number): Promise<Announcement[]>;
+  /** Creates or replaces it. */
+  saveAnnouncement(announcement: Announcement): Promise<void>;
+  /** Once per person and kind: false when this one was counted already. */
+  recordAnnouncementEvent(id: string, accountId: string, kind: AnnouncementEvent, at: number): Promise<boolean>;
+  /** The kinds this account already sent for this announcement. */
+  announcementEventsOf(id: string, accountId: string): Promise<AnnouncementEvent[]>;
+  announcementStats(ids: string[]): Promise<Record<string, AnnouncementStats>>;
 }
 
 export class MemoryStore implements ControlStore {
   readonly usage: UsageRecord[] = [];
   readonly ledger: MediaLedgerEntry[] = [];
   readonly log: AdminLogEntry[] = [];
+  private readonly banners = new Map<string, Announcement>();
+  private readonly bannerEvents: Array<{ id: string; accountId: string; kind: AnnouncementEvent; at: number }> = [];
   private readonly models = new Map<string, ModelSetting>();
   private readonly states = new Map<string, QuotaState>();
   private readonly jobs = new Map<string, MediaJob>();
@@ -373,5 +385,29 @@ export class MemoryStore implements ControlStore {
       .sort((a, b) => b.e.at - a.e.at || b.i - a.i)
       .slice(0, limit)
       .map(({ e }) => ({ ...e }));
+  }
+  async announcements(limit: number) {
+    // Newest first; at the same instant, the one saved last.
+    return [...this.banners.values()].reverse().sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((a) => ({ ...a }));
+  }
+  async saveAnnouncement(announcement: Announcement) {
+    this.banners.set(announcement.id, { ...announcement });
+  }
+  async recordAnnouncementEvent(id: string, accountId: string, kind: AnnouncementEvent, at: number) {
+    if (!this.banners.has(id)) return false;
+    if (this.bannerEvents.some((e) => e.id === id && e.accountId === accountId && e.kind === kind)) return false;
+    this.bannerEvents.push({ id, accountId, kind, at });
+    return true;
+  }
+  async announcementEventsOf(id: string, accountId: string) {
+    return this.bannerEvents.filter((e) => e.id === id && e.accountId === accountId).map((e) => e.kind);
+  }
+  async announcementStats(ids: string[]) {
+    const stats: Record<string, AnnouncementStats> = {};
+    for (const id of ids) {
+      const of = (kind: AnnouncementEvent) => this.bannerEvents.filter((e) => e.id === id && e.kind === kind).length;
+      stats[id] = { view: of('view'), click: of('click'), dismiss: of('dismiss') };
+    }
+    return stats;
   }
 }

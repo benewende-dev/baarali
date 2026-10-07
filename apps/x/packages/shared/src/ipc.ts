@@ -27,7 +27,7 @@ import { AutoRouteDecision, AutoRouteRequest } from './auto-route.js';
 import { FindRequest, FindResult } from './find.js';
 import { AppSummarySchema, RegistryRecordSchema, RowboatAppManifestSchema } from './rowboat-app.js';
 import { BrowserStateSchema, DisplayMediaRequestSchema, HttpAuthRequestSchema } from './browser-control.js';
-import { BillingInfoSchema, MediaCreditsSchema, PlanOffersSchema } from './billing.js';
+import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, PlanOffersSchema } from './billing.js';
 import { CreditActivatedEventSchema, CreditsStateSchema, ReferralClaimResultSchema } from './credits.js';
 import { GmailThreadSchema } from './blocks.js';
 import { PermissionDecision, ApprovalPolicy, CodingAgent, type CodeRunFeedEvent } from './code-mode.js';
@@ -3725,6 +3725,17 @@ export const ipcSchemas = {
   'billing:getMedia': {
     req: z.null(),
     res: MediaCreditsSchema.nullable(),
+  },
+  // The banner at the top of the Chat, and what the person did with it
+  // (Baarali, 07/10/2026); null when there is none for this account.
+  'billing:getAnnouncement': {
+    req: z.null(),
+    res: AnnouncementSchema.nullable(),
+  },
+  'billing:announcementEvent': {
+    req: z.object({ id: z.string(), kind: AnnouncementEventKindSchema }),
+    // Whether it was counted: a person counts once per kind.
+    res: z.boolean(),
   },
   // First-time-action credit rewards (see shared/src/credits.ts)
   'credits:getState': {

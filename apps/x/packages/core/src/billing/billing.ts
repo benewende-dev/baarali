@@ -1,6 +1,6 @@
 import { getAccessToken } from '../auth/tokens.js';
 import { API_URL } from '../config/env.js';
-import { MediaCreditsSchema, PlanOffersSchema, type BillingInfo, type BillingPlanId, type MediaCredits, type PlanOffers } from '@x/shared/dist/billing.js';
+import { AnnouncementSchema, MediaCreditsSchema, PlanOffersSchema, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type PlanOffers } from '@x/shared/dist/billing.js';
 import { getRowboatConfig } from '../config/rowboat.js';
 
 export async function getBillingInfo(): Promise<BillingInfo> {
@@ -100,5 +100,39 @@ export async function getMediaCredits(): Promise<MediaCredits | null> {
     });
   } catch {
     return null;
+  }
+}
+
+/**
+ * The banner at the top of the Chat (control GET /v1/announcement, Baarali,
+ * 07/10/2026). Null when there is none, or the API serves none (an upstream
+ * deployment) or cannot be reached: the Chat simply shows no banner.
+ */
+export async function getAnnouncement(): Promise<Announcement | null> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/announcement`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { announcement?: unknown };
+    return body.announcement ? AnnouncementSchema.parse(body.announcement) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Seen, followed or closed: the control plane counts each person once per kind. Best effort. */
+export async function sendAnnouncementEvent(id: string, kind: AnnouncementEventKind): Promise<boolean> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/announcement/${encodeURIComponent(id)}/events`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind }),
+    });
+    if (!response.ok) return false;
+    return ((await response.json()) as { counted?: unknown }).counted === true;
+  } catch {
+    // A lost count never bothers the person.
+    return false;
   }
 }

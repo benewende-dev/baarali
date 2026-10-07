@@ -25,6 +25,7 @@ import type { useVoiceMode } from '@/hooks/useVoiceMode'
 import type { PermissionDecision } from '@x/shared/src/code-mode.js'
 import type { QueuedSessionMessage } from '@x/shared/src/sessions.js'
 import { ChatEmptyState } from './chat-empty-state'
+import { AnnouncementBanner } from './announcement-banner'
 import { Avatar } from './baarasseurs-view'
 import { useChatBaarasseur } from '@/lib/baarasseurs'
 import { ChatInputWithMentions, type CallPreset, type PermissionMode, type StagedAttachment, type ModelSelection } from './chat-input-with-mentions'
@@ -172,6 +173,8 @@ export function ChatSessionPane({
       data-chat-tab-panel={tab.id}
       aria-hidden={!isActive}
     >
+      {/* Baarali (07/10/2026): the admin console's banner, on chats only. */}
+      {isActive && !isCodeSession ? <AnnouncementBanner className="mt-3 px-6" /> : null}
       <Conversation
         scrollMode={isCodeSession ? 'code' : 'chat'}
         scrollMemoryKey={tab.chatId}

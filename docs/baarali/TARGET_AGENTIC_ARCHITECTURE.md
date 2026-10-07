@@ -337,7 +337,9 @@ Décidé le 30/09/2026. La vidéo, la voix et la musique passent par **Pixazo**,
 - **Chaque action est écrite dans un journal** (`admin_log`), avec qui l'a faite. Ce journal est en ajout seul, comme celui des médias : un déclencheur refuse toute modification et toute suppression.
 - **Un cookie seul ne change rien.** Une écriture exige un en-tête que seule la page de la console envoie : un autre site ne peut pas le poser sans notre accord CORS.
 
-Les notifications, les codes promo, le parrainage et les annonces viendront dans les PR suivantes.
+- **Les annonces** (07/10/2026, `announcements.ts`) : un bandeau en haut du Chat, écrit dans l'onglet Annonces. Un seul à la fois : publier retire celui d'avant, programmé compris. Il dit un texte (160 caractères au plus), et peut avoir un bouton qui mène aux forfaits, à la page Utilisation, au mode conversation ou à une page **https** ; il vise tout le monde, Découverte ou les forfaits payants, et dure 60 jours au plus. Les apps le lisent avec le jeton du compte (`GET /v1/announcement`) toutes les 10 minutes et quand la fenêtre revient ; elles ne reçoivent ni le public visé ni l'auteur. Vues, clics et fermetures comptent chaque personne une fois (`POST /v1/announcement/:id/events`) ; une fermeture vaut pour le compte, sur tous ses appareils. Le bandeau du téléphone lit la même route.
+
+Les notifications, les codes promo et le parrainage viendront dans les PR suivantes.
 
 ### 3.6 La vérification : exécuté ≠ vérifié
 

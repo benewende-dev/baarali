@@ -3,6 +3,7 @@ import type { Context, Hono } from 'hono';
 import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { isAdmin, type SoldPack } from './admin.js';
 import { adminPage, deniedPage } from './admin-page.js';
+import { isLive, parseDraft, type Announcement } from './announcements.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
 import { ASSUMPTIONS, OFFERS } from './catalog.js';
 import { html } from './html.js';
@@ -536,6 +537,46 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     ].filter(Boolean).join(', ');
     await log(actor, 'media-models', null, `Pixazo ${ids.join(', ')} : ${words}`);
     return c.json({ saved: settings.length });
+  });
+
+  // Announcements: the banner at the top of the Chat (07/10/2026).
+  const statusOf = (a: Announcement, now: number) =>
+    a.removedAt !== null ? 'removed' : isLive(a, now) ? 'live' : a.startsAt > now ? 'scheduled' : 'ended';
+
+  app.get('/admin/api/announcements', async (c) => {
+    const actor = await api(c, false);
+    if (actor instanceof Response) return actor;
+    const now = deps.now();
+    const list = await store.announcements(50);
+    const stats = await store.announcementStats(list.map((a) => a.id));
+    return c.json({ data: list.map((a) => ({ ...a, status: statusOf(a, now), stats: stats[a.id] })) });
+  });
+
+  app.post('/admin/api/announcements', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const now = deps.now();
+    const parsed = parseDraft(await body(c), now);
+    if (!parsed.ok) return c.json({ error: { code: 'invalid_request', message: parsed.message } }, 400);
+    // One banner at a time: the one before ends now, scheduled ones included.
+    for (const old of await store.announcements(50)) {
+      if (old.removedAt === null && old.endsAt > now) await store.saveAnnouncement({ ...old, removedAt: now });
+    }
+    const announcement: Announcement = { id: `ann_${randomUUID()}`, ...parsed.draft, createdAt: now, createdBy: actor, removedAt: null };
+    await store.saveAnnouncement(announcement);
+    await log(actor, 'announcement', null, `Annonce publiée : « ${announcement.text} »`);
+    return c.json({ id: announcement.id }, 201);
+  });
+
+  app.post('/admin/api/announcements/:id/remove', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const found = (await store.announcements(50)).find((a) => a.id === c.req.param('id'));
+    if (!found) return c.json({ error: { code: 'not_found' } }, 404);
+    if (found.removedAt !== null) return c.json({ changed: false });
+    await store.saveAnnouncement({ ...found, removedAt: deps.now() });
+    await log(actor, 'announcement-removed', null, `Annonce retirée : « ${found.text} »`);
+    return c.json({ changed: true });
   });
 
   app.get('/admin/api/journal', async (c) => {
