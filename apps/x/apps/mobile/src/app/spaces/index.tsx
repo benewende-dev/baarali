@@ -1,11 +1,14 @@
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
+import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { JoinWithLink } from '@/components/join-with-link';
 import { useSpacesAccount, type SpacesOrg } from '@/lib/spaces/account';
+import { connectInstance, sendCode, SignInError, verifyCode } from '@/lib/baarali-sign-in';
+import { useConnection } from '@/lib/connection';
 import { SpacesClient } from '@/lib/spaces/client';
 import type { Member, Space } from '@rowboat/spaces-protocol';
 import { useColors } from '@/theme/colors';
@@ -30,9 +33,61 @@ export default function SpacesScreen() {
 
 function SignIn() {
   const account = useSpacesAccount();
+  const { pair } = useConnection();
   const colors = useColors();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Baarali (07/10/2026): signing in happens here, with no web page: the
+  // email, then the code it receives. The browser stays for Google and Apple.
+  const [step, setStep] = useState<'email' | 'code'>('email');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+
+  const say = (err: unknown) => setError(err instanceof SignInError || err instanceof Error ? err.message : String(err));
+
+  const askCode = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Enter your email address.');
+      return;
+    }
+    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
+    setBusy(true);
+    setError(null);
+    try {
+      await sendCode(email);
+      setCode('');
+      setStep('code');
+    } catch (err) {
+      say(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const checkCode = async (typed = code) => {
+    if (typed.trim().length < 6) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const session = await verifyCode(email, typed);
+      await account.signInWithSession(session);
+      // The same cloud instance as the person's Mac: their chats, here.
+      try {
+        const server = await connectInstance(session, Device.deviceName ?? 'iPhone');
+        await pair({ url: server.url, token: server.key, name: 'Baarali' });
+        if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace('/chat');
+      } catch (err) {
+        // Signed in to Spaces all the same; the chats wait for the instance.
+        say(err);
+      }
+    } catch (err) {
+      say(err);
+      if (err instanceof SignInError && err.reason === 'bad_code') setCode('');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const go = async () => {
     if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
@@ -80,9 +135,54 @@ function SignIn() {
       </View>
 
       <View style={{ paddingBottom: 40, gap: 14 }}>
+        {step === 'email' ? (
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Your email"
+            placeholderTextColor={colors.tertiaryLabel}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            returnKeyType="send"
+            onSubmitEditing={() => void askCode()}
+            editable={!busy}
+            style={{
+              fontSize: 17, color: colors.label, paddingVertical: 14, paddingHorizontal: 16,
+              borderRadius: 14, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.separator,
+            }}
+          />
+        ) : (
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontSize: 14, textAlign: 'center', color: colors.secondaryLabel }}>
+              Enter the code sent to {email.trim()}
+            </Text>
+            <TextInput
+              value={code}
+              onChangeText={(next) => {
+                const digits = next.replace(/\D/g, '').slice(0, 6);
+                setCode(digits);
+                if (digits.length === 6) void checkCode(digits);
+              }}
+              placeholder="123456"
+              placeholderTextColor={colors.tertiaryLabel}
+              keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+              autoFocus
+              editable={!busy}
+              style={{
+                fontSize: 26, letterSpacing: 8, textAlign: 'center', color: colors.label, paddingVertical: 12,
+                borderRadius: 14, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.separator,
+              }}
+            />
+          </View>
+        )}
         <Pressable
           disabled={busy}
-          onPress={() => void go()}
+          onPress={() => void (step === 'email' ? askCode() : checkCode())}
           style={({ pressed }) => ({
             paddingVertical: 14, borderRadius: 14, borderCurve: 'continuous', alignItems: 'center',
             backgroundColor: colors.label, opacity: pressed || busy ? 0.7 : 1,
@@ -90,8 +190,22 @@ function SignIn() {
         >
           {busy
             ? <ActivityIndicator color={colors.background} />
-            : <Text style={{ fontSize: 16, fontWeight: '600', color: colors.background }}>Sign in with Rowboat</Text>}
+            : <Text style={{ fontSize: 16, fontWeight: '600', color: colors.background }}>{step === 'email' ? 'Get a sign-in code' : 'Sign in'}</Text>}
         </Pressable>
+        {step === 'code' ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24 }}>
+            <Pressable disabled={busy} onPress={() => void askCode()} hitSlop={8}>
+              <Text style={{ fontSize: 14, color: colors.label, fontWeight: '600' }}>Send a new code</Text>
+            </Pressable>
+            <Pressable disabled={busy} onPress={() => { setStep('email'); setError(null); }} hitSlop={8}>
+              <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>Change email</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable disabled={busy} onPress={() => void go()} style={{ alignItems: 'center', padding: 4 }}>
+            <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>Other ways: Google, Apple…</Text>
+          </Pressable>
+        )}
         <Pressable onPress={() => router.push('/pairing')} style={{ alignItems: 'center', padding: 4 }}>
           <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>
             Use Rowboat on your Mac? <Text style={{ fontWeight: '600', color: colors.label }}>Connect your Mac</Text>
