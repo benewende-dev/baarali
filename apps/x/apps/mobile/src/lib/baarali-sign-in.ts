@@ -7,13 +7,21 @@
 /** The control plane: sign-in server, devices, Spaces tokens. */
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.x.rowboatlabs.com';
 
-/** A refusal the screen can say in words. */
+export type SignInProblem =
+  | 'bad_code'
+  | 'expired_code'
+  | 'too_many'
+  | 'instances_full'
+  | 'too_many_devices'
+  | 'no_instance'
+  | 'network'
+  | 'no_session'
+  | 'other';
+
+/** A refusal; the screen says it in words (in the person's language). */
 export class SignInError extends Error {
-  constructor(
-    readonly reason: 'bad_code' | 'expired_code' | 'too_many' | 'no_instance' | 'network' | 'other',
-    message: string,
-  ) {
-    super(message);
+  constructor(readonly reason: SignInProblem) {
+    super(`sign-in: ${reason}`);
   }
 }
 
@@ -25,18 +33,17 @@ async function call(path: string, body: unknown, session?: string): Promise<Resp
       body: JSON.stringify(body),
     });
   } catch {
-    throw new SignInError('network', 'No connection. Check your internet and try again.');
+    throw new SignInError('network');
   }
 }
 
 async function refusal(res: Response): Promise<SignInError> {
-  const json = (await res.json().catch(() => ({}))) as { code?: string; message?: string; error?: { code?: string } };
+  const json = (await res.json().catch(() => ({}))) as { code?: string; error?: { code?: string } };
   const code = json.code ?? json.error?.code ?? '';
-  if (res.status === 429) return new SignInError('too_many', 'Too many tries. Wait a minute, then try again.');
-  if (code === 'INVALID_OTP') return new SignInError('bad_code', 'That code isn’t right. Check it and try again.');
-  if (code === 'OTP_EXPIRED') return new SignInError('expired_code', 'That code has expired. Send a new one.');
-  if (code === 'TOO_MANY_ATTEMPTS') return new SignInError('too_many', 'Too many wrong codes. Send a new one.');
-  return new SignInError('other', json.message || `Sign-in failed (${res.status}).`);
+  if (res.status === 429 || code === 'TOO_MANY_ATTEMPTS') return new SignInError('too_many');
+  if (code === 'INVALID_OTP') return new SignInError('bad_code');
+  if (code === 'OTP_EXPIRED') return new SignInError('expired_code');
+  return new SignInError('other');
 }
 
 /** Sends a six-digit code to the address. */
@@ -50,7 +57,7 @@ export async function verifyCode(email: string, code: string): Promise<string> {
   const res = await call('/auth/v1/sign-in/email-otp', { email: email.trim(), otp: code.trim() });
   if (!res.ok) throw await refusal(res);
   const session = res.headers.get('set-auth-token');
-  if (!session) throw new SignInError('other', 'The server opened no session. Try again.');
+  if (!session) throw new SignInError('no_session');
   return session;
 }
 
@@ -60,9 +67,9 @@ export async function connectInstance(session: string, name: string): Promise<{ 
   if (!res.ok) {
     const json = (await res.json().catch(() => ({}))) as { error?: { code?: string } };
     const code = json.error?.code;
-    if (code === 'instances_full') throw new SignInError('no_instance', 'Early access is full for now: your chats will open as soon as a place frees up. Spaces work already.');
-    if (code === 'too_many_devices') throw new SignInError('no_instance', 'Too many devices on this account. Remove one from the Mac app’s settings, then sign in again.');
-    throw new SignInError('no_instance', 'Your assistant could not be reached. Spaces work; try again in a moment for your chats.');
+    if (code === 'instances_full') throw new SignInError('instances_full');
+    if (code === 'too_many_devices') throw new SignInError('too_many_devices');
+    throw new SignInError('no_instance');
   }
   const { server } = (await res.json()) as { server: { url: string; key: string } };
   return server;
@@ -71,7 +78,8 @@ export async function connectInstance(session: string, name: string): Promise<{ 
 /** A Spaces token, renewed with the session (the phone has no OAuth refresh token). */
 export async function spacesTokenForSession(session: string): Promise<{ access: string; expiresAt: number }> {
   const res = await call('/v1/session/spaces-token', {}, session);
-  if (!res.ok) throw Object.assign(new Error(`Spaces token refused (${res.status})`), { status: res.status });
+  // The status is what the account reads (401: the session is over).
+  if (!res.ok) throw Object.assign(new Error(String(res.status)), { status: res.status });
   const json = (await res.json()) as { access_token: string; expires_in: number };
   return { access: json.access_token, expiresAt: Date.now() + json.expires_in * 1000 };
 }

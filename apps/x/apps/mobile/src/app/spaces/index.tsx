@@ -7,7 +7,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Pressable, RefreshControl, Scr
 
 import { JoinWithLink } from '@/components/join-with-link';
 import { useSpacesAccount, type SpacesOrg } from '@/lib/spaces/account';
-import { connectInstance, sendCode, SignInError, verifyCode } from '@/lib/baarali-sign-in';
+import { connectInstance, sendCode, SignInError, verifyCode, type SignInProblem } from '@/lib/baarali-sign-in';
 import { useConnection } from '@/lib/connection';
 import { SpacesClient } from '@/lib/spaces/client';
 import type { Member, Space } from '@rowboat/spaces-protocol';
@@ -43,7 +43,7 @@ function SignIn() {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
 
-  const say = (err: unknown) => setError(err instanceof SignInError || err instanceof Error ? err.message : String(err));
+  const say = (err: unknown) => setError(err instanceof SignInError ? problemText(err.reason) : err instanceof Error ? err.message : String(err));
 
   const askCode = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -215,6 +215,28 @@ function SignIn() {
       </View>
     </View>
   );
+}
+
+/** What went wrong, for the person. */
+function problemText(problem: SignInProblem): string {
+  switch (problem) {
+    case 'bad_code':
+      return 'That code isn’t right. Check it and try again.';
+    case 'expired_code':
+      return 'That code has expired. Send a new one.';
+    case 'too_many':
+      return 'Too many tries. Wait a minute, then send a new code.';
+    case 'instances_full':
+      return 'Early access is full for now: your chats will open as soon as a place frees up. Spaces already work.';
+    case 'too_many_devices':
+      return 'Too many devices on this account. Remove one in the Mac app’s settings, then sign in again.';
+    case 'no_instance':
+      return 'Your assistant can’t be reached right now. Spaces work; try again in a moment for your chats.';
+    case 'network':
+      return 'No connection. Check your internet and try again.';
+    default:
+      return 'Sign-in didn’t work. Try again.';
+  }
 }
 
 function FeatureRow({ icon, title, detail }: { icon: string; title: string; detail: string }) {
