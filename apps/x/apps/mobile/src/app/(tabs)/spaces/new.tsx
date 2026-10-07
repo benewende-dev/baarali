@@ -193,7 +193,7 @@ export default function NewGroupScreen() {
           <PickRow key={m.id} face={<Face name={m.displayName} agent />} name={m.displayName} state={picked.has(m.id) ? 'on' : 'off'} onPress={() => toggle(m.id)} />
         ))}
         {pairing
-          ? (team ?? []).filter((b) => shown(b)).map((b) => (
+          ? (team ?? []).filter((b) => shown({ displayName: b.name })).map((b) => (
               <PickRow key={b.id} face={<BaarasseurAvatar b={b} size={40} />} name={b.name} detail="Soon in groups" state="soon" />
             ))
           : null}
