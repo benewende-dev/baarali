@@ -1,11 +1,11 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider, router } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { GlassButton } from '@/components/glass-button';
+import { BackButton } from '@/components/back-button';
 import { registerWithMac } from '@/lib/push';
 import { useConnection } from '@/lib/connection';
 import { ConnectionProvider } from '@/lib/connection';
@@ -41,14 +41,14 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false, title: '' }} />
-            {/* Floating way back in a glass circle: transparent header, no divider. */}
+            {/* Floating way back: transparent header, no divider (iOS draws the glass). */}
             <Stack.Screen
               name="chat"
               options={{
                 headerTransparent: true,
                 headerTitle: '',
                 headerBackVisible: false,
-                headerLeft: () => <GlassButton icon="sf:chevron.left" label="Back" onPress={() => router.back()} marginLeft={0} />,
+                headerLeft: () => <BackButton />,
               }}
             />
             <Stack.Screen name="baarasseurs" options={{ headerShown: false }} />

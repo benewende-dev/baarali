@@ -46,14 +46,15 @@ export default function MoreScreen() {
     >
       <Text style={{ marginHorizontal: 16, fontSize: 32, fontWeight: '700', color: colors.label }}>More</Text>
 
-      {paired ? (
+      {/* Only once the account answers: an empty card says nothing. */}
+      {paired && info ? (
         <Pressable onPress={() => go('/settings')} style={[group, { marginTop: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }]}>
           <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondaryBackground }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.label }}>{(info?.userEmail?.[0] ?? '·').toUpperCase()}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.label }}>{(info.userEmail?.[0] ?? '·').toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1, gap: 6 }}>
             <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '600', color: colors.label }}>
-              {plan?.displayName ?? info?.userEmail ?? '—'}
+              {plan?.displayName ?? info.userEmail}
             </Text>
             {bucket ? (
               <View style={{ height: 5, borderRadius: 3, backgroundColor: colors.secondaryBackground, overflow: 'hidden' }}>
@@ -85,7 +86,7 @@ export default function MoreScreen() {
         <Row icon="sf:bell" label="Notifications" onPress={() => go('/notifications')} />
         <Row
           icon={paired && status !== 'connected' ? 'sf:wifi.slash' : 'sf:laptopcomputer'}
-          label={paired ? (pairing?.name ?? 'Connected') : 'Connect your Mac'}
+          label={paired ? (pairing?.name ?? 'Your computer') : 'Connect your Mac'}
           detail={paired ? (status === 'connected' ? 'Connected' : 'Reconnecting…') : undefined}
           onPress={paired ? () => go('/settings') : () => go('/pairing')}
           last

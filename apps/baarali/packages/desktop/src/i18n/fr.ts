@@ -3614,6 +3614,7 @@ export const FR: Dictionary = {
     "Chats and files kept together": "Discussions et fichiers rangés ensemble",
     "The mini-apps Baarali made for you": "Les mini-apps que Baarali vous a faites",
     "Voice, model, notifications": "Voix, modèle, notifications",
+    "Your computer": "Votre ordinateur",
   },
   // Lines about people (apps/x renderer lib/spaces-membership.ts): the names
   // stay as written. Neutral wording, a name says nothing of a gender.
