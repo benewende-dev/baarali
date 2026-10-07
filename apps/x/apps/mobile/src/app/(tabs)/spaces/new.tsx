@@ -88,8 +88,8 @@ export default function NewGroupScreen() {
     setBusy(true);
     setError(null);
     try {
-      const space = await client.createSpace(name.trim());
       // The baarasseurs ticked: their member ids, joining the org first if they are not in it.
+      // Before the group exists, so a refusal leaves nothing half made.
       const ids = [...picked].filter((id) => !id.startsWith('b:'));
       for (const b of chosenCrew) {
         const known = memberOf(b.name);
@@ -99,6 +99,7 @@ export default function NewGroupScreen() {
           ids.push(memberId);
         }
       }
+      const space = await client.createSpace(name.trim());
       if (ids.length > 0) await client.addMembers(space.id, ids);
       if (invite) {
         const { link } = await client.createInvite(space.id);
