@@ -3,6 +3,7 @@ import path from 'path';
 import type { ISessions } from '../runtime/sessions/api.js';
 import type { SpaceMentionOrigin, SpaceThreadOrigin } from '@x/shared/dist/origins.js';
 import { deriveTurnStatus, reduceTurn } from '@x/shared/dist/turns.js';
+import { baarasseurAgentId } from '@x/shared/dist/baarasseur.js';
 import { WorkDir } from '../config/config.js';
 import { capture } from '../analytics/posthog.js';
 import { spacesMcpServerNameFor } from './orgs.js';
@@ -45,6 +46,12 @@ export interface InvokeTopicAgentInput {
   messageId: string;
   /** The message body, verbatim (the @rowboat address included). */
   body: string;
+  /**
+   * BAARALI(07/10/2026): a baarasseur answers instead of the person's own
+   * agent (baarasseur-members.ts) — its own session on the thread, its
+   * persona, and its key on the spaces tools.
+   */
+  actAs?: { baarasseurId: string; memberId: string; name: string };
   /** Per-turn agent options from the composer's agent strip; absent = assistant defaults. */
   options?: {
     model?: { provider: string; model: string; effort?: 'low' | 'medium' | 'high' };
@@ -106,8 +113,9 @@ export function buildInvocationMessage(input: InvokeTopicAgentInput, mcpServerNa
   // spaces tools are already in the system prompt from token zero. The ids
   // ride the message too — a few tokens that survive context compaction.
   void mcpServerName; // the org rides the session pin (`org`), not the message
+  const who = input.actAs ? `@${input.actAs.name}` : '@rowboat';
   return [
-    `[@rowboat in "${input.spaceName}" · spaceId ${input.spaceId} · thread ${input.threadRootId} · message ${input.messageId}]`,
+    `[${who} in "${input.spaceName}" · spaceId ${input.spaceId} · thread ${input.threadRootId} · message ${input.messageId}]`,
     input.body,
   ].join('\n');
 }
@@ -150,7 +158,7 @@ export async function invokeTopicAgent(input: InvokeTopicAgentInput): Promise<In
   const sessions = await resolveSessions();
 
   // The thread's session — verified alive, or recreated (todo-runner idiom).
-  const key = registryKey(input.orgId, input.spaceId, input.threadRootId);
+  const key = registryKey(input.orgId, input.spaceId, input.threadRootId) + (input.actAs ? `#${input.actAs.memberId}` : '');
   const registry = readRegistry();
   let sessionId: string | null = registry.sessions[key] ?? null;
   if (sessionId) {
@@ -167,6 +175,10 @@ export async function invokeTopicAgent(input: InvokeTopicAgentInput): Promise<In
     });
     registry.sessions[key] = sessionId;
     writeRegistry(registry);
+  }
+  if (input.actAs) {
+    const { noteBaarasseurSession } = await import('./baarasseur-members.js');
+    noteBaarasseurSession(sessionId, input.actAs.memberId);
   }
 
   const serverName = spacesMcpServerNameFor(input.orgId);
@@ -187,7 +199,7 @@ export async function invokeTopicAgent(input: InvokeTopicAgentInput): Promise<In
     { role: 'user', content },
     {
       agent: {
-        agentId: 'copilot',
+        agentId: input.actAs ? baarasseurAgentId(input.actAs.baarasseurId) : 'copilot',
         overrides: {
           model: { provider: selection.provider, model: selection.model },
           ...(Object.keys(composition).length > 0 ? { composition } : {}),

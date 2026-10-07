@@ -96,10 +96,13 @@ interface McpCallResult {
  * Exported for the whiteboard domain, which composes read_asset and
  * propose_change into one operation over the same agent face.
  */
-export async function callOrgTool(org: OrgRecord, toolName: string, args: Record<string, unknown>): Promise<unknown> {
+export async function callOrgTool(org: OrgRecord, toolName: string, args: Record<string, unknown>, sessionId?: string | null): Promise<unknown> {
     const orgs = await import("../../../spaces/orgs.js");
     const { executeTool } = await import("../../../mcp/mcp.js");
-    const serverName = orgs.spacesMcpServerNameFor(org.id);
+    // BAARALI(07/10/2026): in a baarasseur's thread session, it acts with its own key.
+    const { actingBaarasseur, baarasseurMcpServerName } = await import("../../../spaces/baarasseur-members.js");
+    const acting = actingBaarasseur(sessionId, org.id);
+    const serverName = acting ? baarasseurMcpServerName(acting) : orgs.spacesMcpServerNameFor(org.id);
     if (!serverName) throw new Error(`Org '${org.name}' has no spaces server registered.`);
     const result = (await executeTool(serverName, toolName, args)) as McpCallResult;
     const text = (result.content ?? [])
@@ -130,11 +133,11 @@ function projectedTool(def: (typeof mcpTools)[number]): BuiltinTool {
         isAvailable: isSpacesAvailable,
         description: def.description,
         inputSchema: input,
-        execute: async (raw: Record<string, unknown>) => {
+        execute: async (raw: Record<string, unknown>, ctx?: { sessionId?: string | null }) => {
             try {
                 const { org, ...args } = raw;
                 const record = await resolveOrgArg(typeof org === "string" ? org : undefined);
-                return await callOrgTool(record, def.name, args);
+                return await callOrgTool(record, def.name, args, ctx?.sessionId);
             } catch (e) {
                 return { success: false, error: e instanceof Error ? e.message : String(e) };
             }

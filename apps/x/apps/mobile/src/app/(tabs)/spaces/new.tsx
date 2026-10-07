@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, Text, TextInput, View } from 'react-native';
 import type { Member } from '@rowboat/spaces-protocol';
 
-import { Face, RowboatFace } from '@/components/member-face';
+import { AgentMark, Face, RowboatFace } from '@/components/member-face';
 import { BaarasseurAvatar, useBaarasseurs } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
 import { useSpacesAccount } from '@/lib/spaces/account';
@@ -15,8 +15,10 @@ import { useColors } from '@/theme/colors';
 // BAARALI(07/10/2026): a work group in one screen (mockup artboard 18,
 // claude.ai/artifact/5hiVQMibobFRRitE7ictcw): a name, then tick who joins —
 // your agents and the people of the org — and Create. Rowboat is always
-// there (write @rowboat); the baarasseurs join groups in a later step, so
-// they show, greyed. Someone not in the org yet: a link to share after.
+// there (write @rowboat). A baarasseur ticked here joins the org as an agent
+// the person owns, once (the instance keeps its key: core spaces/
+// baarasseur-members.ts), then the group like anyone. Someone not in the org
+// yet: a link to share after.
 
 const tap = () => {
   if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
@@ -25,7 +27,7 @@ const tap = () => {
 export default function NewGroupScreen() {
   const colors = useColors();
   const account = useSpacesAccount();
-  const { pairing } = useConnection();
+  const { pairing, rpc } = useConnection();
   const { team } = useBaarasseurs();
   const params = useLocalSearchParams<{ org?: string }>();
   const orgs = account.orgs ?? [];
@@ -62,10 +64,14 @@ export default function NewGroupScreen() {
   const others = useMemo(() => (roster ?? []).filter((m) => m.id !== me), [roster, me]);
   const q = query.trim().toLowerCase();
   const shown = (m: { displayName: string }) => !q || m.displayName.toLowerCase().includes(q);
-  const mine = others.filter((m) => m.kind === 'agent' && m.ownerId === me);
+  // A baarasseur already in the org is its roster entry: the same name, owned by the person.
+  const memberOf = (name: string) => others.find((m) => m.kind === 'agent' && m.ownerId === me && m.displayName === name);
+  const crew = pairing ? (team ?? []) : [];
+  const mine = others.filter((m) => m.kind === 'agent' && m.ownerId === me && !crew.some((b) => b.name === m.displayName));
   const orgAgents = others.filter((m) => m.kind === 'agent' && m.ownerId !== me);
   const people = others.filter((m) => m.kind !== 'agent');
   const chosen = others.filter((m) => picked.has(m.id));
+  const chosenCrew = crew.filter((b) => picked.has(`b:${b.id}`));
 
   const toggle = (id: string) => {
     tap();
@@ -83,7 +89,17 @@ export default function NewGroupScreen() {
     setError(null);
     try {
       const space = await client.createSpace(name.trim());
-      if (picked.size > 0) await client.addMembers(space.id, [...picked]);
+      // The baarasseurs ticked: their member ids, joining the org first if they are not in it.
+      const ids = [...picked].filter((id) => !id.startsWith('b:'));
+      for (const b of chosenCrew) {
+        const known = memberOf(b.name);
+        if (known) ids.push(known.id);
+        else if (rpc) {
+          const { memberId } = (await rpc.call('spaces:enrollBaarasseur', { orgAddress: org.address, baarasseurId: b.id })) as { memberId: string };
+          ids.push(memberId);
+        }
+      }
+      if (ids.length > 0) await client.addMembers(space.id, ids);
       if (invite) {
         const { link } = await client.createInvite(space.id);
         await Share.share({ message: link }).catch(() => {});
@@ -162,6 +178,9 @@ export default function NewGroupScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingTop: 16 }}>
           <Chip label="You" face={<Face name={org?.displayName ?? '?'} />} />
           <Chip label="Rowboat" face={<RowboatFace />} />
+          {chosenCrew.map((b) => (
+            <Chip key={b.id} label={b.name} face={<View><BaarasseurAvatar b={b} size={40} /><AgentMark size={40} /></View>} onRemove={() => toggle(`b:${b.id}`)} />
+          ))}
           {chosen.map((m) => (
             <Chip key={m.id} label={m.displayName} face={<Face name={m.displayName} agent={m.kind === 'agent'} />} onRemove={() => toggle(m.id)} />
           ))}
@@ -193,8 +212,15 @@ export default function NewGroupScreen() {
           <PickRow key={m.id} face={<Face name={m.displayName} agent />} name={m.displayName} state={picked.has(m.id) ? 'on' : 'off'} onPress={() => toggle(m.id)} />
         ))}
         {pairing
-          ? (team ?? []).filter((b) => shown({ displayName: b.name })).map((b) => (
-              <PickRow key={b.id} face={<BaarasseurAvatar b={b} size={40} />} name={b.name} detail="Soon in groups" state="soon" />
+          ? crew.filter((b) => shown({ displayName: b.name })).map((b) => (
+              <PickRow
+                key={b.id}
+                face={<View><BaarasseurAvatar b={b} size={40} /><AgentMark size={40} /></View>}
+                name={b.name}
+                detail={b.role}
+                state={picked.has(`b:${b.id}`) ? 'on' : 'off'}
+                onPress={() => toggle(`b:${b.id}`)}
+              />
             ))
           : null}
 
@@ -256,7 +282,7 @@ function PickRow({ face, name, detail, state, onPress }: {
   face: ReactNode;
   name: string;
   detail?: string;
-  state: 'on' | 'off' | 'always' | 'soon';
+  state: 'on' | 'off' | 'always';
   onPress?: () => void;
 }) {
   const colors = useColors();
@@ -270,7 +296,6 @@ function PickRow({ face, name, detail, state, onPress }: {
       style={({ pressed }) => ({
         flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8,
         backgroundColor: pressed ? colors.secondaryBackground : 'transparent',
-        opacity: state === 'soon' ? 0.45 : 1,
       })}
     >
       {face}
@@ -278,7 +303,7 @@ function PickRow({ face, name, detail, state, onPress }: {
         <Text numberOfLines={1} style={{ fontSize: 16, fontWeight: '600', color: colors.label }}>{name}</Text>
         {detail ? <Text numberOfLines={1} style={{ fontSize: 13, color: colors.secondaryLabel }}>{detail}</Text> : null}
       </View>
-      {state === 'soon' ? null : on ? (
+      {on ? (
         <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: state === 'always' ? colors.tertiaryLabel : colors.accent }}>
           <Image source="sf:checkmark" style={{ width: 12, height: 12 }} contentFit="contain" tintColor={colors.onAccent} />
         </View>

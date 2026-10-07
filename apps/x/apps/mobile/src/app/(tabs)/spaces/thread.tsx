@@ -13,7 +13,9 @@ import { ChatMarkdown } from '@/components/markdown';
 import { MessageLinkPreviews } from '@/components/link-preview-card';
 import { SpaceBlobImage } from '@/components/space-blob-image';
 import { MessageActionSheet, MessageRow, applyReaction, parseAssetLink } from '@/components/space-message';
+import { useConnection } from '@/lib/connection';
 import { useSpacesAccount } from '@/lib/spaces/account';
+import { askRowboatIfCalled, tokenizeMentions } from '@/lib/spaces/mentions';
 import { SpacesClient } from '@/lib/spaces/client';
 import { SpacesLive } from '@/lib/spaces/live';
 import { useColors } from '@/theme/colors';
@@ -25,6 +27,7 @@ export default function SpaceThreadScreen() {
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
   const account = useSpacesAccount();
+  const { rpc } = useConnection();
   const params = useLocalSearchParams<{ org: string; space: string; root: string; title: string; me: string }>();
   const { org, space, root, me } = params;
 
@@ -113,7 +116,9 @@ export default function SpaceThreadScreen() {
     setSending(true);
     setDraft('');
     try {
-      const { message } = await client.postMessage(space, { body, threadRoot: root, actingMode: 'direct' });
+      // BAARALI(07/10/2026): « @Name » typed here names the member for real.
+      const { message } = await client.postMessage(space, { body: tokenizeMentions(body, members.values()), threadRoot: root, actingMode: 'direct' });
+      void askRowboatIfCalled(rpc, { address: org, spaceId: space, spaceName: params.title ?? '', messageId: message.id, threadRootId: root, body: message.body }).catch(() => {});
       setReplies((prev) => (prev && !prev.some((m) => m.id === message.id) ? [...prev, message] : prev));
     } catch (err) {
       setDraft(body);

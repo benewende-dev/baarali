@@ -12,6 +12,7 @@ import { cancelScheduled, listScheduled, scheduleItem } from '@x/core/dist/space
 import { invokeTopicAgent, stopTopicAgent, topicSessionId } from '@x/core/dist/spaces/topic-agent.js';
 import { onSpaceAgentActivity, startSpaceAgentActivity } from '@x/core/dist/spaces/agent-activity.js';
 import { startSpaceNotifications } from '@x/core/dist/spaces/notify.js';
+import { enrollBaarasseur, orgIdForAddress, startBaarasseurListeners } from '@x/core/dist/spaces/baarasseur-members.js';
 import { resolveResponseSession, startSpaceResponseIndex } from '@x/core/dist/spaces/response-index.js';
 import { SpacesClient } from '@x/core/dist/spaces/client.js';
 import { fetchLinkPreview } from './link-preview.js';
@@ -40,6 +41,7 @@ type SpacesHandlers = {
   'spaces:createSpace': InvokeHandler<'spaces:createSpace'>;
   'spaces:renameSpace': InvokeHandler<'spaces:renameSpace'>;
   'spaces:addMembers': InvokeHandler<'spaces:addMembers'>;
+  'spaces:enrollBaarasseur': InvokeHandler<'spaces:enrollBaarasseur'>;
   'spaces:listAgents': InvokeHandler<'spaces:listAgents'>;
   'spaces:addAgent': InvokeHandler<'spaces:addAgent'>;
   'spaces:createAgentKey': InvokeHandler<'spaces:createAgentKey'>;
@@ -131,6 +133,8 @@ onSpaceAgentActivity((event) => broadcastSpacesEvent(event));
 void startSpaceAgentActivity().catch((err) => console.error('[spaces] agent activity feed failed to start:', err));
 // The org's `notify` frames become OS notifications (unread arc, 2026-09-10).
 startSpaceNotifications();
+// BAARALI(07/10/2026): the baarasseurs in groups listen for their name.
+startBaarasseurListeners();
 // The per-response index ("which run posted this reply"): same bus, its own
 // consumer — see core/spaces/response-index.
 void startSpaceResponseIndex().catch((err) => console.error('[spaces] response index failed to start:', err));
@@ -240,6 +244,11 @@ export const spacesIpcHandlers: SpacesHandlers = {
     memberships: await orgs.getClient(args.orgId).addMembers(args.spaceId, args.memberIds),
   }),
 
+  'spaces:enrollBaarasseur': async (_event, args) => {
+    const orgId = args.orgId ?? (args.orgAddress ? orgIdForAddress(args.orgAddress) : null);
+    if (!orgId) throw new Error('unknown org');
+    return enrollBaarasseur(orgId, args.baarasseurId);
+  },
   'spaces:listAgents': async (_event, args) => ({ agents: await orgs.getClient(args.orgId).listAgents() }),
   'spaces:addAgent': async (_event, args) => orgs.getClient(args.orgId).addAgent(args.displayName),
   'spaces:createAgentKey': async (_event, args) => ({ key: await orgs.getClient(args.orgId).createAgentKey(args.agentId) }),
