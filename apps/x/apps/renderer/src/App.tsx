@@ -1245,8 +1245,6 @@ function App() {
   // TTS plays only during calls now (the standing read-aloud toggle was
   // retired; a per-message "read aloud" action may replace it later).
   const ttsEnabledRef = useRef(false)
-  // Whether the active reply was read through a <voice> summary (read-aloud fallback).
-  const spokeReplyRef = useRef(false)
   // Voice-to-voice latency marks for the current call turn (performance.now):
   // t0 = utterance accepted, submit = message sent, speak = first TTS
   // speak(). Emitted as call_turn_latency when audio actually starts.
@@ -1398,6 +1396,52 @@ function App() {
       break
     }
   }, [hoverIsProcessing, hoverConversation, pttStatus])
+
+  // The composer's speaker (Baarali, 07/10/2026): the OPEN chat's replies,
+  // read from its own session like the call's — its <voice> summaries as they
+  // stream, or, when the model wrote none, the reply's opening once the turn
+  // ends. Never during a call, which speaks for itself.
+  const chatVoiceSegments = sessionChat.chatState?.voiceSegments
+  const chatIsProcessing = sessionChat.chatState?.isProcessing ?? false
+  const chatConversation = sessionChat.chatState?.conversation ?? EMPTY_CONVERSATION
+  const readSpokenRef = useRef<{ key: string | null; count: number }>({ key: null, count: 0 })
+  // Armed at a typed send with the speaker on; the fallback consumes it.
+  const readTurnRef = useRef<{ pending: boolean; submitAt: number; spoke: boolean }>({ pending: false, submitAt: 0, spoke: false })
+  useEffect(() => {
+    if (!chatVoiceSegments) return
+    if (readSpokenRef.current.key !== runId) {
+      readSpokenRef.current = { key: runId, count: chatVoiceSegments.length }
+      return
+    }
+    if (chatVoiceSegments.length < readSpokenRef.current.count) readSpokenRef.current.count = 0
+    while (readSpokenRef.current.count < chatVoiceSegments.length) {
+      const segment = chatVoiceSegments[readSpokenRef.current.count]
+      readSpokenRef.current.count += 1
+      if (isReadAloud() && !inCallRef.current) {
+        readTurnRef.current.spoke = true
+        ttsRef.current.speak(segment)
+      }
+    }
+  }, [chatVoiceSegments, runId])
+  useEffect(() => {
+    if (chatIsProcessing) return
+    const turn = readTurnRef.current
+    if (!turn.pending) return
+    if (!isReadAloud() || inCallRef.current || turn.spoke) {
+      turn.pending = false
+      return
+    }
+    for (let i = chatConversation.length - 1; i >= 0; i--) {
+      const item = chatConversation[i]
+      if (!isChatMessage(item) || item.role !== 'assistant') continue
+      if (item.timestamp >= turn.submitAt) {
+        turn.pending = false
+        const opening = speakableOpening(item.content)
+        if (opening) ttsRef.current.speak(opening)
+      }
+      break
+    }
+  }, [chatIsProcessing, chatConversation])
 
   // Emit the turn's voice-to-voice latency breakdown once audio is audible.
   useEffect(() => {
@@ -3846,7 +3890,6 @@ function App() {
         // Reset voice buffer for new response
         voiceTextBufferRef.current = ''
         spokenIndexRef.current = 0
-        spokeReplyRef.current = false
         break
 
       case 'run-processing-end':
@@ -3858,12 +3901,6 @@ function App() {
         void loadRuns()
         clearStreamingBuffer(event.runId)
         if (!isActiveRun) return
-        // The speaker is on but the model gave no <voice> summary: read the
-        // reply's opening instead of staying silent (calls have their own net).
-        if (isReadAloud() && !ttsEnabledRef.current && !spokeReplyRef.current) {
-          const opening = speakableOpening(voiceTextBufferRef.current)
-          if (opening) ttsRef.current.speak(opening)
-        }
         setIsProcessing(false)
         setIsStopping(false)
         setStopClickedAt(null)
@@ -3916,8 +3953,7 @@ function App() {
             while ((voiceMatch = voiceRegex.exec(remaining)) !== null) {
               const voiceContent = voiceMatch[1].trim()
               console.log('[voice] extracted voice tag:', voiceContent)
-              if (voiceContent && (ttsEnabledRef.current || isReadAloud())) {
-                spokeReplyRef.current = true
+              if (voiceContent && ttsEnabledRef.current) {
                 ttsRef.current.speak(voiceContent)
                 setAssistantCaption(voiceContent)
               }
@@ -4345,6 +4381,12 @@ function App() {
     // even with the text panel open. Stamped per-turn so tucking or typing
     // mid-reply never flips an in-flight answer.
     suppressSpeechTurnRef.current = submitInCall && !pendingVoiceInputRef.current
+
+    // The composer's speaker: this reply gets read aloud (see the reader above).
+    if (!submitInCall && isReadAloud()) {
+      ttsRef.current.cancel()
+      readTurnRef.current = { pending: true, submitAt: Date.now(), spoke: false }
+    }
 
     if (submitInCall) {
       // A new question supersedes whatever of the previous reply was still
