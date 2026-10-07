@@ -19,6 +19,8 @@ export default function SpacesLayout() {
       <Stack.Screen name="thread" options={{ title: 'Thread', headerBackButtonDisplayMode: 'minimal' }} />
       <Stack.Screen name="files" options={{ title: 'Files', headerBackButtonDisplayMode: 'minimal' }} />
       <Stack.Screen name="file" options={{ title: '', headerBackButtonDisplayMode: 'minimal' }} />
+      {/* BAARALI(07/10/2026): a new work group, as a sheet. */}
+      <Stack.Screen name="new" options={{ presentation: 'modal', title: 'New group' }} />
     </Stack>
   );
 }
