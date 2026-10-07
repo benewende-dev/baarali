@@ -177,7 +177,8 @@ export function ChatMarkdown({ children, extraRules, onLinkPress }: {
   // react-native-markdown-display's style/rule typings are looser than ours.
   return (
     <Markdown markdownit={markdownIt} rules={{ ...rules, ...extraRules } as never} style={styles as never} onLinkPress={onLinkPress}>
-      {children}
+      {/* A spoken reply's <voice> summary reads as plain text, without its tags. */}
+      {children.replace(/<\/?voice>/g, '')}
     </Markdown>
   );
 }

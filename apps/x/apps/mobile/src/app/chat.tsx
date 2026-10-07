@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -24,12 +25,33 @@ import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
 import { baarasseurs } from '@x/shared';
 import { BaarasseurAvatar, useBaarasseurs } from '@/lib/baarasseurs';
+import { speak, spokenPart, stopSpeaking, useReadAloud, useVoiceInput } from '@/lib/voice';
+
+/** The reply's text: the last model call that answered in words. */
+function replyText(state: { modelCalls: Array<{ response?: { content?: unknown } | null }> }): string {
+  for (let i = state.modelCalls.length - 1; i >= 0; i--) {
+    const content = state.modelCalls[i].response?.content;
+    const text = typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content.map((p: { type?: string; text?: string }) => (p.type === 'text' && typeof p.text === 'string' ? p.text : '')).join('')
+        : '';
+    if (text.trim()) return text;
+  }
+  return '';
+}
 
 // The home screen IS a chat (Claude/ChatGPT pattern). `id` picks the session;
 // empty/no id is the new-chat state — the session is created lazily on the
 // first send, so abandoned "new chats" never litter the history.
 
-function Turn({ turnId, isLatest, onStreaming }: { turnId: string; isLatest: boolean; onStreaming?: (streaming: boolean) => void }) {
+function Turn({ turnId, isLatest, onStreaming, onFinished }: {
+  turnId: string;
+  isLatest: boolean;
+  onStreaming?: (streaming: boolean) => void;
+  /** The latest turn is over: its id, its reply, and whether it ran on screen (not an old turn reopened). */
+  onFinished?: (turnId: string, text: string, seenLive: boolean) => void;
+}) {
   const colors = useColors();
   const { sessions } = useConnection();
   const { state, liveText, error } = useLiveTurn(turnId, { deltas: isLatest });
@@ -39,6 +61,18 @@ function Turn({ turnId, isLatest, onStreaming }: { turnId: string; isLatest: boo
   useEffect(() => {
     if (isLatest) onStreaming?.(live);
   }, [isLatest, live, onStreaming]);
+
+  const seenLive = useRef(false);
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!state) return;
+    if (!state.terminal) {
+      seenLive.current = true;
+    } else if (isLatest && !announced.current) {
+      announced.current = true;
+      onFinished?.(turnId, replyText(state), seenLive.current);
+    }
+  }, [state, isLatest, onFinished, turnId]);
 
   const onPermission = useCallback(
     (toolCallId: string, decision: 'allow' | 'deny') => {
@@ -99,7 +133,16 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const models = useModels();
-  const { pairing, sessions, events } = useConnection();
+  const { pairing, sessions, events, rpc } = useConnection();
+  const voice = useVoiceInput(rpc);
+  const [readAloud, setReadAloud] = useReadAloud();
+  // Conversation mode (Baarali, 07/10/2026): one tap on the mic, then talk as
+  // on the phone. Each pause sends what was said, the reply is read aloud,
+  // and the mic listens again. « Interrupt » cuts the reading short.
+  const [conversation, setConversation] = useState<'off' | 'listening' | 'thinking' | 'speaking'>('off');
+  const conversationOn = useRef(false);
+  // Resolved with the reply of the turn a spoken message started.
+  const replyWaiter = useRef<{ known: Set<string>; resolve: (text: string) => void } | null>(null);
   const params = { agent };
   const { team } = useBaarasseurs();
   // The web search switch, as on the desktop's composer.
@@ -158,11 +201,12 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   const latestTurnId = turnRefs[turnRefs.length - 1]?.turnId;
   const [latestStreaming, setLatestStreaming] = useState(false);
 
-  const send = useCallback(async () => {
-    const content = draft.trim();
-    if (!content || !sessions) return;
+  /** Whether the message went out. */
+  const send = useCallback(async (spoken?: string): Promise<boolean> => {
+    const content = (spoken ?? draft).trim();
+    if (!content || !sessions) return false;
     setSending(true);
-    setDraft('');
+    if (spoken === undefined) setDraft('');
     try {
       let sessionId = id;
       if (!sessionId) {
@@ -176,20 +220,29 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
           agentId,
           overrides: {
             ...(model ? { model: { provider: model.provider, model: model.model } } : {}),
-            ...(search ? { composition: { searchEnabled: true } } : {}),
+            // Read aloud (conversation, or the speaker on): the agent opens with a short <voice> summary.
+            ...(search || spoken !== undefined || readAloud
+              ? { composition: {
+                  ...(search ? { searchEnabled: true } : {}),
+                  ...(spoken !== undefined ? { voiceInput: true } : {}),
+                  ...(spoken !== undefined || readAloud ? { voiceOutput: 'summary' as const } : {}),
+                } }
+              : {}),
           },
         },
       });
       analytics.mobileMessageSent();
       if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await refresh();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setDraft(content); // don't lose the message
+      setDraft(content); // don't lose the message (a spoken one lands in the box)
+      return false;
     } finally {
       setSending(false);
     }
-  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent, search, onCreated]);
+  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent, search, readAloud, onCreated]);
 
   // Seed the model pill's label once connected.
   const modelsRefresh = models.refresh;
@@ -198,8 +251,85 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   }, [modelsRefresh]);
 
   const stop = useCallback(() => {
+    stopSpeaking();
     if (latestTurnId) void sessions?.stopTurn(latestTurnId);
   }, [sessions, latestTurnId]);
+
+  // A turn ended: the conversation's awaited reply, or, with the speaker on,
+  // a typed message's reply read aloud.
+  const onFinished = useCallback((turnId: string, text: string, seenLive: boolean) => {
+    const waiter = replyWaiter.current;
+    if (waiter && !waiter.known.has(turnId)) {
+      replyWaiter.current = null;
+      waiter.resolve(text);
+      return;
+    }
+    if (!seenLive || !readAloud || !rpc || conversationOn.current) return;
+    const opening = spokenPart(text);
+    if (opening) void speak(rpc, opening).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+  }, [readAloud, rpc]);
+
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const turnIdsRef = useRef<string[]>([]);
+  turnIdsRef.current = turnRefs.map((t) => t.turnId);
+
+  // The hook's object is new on every render; the loop and the hang-up read the latest.
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
+
+  const endConversation = useCallback(() => {
+    conversationOn.current = false;
+    setConversation('off');
+    voiceRef.current.stopListening();
+    stopSpeaking();
+    const waiter = replyWaiter.current;
+    replyWaiter.current = null;
+    waiter?.resolve('');
+  }, []);
+
+  const startConversation = useCallback(async () => {
+    if (conversationOn.current || !rpc) return;
+    conversationOn.current = true;
+    if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      while (conversationOn.current) {
+        setConversation('listening');
+        const heard = await voiceRef.current.listenTurn();
+        if (!conversationOn.current) break;
+        if (heard === 'denied') {
+          Alert.alert('Microphone', 'Allow Baarali to use the microphone in Settings to talk to it.');
+          break;
+        }
+        if (!heard) continue;
+        setConversation('thinking');
+        const reply = new Promise<string>((resolve) => {
+          replyWaiter.current = { known: new Set(turnIdsRef.current), resolve };
+        });
+        // A turn that never shows up must not leave the conversation hanging.
+        const timeout = new Promise<string>((resolve) => setTimeout(() => resolve(''), 5 * 60_000));
+        // Not sent (offline…): the words wait in the box and the error shows.
+        if (!(await sendRef.current(heard))) break;
+        const text = await Promise.race([reply, timeout]);
+        replyWaiter.current = null;
+        if (!conversationOn.current) break;
+        const opening = spokenPart(text);
+        if (opening) {
+          setConversation('speaking');
+          await speak(rpc, opening);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      endConversation();
+    }
+  }, [rpc, endConversation]);
+
+  // Leaving the chat hangs up.
+  useEffect(() => () => {
+    if (conversationOn.current) endConversation();
+  }, [endConversation]);
 
   if (pairing === undefined) {
     return (
@@ -245,6 +375,7 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
                 turnId={ref.turnId}
                 isLatest={ref.turnId === latestTurnId}
                 onStreaming={setLatestStreaming}
+                onFinished={onFinished}
               />
             ))}
           </ScrollView>
@@ -272,6 +403,43 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
             boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
           }}
         >
+          {conversation !== 'off' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 34 }}>
+              {conversation === 'listening' && voice.state !== 'transcribing' ? (
+                <Image source="sf:waveform" style={{ width: 18, height: 18 }} tintColor={colors.accent} />
+              ) : (
+                <ActivityIndicator />
+              )}
+              <Text style={{ flex: 1, fontSize: 15, color: colors.secondaryLabel }} numberOfLines={2}>
+                {voice.state === 'transcribing'
+                  ? 'Getting what you said…'
+                  : conversation === 'listening'
+                    ? 'Listening… just talk, I answer when you pause.'
+                    : conversation === 'thinking'
+                      ? 'Rowboat is working on it…'
+                      : 'Rowboat is answering…'}
+              </Text>
+              {conversation === 'speaking' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => stopSpeaking()}
+                  hitSlop={6}
+                  style={{ paddingHorizontal: 12, height: 34, borderRadius: 17, justifyContent: 'center', backgroundColor: colors.accent }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: colors.onAccent }}>Interrupt</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={endConversation}
+                hitSlop={6}
+                style={{ paddingHorizontal: 12, height: 34, borderRadius: 17, justifyContent: 'center', borderWidth: 1, borderColor: colors.separator }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.label }}>End</Text>
+              </Pressable>
+            </View>
+          ) : (
+          <>
           <TextInput
             style={{ fontSize: 16, color: colors.label, maxHeight: 120, paddingHorizontal: 2 }}
             placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}
@@ -295,24 +463,49 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
             >
               <Image source="sf:globe" style={{ width: 16, height: 16 }} tintColor={search ? colors.onAccent : colors.secondaryLabel} />
             </Pressable>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: readAloud }}
+              accessibilityLabel="Read replies aloud"
+              onPress={() => setReadAloud(!readAloud)}
+              hitSlop={6}
+              style={{
+                width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 6,
+                backgroundColor: readAloud ? colors.accent : 'transparent',
+                borderWidth: readAloud ? 0 : 1, borderColor: colors.separator,
+              }}
+            >
+              <Image source="sf:speaker.wave.2" style={{ width: 16, height: 16 }} tintColor={readAloud ? colors.onAccent : colors.secondaryLabel} />
+            </Pressable>
             <ModelPill models={models} />
             <View style={{ flex: 1 }} />
             {sending || latestStreaming ? (
               <RoundButton icon="sf:stop.fill" onPress={stop} />
+            ) : draft.trim() ? (
+              <RoundButton icon="sf:arrow.up" onPress={() => void send()} />
             ) : (
-              <RoundButton icon="sf:arrow.up" onPress={() => void send()} disabled={!draft.trim()} />
+              <RoundButton
+                icon="sf:waveform"
+                onPress={() => void startConversation()}
+                disabled={!rpc}
+                label="Talk with Rowboat"
+              />
             )}
           </View>
+          </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function RoundButton({ icon, onPress, disabled }: { icon: string; onPress: () => void; disabled?: boolean }) {
+function RoundButton({ icon, onPress, disabled, label }: { icon: string; onPress: () => void; disabled?: boolean; label?: string }) {
   const colors = useColors();
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled}
       hitSlop={6}

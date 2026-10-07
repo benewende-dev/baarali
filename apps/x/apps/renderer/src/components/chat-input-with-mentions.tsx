@@ -65,7 +65,7 @@ import { useSpacesMentionTargets } from '@/hooks/use-spaces-mention-targets'
 import { toast } from 'sonner'
 import { toInstance } from '@/lib/to-instance'
 import { setReadAloud, useReadAloud } from '@/lib/read-aloud'
-import { canToggleConversation, toggleConversation, useConversationStatus } from '@/lib/voice-conversation'
+import { canToggleConversation, interruptConversation, toggleConversation, useConversationStatus } from '@/lib/voice-conversation'
 // Loaded when first opened: the settings bring the whole app's state with them.
 const SettingsDialog = lazy(() => import('@/components/settings-dialog').then((m) => ({ default: m.SettingsDialog })))
 
@@ -825,6 +825,16 @@ function ChatInputInner({
                   : 'Rowboat is answering…'}
             </div>
           </div>
+          {conversation === 'speaking' && (
+            <Button
+              size="sm"
+              onClick={interruptConversation}
+              className="h-8 shrink-0 rounded-full px-3"
+            >
+              <Square className="mr-1 h-3 w-3 fill-current" />
+              Interrupt
+            </Button>
+          )}
           <Button
             size="sm"
             variant="secondary"
