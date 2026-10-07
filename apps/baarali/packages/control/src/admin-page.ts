@@ -149,7 +149,17 @@ textarea { font:inherit; font-size:16px; color:var(--ink); background:var(--pape
 .inapp { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:4px 12px; }
 .inapp p { white-space:pre-line; }
 #n-reach { margin:0; }
-#n-list .it time { min-width:170px; }
+#n-list .it time { min-width:130px; }
+.auto { display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line); }
+.auto:last-child { border-bottom:0; }
+.auto p { margin:0; flex:1; }
+.auto b { color:var(--ink); font-weight:500; }
+.auto small { color:var(--muted); }
+.switch { flex:none; width:36px; height:20px; border-radius:99px; background:var(--line); position:relative; cursor:pointer; border:0; padding:0; margin-top:2px; }
+.switch::after { content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:left .15s; }
+.switch[aria-checked="true"] { background:var(--blue); }
+.switch[aria-checked="true"]::after { left:18px; }
+.switch:disabled { opacity:.55; cursor:not-allowed; }
 #n-list .it p { flex:1; }
 .spaced { margin-top:16px; }
 .preview { border:1px dashed var(--line); border-radius:12px; padding:14px; background:var(--mist); }
@@ -370,7 +380,10 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
         <p class="hint spaced">Un envoi programmé part à son heure, ou dès que le serveur se réveille s'il dormait.</p>
       </section>
     </div>
-    <section class="card spaced"><h2>Envoyés</h2><p class="hint">Lus = ouverts dans l'app ou dans l'email.</p><div class="list" id="n-list"></div></section>
+    <div class="grid2 spaced">
+      <section class="card"><h2>Messages automatiques</h2><p class="hint">Partent tout seuls quand la situation arrive. Chacun s'active ou se coupe ici.</p><div id="n-auto"></div></section>
+      <section class="card"><h2>Envoyés</h2><p class="hint">Lus = ouverts dans l'app ou dans l'email.</p><div class="list" id="n-list"></div></section>
+    </div>
   </div>
 
   <div data-p="annonces" hidden>
@@ -1013,6 +1026,29 @@ async function loadNotifications() {
       } }, "Annuler") : null);
   }) : [el("p", { class: "empty" }, "Aucun message pour l'instant.")]));
   if (reachCount === null) await countReach();
+  await loadAutoMessages();
+}
+const AUTO = {
+  limit: ["Limite atteinte", "Dans l'app, quand la session de 5 heures ou la semaine est épuisée, avec le temps avant la suivante"],
+  media_low: ["Crédits médias presque épuisés", "Dans l'app, sous 20 crédits, une fois par semaine au plus"],
+  inactive: ["Client inactif depuis 14 jours", "Email « Nous avons gardé votre place », une seule fois"],
+  welcome: ["Bienvenue", "Dans l'app et par email, le jour de l'inscription"],
+};
+async function loadAutoMessages() {
+  const r = await get("/auto-messages");
+  const row = (on, title, words, onclick) => el("div", { class: "auto" },
+    el("button", { class: "switch", type: "button", role: "switch", "aria-checked": String(on), "aria-label": title, ...(onclick ? { onclick } : { disabled: "" }) }),
+    el("p", {}, el("b", {}, title), el("br"), el("small", {}, words)));
+  $("n-auto").replaceChildren(...r.data.map((a) => {
+    const [title, words] = AUTO[a.kind];
+    const needsMail = a.kind === "inactive" && !r.email;
+    const figures = [needsMail ? "Email pas branché sur ce serveur" : words, a.sent ? fr.format(a.sent) + " envoyé(s)" : null].filter(Boolean).join(" · ");
+    return row(a.enabled, title, figures, async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      try { const x = await send("/auto-messages/" + a.kind, { enabled: !a.enabled }); toast(title + (x.enabled ? " : activé" : " : coupé")); await loadAutoMessages(); }
+      catch (err) { toast(err.message); b.disabled = false; }
+    });
+  }), row(false, "Forfait offert qui se termine", "Arrive avec Bonus et promos : 3 jours avant, dans l'app et par email", null));
 }
 previewNotif();
 

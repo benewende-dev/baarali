@@ -12,6 +12,7 @@ import { migrate, poolDb } from './db.js';
 import { PgStore } from './pg-store.js';
 import { LISTEN_PATH, createListenRelay } from './voice.js';
 import { MemoryStore, hashToken, type Account, type ControlStore } from './store.js';
+import { AutoMessages } from './auto-messages.js';
 import { MemoryMailer, NoticeDispatcher, NoticeLinks, ResendMailer, type Mailer } from './notifications.js';
 
 // Entry point (roadmap §4): the owner, their instance token, the plan catalog
@@ -161,7 +162,9 @@ const mailer: Mailer | undefined =
       ? new ResendMailer(process.env.RESEND_API_KEY, process.env.EMAIL_FROM)
       : undefined;
 const noticeLinks = process.env.BAARALI_AUTH_SECRET ? new NoticeLinks(process.env.BAARALI_AUTH_SECRET, publicUrl) : undefined;
-const notices = new NoticeDispatcher({ store, now: Date.now, mailer: noticeLinks ? mailer : undefined, links: noticeLinks });
+const dispatch = { store, now: Date.now, mailer: noticeLinks ? mailer : undefined, links: noticeLinks };
+const auto = new AutoMessages(dispatch);
+const notices = new NoticeDispatcher(dispatch, auto);
 // Scheduled ones leave on time while the machine is awake (app.ts sends them on waking too).
 setInterval(() => void notices.run(), 60_000).unref();
 console.log(`[control] notifications: app${mailer && noticeLinks ? ', email' : ''}`);
@@ -199,6 +202,7 @@ const app = createApp({
   mailer: noticeLinks ? mailer : undefined,
   noticeLinks,
   notices,
+  auto,
   fetch: globalThis.fetch,
   now: Date.now,
 });

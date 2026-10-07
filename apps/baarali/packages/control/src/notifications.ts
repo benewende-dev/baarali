@@ -34,7 +34,7 @@ export interface Notice {
   email: boolean;
   sendAt: number;
   createdAt: number;
-  /** The admin who wrote it. */
+  /** The admin who wrote it, or `auto:<kind>` for an automatic message (auto-messages.ts). */
   createdBy: string;
   /** When it left; null until then. */
   sentAt: number | null;
@@ -62,6 +62,9 @@ export interface NoticeStats {
   read: number;
   clicked: number;
 }
+
+/** The author of the automatic messages: kept out of the console's list and of the dispatcher. */
+export const AUTO_AUTHOR = 'auto:';
 
 export const MAX_TITLE = 60;
 export const MAX_BODY = 500;
@@ -353,7 +356,11 @@ export async function sendNotice(deps: DispatchDeps, n: Notice): Promise<{ deliv
 export class NoticeDispatcher {
   private running: Promise<void> | null = null;
   private lastRun = 0;
-  constructor(private readonly deps: DispatchDeps) {}
+  constructor(
+    private readonly deps: DispatchDeps,
+    /** Welcome and the inactive are found here too (auto-messages.ts). */
+    private readonly auto?: { sweep(): Promise<void> },
+  ) {}
 
   /** At most once a minute unless forced; never twice at a time. */
   run(force = false): Promise<void> {
@@ -366,6 +373,7 @@ export class NoticeDispatcher {
         for (const n of await this.deps.store.notifications(100)) {
           if (n.sentAt === null && n.cancelledAt === null && n.sendAt <= now) await sendNotice(this.deps, n);
         }
+        await this.auto?.sweep();
       } catch (err) {
         console.error('[notifications] dispatch failed', err);
       } finally {

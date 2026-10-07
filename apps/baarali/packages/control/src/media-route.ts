@@ -3,6 +3,7 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { MEDIA_MODELS, mediaCredits, parseMediaRequest } from './media.js';
 import { mediaOpen, mediaRecommended } from './model-access.js';
 import { ModelCatalog } from './model-catalog.js';
+import type { AutoMessages } from './auto-messages.js';
 import type { Account, ControlStore, MediaJob } from './store.js';
 
 // /v1/media: video, speech and music through Pixazo (architecture §3.5 "Les
@@ -21,6 +22,8 @@ export interface MediaDeps {
   fetch: typeof fetch;
   now: () => number;
   pixazoBase?: string;
+  /** Tells the person their media credits run low; unset: nothing is sent. */
+  auto?: AutoMessages;
 }
 
 function error(status: number, code: string, message: string, extra: Record<string, unknown> = {}): Response {
@@ -105,6 +108,13 @@ export async function createGeneration(deps: MediaDeps, account: Account, req: R
       cost: credits,
       balance: await deps.store.mediaBalance(account.id),
     });
+  }
+  if (deps.auto) {
+    const auto = deps.auto;
+    deps.store
+      .mediaBalance(account.id)
+      .then((balance) => auto.mediaSpent(account, balance))
+      .catch((err) => console.error('[auto-messages] media', err));
   }
 
   const { path, body } = model.submit(media);

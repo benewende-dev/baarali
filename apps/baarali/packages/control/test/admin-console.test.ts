@@ -7,6 +7,7 @@ import type { FlyApi, MachineConfig } from '../src/fly.js';
 import { createGateway } from '../src/gateway.js';
 import { Instances } from '../src/instances.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
+import { AUTO_KINDS } from '../src/auto-messages.js';
 import { MemoryMailer, NoticeLinks } from '../src/notifications.js';
 
 // The admin console (/admin, decided 03/10/2026): who opens it, what each
@@ -42,7 +43,7 @@ const auth: BaaraliAuth = {
   userIdForSession: async () => null,
 };
 
-function setup(opts: { adminEmails?: string[]; noAuth?: boolean; noMail?: boolean } = {}) {
+function setup(opts: { adminEmails?: string[]; noAuth?: boolean; noMail?: boolean; autoMessages?: boolean } = {}) {
   const calls: string[] = [];
   const mailer = new MemoryMailer();
   const links = new NoticeLinks('test-auth-secret', 'https://app.baarali.test');
@@ -63,6 +64,8 @@ function setup(opts: { adminEmails?: string[]; noAuth?: boolean; noMail?: boolea
     snapshots: async () => [{ id: 's1', created_at: '2026-10-04T03:00:00Z' }, { id: 's2', created_at: '2026-10-05T03:00:00Z' }],
   };
   const store = new MemoryStore(new Map([[hashToken('tok-owner'), OWNER], [hashToken('tok-awa'), AWA]]), [FREE, PRO100, PRO]);
+  // Off unless a test is about them: the welcome would join every outbox.
+  if (!opts.autoMessages) for (const kind of AUTO_KINDS) void store.setAutoMessage(kind, false, T0);
   let clock = T0 + 60_000;
   const instances = new Instances({
     store,
@@ -566,5 +569,57 @@ describe('notifications', () => {
     expect(await optedOut()).toBeUndefined();
     await app.request(`/n/u/${token}`, { method: 'POST' });
     expect(await optedOut()).toBeTypeOf('number');
+  });
+});
+
+describe('automatic messages', () => {
+  const inboxOf = async (app: ReturnType<typeof setup>['app'], token: string) =>
+    (await (await app.request('/v1/notifications', { headers: { authorization: `Bearer ${token}` } })).json()) as { data: Array<{ title: string }>; unread: number };
+
+  it('welcomes a new account once, in the app and by email, out of the console list', async () => {
+    const { app, as, mailer } = setup({ autoMessages: true });
+    expect((await inboxOf(app, 'tok-awa')).data.map((n) => n.title)).toEqual(['Bienvenue sur Baarali']);
+    expect(mailer.outbox.map((m) => [m.to, m.subject]).sort()).toEqual([
+      ['awa@example.test', 'Bienvenue sur Baarali'],
+      ['boss@example.test', 'Bienvenue sur Baarali'],
+    ]);
+    expect((await inboxOf(app, 'tok-awa')).data).toHaveLength(1);
+    expect(((await (await as('boss', '/admin/api/notifications')).json()) as { data: unknown[] }).data).toEqual([]);
+    const auto = (await (await as('boss', '/admin/api/auto-messages')).json()) as { email: boolean; data: Array<{ kind: string; enabled: boolean; sent: number }> };
+    expect(auto.email).toBe(true);
+    expect(auto.data).toEqual([
+      { kind: 'limit', enabled: true, sent: 0 },
+      { kind: 'media_low', enabled: true, sent: 0 },
+      { kind: 'inactive', enabled: false, sent: 0 },
+      { kind: 'welcome', enabled: true, sent: 2 },
+    ]);
+  });
+
+  it('writes to the inactive by email once, after the switch is turned on and written down', async () => {
+    const { app, as, post, mailer, tick } = setup({ autoMessages: true });
+    // The first request welcomes both; nobody is inactive yet.
+    await inboxOf(app, 'tok-awa');
+    expect(mailer.outbox.splice(0).map((m) => m.subject)).toEqual(['Bienvenue sur Baarali', 'Bienvenue sur Baarali']);
+    expect((await post('boss', '/admin/api/auto-messages/welcome', { enabled: false })).status).toBe(200);
+    expect((await post('boss', '/admin/api/auto-messages/inactive', { enabled: true })).status).toBe(200);
+    expect((await post('boss', '/admin/api/auto-messages/gift', { enabled: true })).status).toBe(404);
+    expect((await post('boss', '/admin/api/auto-messages/inactive', { enabled: 'yes' })).status).toBe(400);
+    expect((await post('awa', '/admin/api/auto-messages/inactive', { enabled: true })).status).toBe(404);
+    await inboxOf(app, 'tok-awa');
+    expect(mailer.outbox).toHaveLength(0);
+
+    tick(15 * 86_400_000);
+    // Email only: the inbox keeps the welcome alone.
+    expect((await inboxOf(app, 'tok-awa')).data.map((n) => n.title)).toEqual(['Bienvenue sur Baarali']);
+    expect(mailer.outbox.map((m) => m.subject)).toEqual(['Nous avons gardé votre place', 'Nous avons gardé votre place']);
+    tick(2 * 3_600_000);
+    await inboxOf(app, 'tok-awa');
+    expect(mailer.outbox).toHaveLength(2);
+
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ action: string; detail: string }> };
+    expect(journal.data.filter((e) => e.action === 'auto-message').map((e) => e.detail)).toEqual([
+      'Message automatique « Client inactif depuis 14 jours » activé',
+      'Message automatique « Bienvenue » coupé',
+    ]);
   });
 });
