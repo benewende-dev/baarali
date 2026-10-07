@@ -18,7 +18,8 @@ export function tokenizeMentions(body: string, members: Iterable<Member>): strin
   let out = body.replace(/(^|[\s(])@rowboat\b/gi, (_, lead: string) => `${lead}${shared.mentionToken({ kind: 'rowboat' })}`);
   const named = [...members].filter((m) => m.displayName.trim()).sort((a, b) => b.displayName.length - a.displayName.length);
   for (const m of named) {
-    const re = new RegExp(`(^|[\\s(])@${escape(m.displayName.trim())}(?![\\p{L}\\p{N}_])`, 'giu');
+    // No \p{…} classes: Hermes may not have them. Latin letters, accented ones included.
+    const re = new RegExp(`(^|[\\s(])@${escape(m.displayName.trim())}(?![\\w\\u00C0-\\u024F])`, 'gi');
     out = out.replace(re, (_, lead: string) => `${lead}${shared.mentionToken({ kind: 'member', id: m.id, label: m.displayName })}`);
   }
   return out;

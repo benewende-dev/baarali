@@ -91,12 +91,14 @@ export default function NewGroupScreen() {
       // The baarasseurs ticked: their member ids, joining the org first if they are not in it.
       // Before the group exists, so a refusal leaves nothing half made.
       const ids = [...picked].filter((id) => !id.startsWith('b:'));
+      // The instance knows which are in already (it answers at once for those).
       for (const b of chosenCrew) {
-        const known = memberOf(b.name);
-        if (known) ids.push(known.id);
-        else if (rpc) {
+        if (rpc) {
           const { memberId } = (await rpc.call('spaces:enrollBaarasseur', { orgAddress: org.address, baarasseurId: b.id })) as { memberId: string };
           ids.push(memberId);
+        } else {
+          const known = memberOf(b.name);
+          if (known) ids.push(known.id);
         }
       }
       const space = await client.createSpace(name.trim());

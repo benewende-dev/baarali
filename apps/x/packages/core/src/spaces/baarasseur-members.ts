@@ -80,7 +80,19 @@ export function orgIdForAddress(address: string): string | null {
  * Makes the baarasseur a member of the org (once), and starts listening for
  * it. Returns its member id, for the group's addMembers.
  */
-export async function enrollBaarasseur(orgId: string, baarasseurId: string): Promise<{ memberId: string }> {
+const enrolling = new Map<string, Promise<{ memberId: string }>>();
+
+export function enrollBaarasseur(orgId: string, baarasseurId: string): Promise<{ memberId: string }> {
+  // Two asks at once (a double tap, the phone and the computer) make one member.
+  const key = `${orgId}/${baarasseurId}`;
+  const pending = enrolling.get(key);
+  if (pending) return pending;
+  const run = enroll(orgId, baarasseurId).finally(() => enrolling.delete(key));
+  enrolling.set(key, run);
+  return run;
+}
+
+async function enroll(orgId: string, baarasseurId: string): Promise<{ memberId: string }> {
   const known = enrolledFor(orgId, baarasseurId);
   if (known) return { memberId: known.memberId };
   const b = await findBaarasseur(baarasseurId);
@@ -174,6 +186,8 @@ function listen(entry: EnrolledBaarasseur): void {
 
 async function answer(entry: EnrolledBaarasseur, client: SpacesClient, frame: Extract<ServerFrame, { kind: 'notify' }>): Promise<void> {
   if (await isAgent(entry, client, frame.author.memberId)) return;
+  // Removed from the team since: it no longer answers (its member stays, silent).
+  if (!(await findBaarasseur(entry.baarasseurId))) return;
   const [message, spaces] = await Promise.all([
     client.getMessage(frame.spaceId, frame.messageId).catch(() => null),
     client.listSpaces({ includeDirect: true }).catch(() => []),
