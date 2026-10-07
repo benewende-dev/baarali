@@ -72,7 +72,7 @@ async function setup(opts: { social?: Partial<Record<SocialProvider, { clientId:
   const fetcher: client.CustomFetch = async (url, options) => app.request(url, options as RequestInit);
   // A fresh browser: same server, no cookie.
   const forgetCookies = () => jar.clear();
-  return { app, store, sender, browser, post, fetcher, db, forgetCookies };
+  return { app, auth, store, sender, browser, post, fetcher, db, forgetCookies };
 }
 
 /** Core's registration, then an authorization URL with PKCE. */
@@ -154,6 +154,28 @@ describe('signing the app in, as core does', () => {
     const refreshed = await client.refreshTokenGrant(config, tokens.refresh_token!);
     expect((await app.request('/v1/me', { headers: { authorization: `Bearer ${refreshed.access_token}` } })).status).toBe(200);
     await expect(client.refreshTokenGrant(config, tokens.refresh_token!)).rejects.toThrow();
+  });
+
+  // 07/10/2026: the phone app has its own screens: no browser, no Origin,
+  // no cookie jar. The signed token comes back in a header, and only it.
+  it('signs the phone app in with its own screens, by a session token', async () => {
+    const { app, auth: server, sender } = await setup();
+    const auth = (path: string, body: unknown) =>
+      app.request(`${PUBLIC}/auth/v1${path}`, { method: 'POST', headers: { 'content-type': 'application/json', 'fly-client-ip': '203.0.113.77' }, body: JSON.stringify(body) });
+    expect((await auth('/email-otp/send-verification-otp', { email: 'phone@example.test', type: 'sign-in' })).status).toBe(200);
+    const res = await auth('/sign-in/email-otp', { email: 'phone@example.test', otp: sender.sent.at(-1)!.code });
+    expect(res.status).toBe(200);
+    const token = res.headers.get('set-auth-token');
+    expect(token).toMatch(/\./);
+    const { user } = (await res.json()) as { user: { id: string } };
+    const session = await app.request(`${PUBLIC}/auth/v1/get-session`, { headers: { authorization: `Bearer ${token}` } });
+    expect(((await session.json()) as { user: { id: string } }).user.id).toBe(user.id);
+    // What /v1/devices and /v1/session/* ask.
+    expect(await server.userIdForSession(token!)).toBe(user.id);
+    expect(await server.userIdForSession('bdk_not-a-session')).toBeNull();
+    // The unsigned half alone opens nothing.
+    const bare = await app.request(`${PUBLIC}/auth/v1/get-session`, { headers: { authorization: `Bearer ${token!.split('.')[0]}` } });
+    expect(await bare.json()).toBeNull();
   });
 
   it('signs in from the page alone, outside the app, and says so', async () => {
