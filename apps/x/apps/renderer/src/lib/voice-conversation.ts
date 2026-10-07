@@ -3,7 +3,8 @@ import { useSyncExternalStore } from 'react'
 // Conversation mode (Baarali, 07/10/2026): one tap on the composer's voice
 // button, then talk as on the phone. Each pause sends what was said, the
 // reply is read aloud in the open chat, and the mic listens again. No
-// floating window, no key to hold. Tap again to hang up.
+// floating window, no key to hold. « Interrupt » cuts a reply short and
+// gives the user the floor. Tap again to hang up.
 //
 // A module store like read-aloud.ts: App owns the engine and registers the
 // toggle; any composer shows the state and offers the button.
@@ -15,7 +16,8 @@ export type ConversationOrigin = 'home' | 'chat'
 
 let status: ConversationStatus = 'off'
 const listeners = new Set<() => void>()
-let toggle: ((origin: ConversationOrigin) => void) | null = null
+type Engine = { toggle: (origin: ConversationOrigin) => void; interrupt: () => void }
+let engine: Engine | null = null
 
 export function getConversationStatus(): ConversationStatus {
   return status
@@ -39,17 +41,22 @@ export function useConversationStatus(): ConversationStatus {
 }
 
 /** App installs the engine; returns the uninstaller. */
-export function registerConversationToggle(fn: (origin: ConversationOrigin) => void): () => void {
-  toggle = fn
+export function registerConversation(next: Engine): () => void {
+  engine = next
   return () => {
-    if (toggle === fn) toggle = null
+    if (engine === next) engine = null
   }
 }
 
 export function canToggleConversation(): boolean {
-  return toggle !== null
+  return engine !== null
 }
 
 export function toggleConversation(origin: ConversationOrigin): void {
-  toggle?.(origin)
+  engine?.toggle(origin)
+}
+
+/** Silences the reply being read and listens to the user again. */
+export function interruptConversation(): void {
+  engine?.interrupt()
 }

@@ -65,6 +65,10 @@ export function useVoiceMode() {
     const pttCbRef = useRef<((text: string) => void) | null>(null);
     // Conversation mode: invoked with each utterance once the speaker pauses.
     const handsFreeCbRef = useRef<((text: string) => void) | null>(null);
+    // The mic is taken, read synchronously: a mode that steals it (a call
+    // after a conversation) restarts it in the same tick, before React has
+    // re-rendered `state`.
+    const activeRef = useRef(false);
     // While true (PTT gate closed), mic audio is dropped instead of streamed.
     const pausedRef = useRef(false);
     const keepAliveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -244,6 +248,7 @@ export function useVoiceMode() {
         }
         pttCbRef.current = null;
         handsFreeCbRef.current = null;
+        activeRef.current = false;
         pausedRef.current = false;
         if (keepAliveTimerRef.current) {
             clearInterval(keepAliveTimerRef.current);
@@ -259,7 +264,8 @@ export function useVoiceMode() {
     }, [stopInputCapture]);
 
     const start = useCallback(async (): Promise<'ok' | 'mic-denied' | 'busy'> => {
-        if (state !== 'idle') return 'busy';
+        if (activeRef.current) return 'busy';
+        activeRef.current = true;
 
         transcriptBufferRef.current = '';
         interimRef.current = '';
@@ -357,7 +363,7 @@ export function useVoiceMode() {
         source.connect(processor);
         processor.connect(audioCtx.destination);
         return 'ok';
-    }, [state, connectWs, stopAudioCapture]);
+    }, [connectWs, stopAudioCapture]);
 
     /** Stop recording and return the full transcript (finalized + any current interim) */
     const submit = useCallback(async (): Promise<string> => {

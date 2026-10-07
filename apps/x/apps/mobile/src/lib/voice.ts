@@ -20,10 +20,21 @@ import type { RpcClient } from '@x/client';
 
 export type VoiceInputState = 'idle' | 'recording' | 'transcribing';
 
+// Conversation mode hears the end of a sentence from the mic level: speech
+// above the room's noise, then this much quiet.
+const POLL_MS = 150;
+const SILENCE_MS = 1200;
+const MAX_TURN_MS = 60_000;
+// Nobody spoke for this long: start a fresh file rather than grow one of silence.
+const IDLE_RESTART_MS = 30_000;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /** The mic: record, then the transcript. `null` when nothing was heard. */
 export function useVoiceInput(rpc: RpcClient | null) {
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
   const [state, setState] = useState<VoiceInputState>('idle');
+  const stopListeningRef = useRef(false);
 
   const start = useCallback(async (): Promise<'ok' | 'denied'> => {
     const permission = await requestRecordingPermissionsAsync();
@@ -66,14 +77,68 @@ export function useVoiceInput(rpc: RpcClient | null) {
     setState('idle');
   }, [recorder, state]);
 
-  return { state, start, finish, cancel };
+  /**
+   * Conversation mode: records until the speaker pauses, then transcribes.
+   * `null` when stopped (`stopListening`) or nothing was understood.
+   */
+  const listenTurn = useCallback(async (): Promise<string | null | 'denied'> => {
+    stopListeningRef.current = false;
+    if ((await start()) === 'denied') return 'denied';
+    let startedAt = Date.now();
+    let floor: number | null = null;
+    let voiced = 0;
+    let heardAt = 0;
+    let quietSince = 0;
+    for (;;) {
+      await sleep(POLL_MS);
+      if (stopListeningRef.current) {
+        await recorder.stop().catch(() => undefined);
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
+        setState('idle');
+        return null;
+      }
+      const level = recorder.getStatus().metering ?? -160;
+      floor ??= level;
+      const threshold = Math.max(floor + 12, -50);
+      if (level > threshold) {
+        voiced += 1;
+        quietSince = 0;
+        if (voiced >= 2 && !heardAt) heardAt = Date.now();
+      } else {
+        voiced = 0;
+        if (!heardAt) floor = floor * 0.9 + level * 0.1;
+        else if (!quietSince) quietSince = Date.now();
+      }
+      const now = Date.now();
+      if (heardAt && quietSince && now - quietSince >= SILENCE_MS) break;
+      if (heardAt && now - heardAt >= MAX_TURN_MS) break;
+      if (!heardAt && now - startedAt >= IDLE_RESTART_MS) {
+        await recorder.stop().catch(() => undefined);
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+        startedAt = Date.now();
+      }
+    }
+    return finish();
+  }, [recorder, start, finish]);
+
+  /** Ends a `listenTurn` that is still waiting for speech. */
+  const stopListening = useCallback(() => {
+    stopListeningRef.current = true;
+  }, []);
+
+  return { state, start, finish, cancel, listenTurn, stopListening };
 }
 
 let player: AudioPlayer | null = null;
 let playing: File | null = null;
+let ended: (() => void) | null = null;
+// Bumped by every stop, so a reading still being synthesized never starts after it.
+let generation = 0;
 
-/** Silence: a new recording, or the speaker switched off. */
+/** Silence: a new recording, the speaker switched off, or the user cutting in. */
 export function stopSpeaking(): void {
+  generation += 1;
   player?.remove();
   player = null;
   try {
@@ -82,17 +147,35 @@ export function stopSpeaking(): void {
     // Already gone.
   }
   playing = null;
+  const done = ended;
+  ended = null;
+  done?.();
 }
 
-/** Reads `text` aloud through the account's voice; the previous reading stops. */
+/**
+ * Reads `text` aloud through the account's voice; the previous reading stops.
+ * Resolves when the reading ends, naturally or cut short by `stopSpeaking`.
+ */
 export async function speak(rpc: RpcClient, text: string): Promise<void> {
-  const { audioBase64 } = await rpc.call('voice:synthesize', { text });
   stopSpeaking();
+  const mine = generation;
+  const { audioBase64 } = await rpc.call('voice:synthesize', { text });
+  if (generation !== mine) return;
   const file = new File(Paths.cache, `baarali-reply-${Date.now()}.mp3`);
   file.write(audioBase64, { encoding: 'base64' });
   playing = file;
-  player = createAudioPlayer(file.uri);
-  player.play();
+  const current = createAudioPlayer(file.uri);
+  player = current;
+  const done = new Promise<void>((resolve) => {
+    ended = resolve;
+  });
+  current.addListener('playbackStatusUpdate', (status) => {
+    if (status.didJustFinish) setTimeout(() => {
+      if (player === current) stopSpeaking();
+    }, 0);
+  });
+  current.play();
+  return done;
 }
 
 const READ_ALOUD_KEY = 'baarali.readAloud';
@@ -113,6 +196,15 @@ export function useReadAloud(): [boolean, (on: boolean) => void] {
     void SecureStore.setItemAsync(READ_ALOUD_KEY, next ? '1' : '0').catch(() => undefined);
   }, []);
   return [on, set];
+}
+
+/**
+ * What to say of a reply: its <voice> summary when the agent wrote one (asked
+ * for in conversation and with the speaker on), else its opening.
+ */
+export function spokenPart(reply: string): string {
+  const summary = [...reply.matchAll(/<voice>([\s\S]*?)<\/voice>/g)].map((m) => m[1].trim()).filter(Boolean).join(' ');
+  return summary || speakableOpening(reply);
 }
 
 /**

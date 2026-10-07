@@ -131,7 +131,7 @@ import { baarasseurIdOf } from '@x/shared/dist/baarasseur.js'
 import { toast } from "sonner"
 import { useVoiceMode } from '@/hooks/useVoiceMode'
 import { isReadAloud, onReadAloudChange, speakableOpening } from '@/lib/read-aloud'
-import { registerConversationToggle, setConversationStatus, type ConversationOrigin } from '@/lib/voice-conversation'
+import { registerConversation, setConversationStatus, type ConversationOrigin } from '@/lib/voice-conversation'
 import { CALL_VOICE_HOLDER, acquireVoice, releaseVoice, useVoiceOwner, voiceOwnerId } from '@/lib/voice-ownership'
 import { useVideoMode } from '@/hooks/useVideoMode'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
@@ -1276,6 +1276,8 @@ function App() {
   }), [])
   // Conversation mode is on (see the engine below): every reply is read, like the speaker on.
   const conversationRef = useRef(false)
+  // The user cut the current reply short: nothing more of it is read.
+  const conversationHushRef = useRef(false)
 
   // Latest assistant line handed to TTS — shown as the caption in the
   // full-screen call view while the assistant is speaking.
@@ -1420,7 +1422,7 @@ function App() {
     while (readSpokenRef.current.count < chatVoiceSegments.length) {
       const segment = chatVoiceSegments[readSpokenRef.current.count]
       readSpokenRef.current.count += 1
-      if ((isReadAloud() || conversationRef.current) && !inCallRef.current) {
+      if ((isReadAloud() || conversationRef.current) && !inCallRef.current && !conversationHushRef.current) {
         readTurnRef.current.spoke = true
         ttsRef.current.speak(segment)
       }
@@ -1430,7 +1432,7 @@ function App() {
     if (chatIsProcessing) return
     const turn = readTurnRef.current
     if (!turn.pending) return
-    if (!(isReadAloud() || conversationRef.current) || inCallRef.current || turn.spoke) {
+    if (!(isReadAloud() || conversationRef.current) || inCallRef.current || turn.spoke || conversationHushRef.current) {
       turn.pending = false
       return
     }
@@ -1748,6 +1750,7 @@ function App() {
   const stopConversation = useCallback(() => {
     if (!conversationRef.current) return
     conversationRef.current = false
+    conversationHushRef.current = false
     conversationTurnRef.current.waiting = false
     setConversationOn(false)
     setConversationStatus('off')
@@ -1772,6 +1775,7 @@ function App() {
     const result = await voiceRef.current.startHandsFree((text) => {
       if (!conversationRef.current) return
       voiceRef.current.listen(false)
+      conversationHushRef.current = false
       conversationTurnRef.current = { waiting: true, sawProcessing: false, sentAt: Date.now() }
       setConversationStatus('thinking')
       playAckCue()
@@ -1789,10 +1793,24 @@ function App() {
       if (result === 'mic-denied') setPermissionDialog('microphone')
     }
   }, [handleCancelRecording, stopConversation])
-  useEffect(() => registerConversationToggle((origin) => {
-    if (conversationRef.current) stopConversation()
-    else void startConversation(origin)
-  }), [startConversation, stopConversation])
+  // Cutting in: the reply stops being read (the work goes on, shown in the
+  // chat) and the mic is the user's again.
+  const [conversationHushed, setConversationHushed] = useState(0)
+  const interruptConversation = useCallback(() => {
+    if (!conversationRef.current) return
+    conversationHushRef.current = true
+    conversationTurnRef.current.waiting = false
+    readTurnRef.current.pending = false
+    ttsRef.current.cancel()
+    setConversationHushed((n) => n + 1)
+  }, [])
+  useEffect(() => registerConversation({
+    toggle: (origin) => {
+      if (conversationRef.current) stopConversation()
+      else void startConversation(origin)
+    },
+    interrupt: interruptConversation,
+  }), [startConversation, stopConversation, interruptConversation])
   // Who has the floor: the assistant while it works or speaks, then the user again.
   useEffect(() => {
     if (!conversationOn) return
@@ -1806,7 +1824,7 @@ function App() {
       setConversationStatus('speaking')
       return
     }
-    if (turn.waiting || chatIsProcessing || readTurnRef.current.pending) {
+    if (!conversationHushRef.current && (turn.waiting || chatIsProcessing || readTurnRef.current.pending)) {
       voiceRef.current.listen(false)
       setConversationStatus('thinking')
       // A turn that never shows up, or a reply with nothing to read (an
@@ -1826,7 +1844,7 @@ function App() {
     }
     voiceRef.current.listen(true)
     setConversationStatus('listening')
-  }, [conversationOn, chatIsProcessing, chatConversation, tts.state])
+  }, [conversationOn, chatIsProcessing, chatConversation, tts.state, conversationHushed])
   // Leaving the app's window state behind (unmount) hangs up.
   useEffect(() => () => stopConversation(), [stopConversation])
 
