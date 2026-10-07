@@ -3612,6 +3612,18 @@ export const FR: Dictionary = {
     "$1 added $2": "$1 a ajouté $2",
     "$1 removed $2": "$1 a retiré $2",
     "$1 was removed": "$1 ne fait plus partie de l’espace",
+    // The mobile tabs (07/10/2026): the home tab and More.
+    "Ask, Baarali takes care of it…": "Demandez, Baarali s’en occupe…",
+    "Connect your computer": "Reliez votre ordinateur",
+    "Your chats and your baarasseurs show up here once the phone is linked to your Baarali.": "Vos discussions et vos baarasseurs apparaissent ici une fois le téléphone relié à votre Baarali.",
+    "No chats yet. Ask anything above, or tap the wave and talk.": "Aucune discussion pour l’instant. Demandez ce que vous voulez ci-dessus, ou touchez l’onde et parlez.",
+    "Create, change, see what they do": "Créer, modifier, voir ce qu’ils font",
+    "What you and your agents have to do": "Ce que vous et vos agents avez à faire",
+    "What Baarali does on its own, on time": "Ce que Baarali fait tout seul, à heure fixe",
+    "Your notes and files": "Vos notes et vos fichiers",
+    "Chats and files kept together": "Discussions et fichiers rangés ensemble",
+    "The mini-apps Baarali made for you": "Les mini-apps que Baarali vous a faites",
+    "Voice, model, notifications": "Voix, modèle, notifications",
   },
   templates: {
     // The Baarasseurs page (06/10/2026).
