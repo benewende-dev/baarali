@@ -3151,6 +3151,7 @@ export const FR: Dictionary = {
     "Waiting for registry validation…": "En attente de validation du registre…",
     "Waiting": "En attente",
     "WebSocket failed to connect": "La connexion WebSocket a échoué",
+    "Voice input is unavailable right now. Try again in a few minutes.": "La dictée est indisponible pour le moment. Réessayez dans quelques minutes.",
     "Weekdays at 5 PM": "En semaine à 17 h",
     "Weekdays at 9 AM": "En semaine à 9 h",
     "Went back in the active tab.": "Retour en arrière dans l’onglet actif.",
