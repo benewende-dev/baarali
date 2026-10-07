@@ -51,13 +51,9 @@ const COPY: Record<
     icon: MonitorUp,
     title: 'Rowboat can’t see your screen',
     body: isMac
-      ? 'macOS is blocking Screen Recording, so the assistant would only see black frames. ' +
-        'Enable Rowboat under System Settings → Privacy & Security → Screen Recording, then ' +
-        'relaunch Rowboat. If Rowboat is already enabled there, toggle it off and on — an ' +
-        'updated app needs a fresh grant — and relaunch.'
-      : 'Screen capture didn’t start, so the assistant can’t see your screen. If you ' +
-        'dismissed the picker, just try sharing again. If it keeps failing, restart ' +
-        'Rowboat — the call carries on fine without sharing.',
+      // One literal each, so the translation catalog sees the whole sentence.
+      ? 'macOS is blocking Screen Recording, so the assistant would only see black frames. Enable Rowboat under System Settings → Privacy & Security → Screen Recording, then relaunch Rowboat. If Rowboat is already enabled there, toggle it off and on — an updated app needs a fresh grant — and relaunch.'
+      : 'Screen capture didn’t start, so the assistant can’t see your screen. If you dismissed the picker, just try sharing again. If it keeps failing, restart Rowboat — the call carries on fine without sharing.',
     section: 'screen-recording',
   },
   // Input Monitoring is macOS-only: nothing gates a global key hook on

@@ -24,7 +24,6 @@ import {
   Mic,
   MoreHorizontal,
   Paperclip,
-  PictureInPicture2,
   Plug,
   Plus,
   ShieldCheck,
@@ -1165,15 +1164,15 @@ function ChatInputInner({
                       ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       : 'cursor-default text-muted-foreground/40'
                 )}
-                aria-label="Open hover mode"
+                aria-label="Talk with Rowboat"
               >
-                <PictureInPicture2 className="h-4 w-4" />
+                <AudioLines className="h-4 w-4" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">
               {inCall || callAvailable
-                ? `Open hover mode (${summonShortcutLabel})`
-                : 'Hover mode needs voice input and output configured'}
+                ? `Talk with Rowboat: speak, it answers aloud (${summonShortcutLabel})`
+                : 'Talking with Rowboat needs voice input and output configured'}
             </TooltipContent>
           </Tooltip>
         )}
