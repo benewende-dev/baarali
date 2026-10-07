@@ -177,6 +177,16 @@ export class SpacesClient {
     return (await this.request('POST', routes.createSpace.path, routes.createSpace.response, { name })).space;
   }
 
+  /** The org roster, people and agents (api.ts listOrgMembers): the pickers' source. */
+  async listOrgMembers(): Promise<Member[]> {
+    return (await this.request('GET', routes.listOrgMembers.path, routes.listOrgMembers.response)).members;
+  }
+
+  /** Add org members, people or agents, to a shared space the caller is in (api.ts addMembers). */
+  async addMembers(spaceId: string, memberIds: string[]): Promise<void> {
+    await this.request('POST', this.space(spaceId, '/members'), routes.addMembers.response, { memberIds, actingMode: 'direct' });
+  }
+
   async listMembers(spaceId: string): Promise<Member[]> {
     return (await this.request('GET', this.space(spaceId, '/members'), routes.listMembers.response)).members;
   }

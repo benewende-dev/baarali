@@ -3615,6 +3615,15 @@ export const FR: Dictionary = {
     "The mini-apps Baarali made for you": "Les mini-apps que Baarali vous a faites",
     "Voice, model, notifications": "Voix, modèle, notifications",
     "Your computer": "Votre ordinateur",
+    // Spaces, a new group (07/10/2026).
+    "New group": "Nouveau groupe",
+    "Group name": "Nom du groupe",
+    "Find an agent or a person": "Chercher un agent ou une personne",
+    "Your agents": "Vos agents",
+    "Always in your groups: write @baarali": "Toujours dans vos groupes : écrivez @baarali",
+    "Soon in groups": "Bientôt dans les groupes",
+    "Nobody else in this org yet.": "Personne d’autre dans cette organisation pour l’instant.",
+    "A link to share, once the group is created": "Un lien à partager, une fois le groupe créé",
   },
   // Lines about people (apps/x renderer lib/spaces-membership.ts): the names
   // stay as written. Neutral wording, a name says nothing of a gender.
@@ -3626,6 +3635,9 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
+    // Spaces, a new group (07/10/2026).
+    "Agents of $1": "Agents de $1",
+    "People of $1": "Personnes de $1",
     // The Baarasseurs page (06/10/2026).
     "Every $1": "Chaque $1",
     "Write to $1…": "Écrire à $1…",

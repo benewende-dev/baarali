@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { ActivityIndicator, KeyboardAvoidingView, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { JoinWithLink } from '@/components/join-with-link';
+import { Face } from '@/components/member-face';
 import { useSpacesAccount, type SpacesOrg } from '@/lib/spaces/account';
 import { connectInstance, sendCode, SignInError, verifyCode, type SignInProblem } from '@/lib/baarali-sign-in';
 import { useConnection } from '@/lib/connection';
@@ -266,6 +267,27 @@ function OrgList() {
   const who = account.orgs?.[0]?.displayName;
 
   return (
+    <>
+    {/* BAARALI(07/10/2026): a work group in one screen (mockup artboard 17). */}
+    {account.orgs?.length ? (
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Pressable
+              onPress={() => {
+                if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
+                router.push('/spaces/new');
+              }}
+              hitSlop={8}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: colors.accent }}
+            >
+              <Image source="sf:plus" style={{ width: 13, height: 13 }} contentFit="contain" tintColor={colors.onAccent} />
+              <Text style={{ fontSize: 15, fontWeight: '600', color: colors.onAccent }}>New group</Text>
+            </Pressable>
+          ),
+        }}
+      />
+    ) : null}
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
       contentInsetAdjustmentBehavior="automatic"
@@ -308,6 +330,7 @@ function OrgList() {
         </Pressable>
       </View>
     </ScrollView>
+    </>
   );
 }
 
@@ -332,7 +355,8 @@ function OrgCard({ org }: { org: SpacesOrg }) {
     [org.address, account],
   );
 
-  useEffect(() => {
+  // Again on each visit: a group made from the phone, or elsewhere, shows.
+  useFocusEffect(useCallback(() => {
     client
       .listSpaces()
       .then(async (list) => {
@@ -344,7 +368,7 @@ function OrgCard({ org }: { org: SpacesOrg }) {
         setMembers(new Map(loaded));
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
-  }, [client]);
+  }, [client]));
 
   const [openingDm, setOpeningDm] = useState<string | null>(null);
 
@@ -407,6 +431,14 @@ function OrgCard({ org }: { org: SpacesOrg }) {
             <Image source="sf:number" style={{ width: 17, height: 17 }} tintColor={colors.secondaryLabel} />
           </View>
           <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, color: colors.label }}>{space.name}</Text>
+          {/* Who is in, people and agents (mockup artboard 17). */}
+          <View style={{ flexDirection: 'row' }}>
+            {(members.get(space.id) ?? []).slice(0, 4).map((m, i) => (
+              <View key={m.id} style={{ marginLeft: i === 0 ? 0 : -7, borderRadius: 12, borderWidth: 1.5, borderColor: colors.background }}>
+                <Face name={m.displayName} agent={m.kind === 'agent'} size={22} />
+              </View>
+            ))}
+          </View>
         </Row>
       ))}
       {spaces?.length === 0 ? (
