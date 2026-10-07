@@ -1717,6 +1717,11 @@ export const FR: Dictionary = {
     "Your assistant can’t be reached right now. Spaces work; try again in a moment for your chats.": "Votre assistant est injoignable pour l’instant. Les Espaces marchent ; réessayez dans un moment pour vos discussions.",
     "No connection. Check your internet and try again.": "Pas de connexion. Vérifiez votre internet et réessayez.",
     "Sign-in didn’t work. Try again.": "La connexion n’a pas marché. Réessayez.",
+    // The push-to-talk key, named inside « Hold $1 to talk » and its tips.
+    "right ⌘": "⌘ droite",
+    "Right ⌘": "⌘ droite",
+    "right Ctrl": "Ctrl droite",
+    "Right Ctrl": "Ctrl droite",
     "End": "Terminer",
     "Talk with Baarali: tap, speak naturally, it answers aloud": "Parler avec Baarali : touchez, parlez naturellement, il vous répond à voix haute",
     "Listening… just talk, I answer when you pause.": "Je vous écoute… parlez, je réponds dès que vous marquez une pause.",
