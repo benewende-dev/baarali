@@ -1,11 +1,11 @@
 import { Stack } from 'expo-router';
-import { DrawerActions } from 'expo-router/react-navigation';
-import { Pressable, useColorScheme } from 'react-native';
-import { Image } from 'expo-image';
+import { useColorScheme } from 'react-native';
 
-// Notes are a stack inside the drawer: Brain (tree) → note pushes with a
-// native back button. The drawer's own header is hidden for this section —
-// the stack draws its own, so Brain re-adds the hamburger itself.
+import { BackButton } from '@/components/back-button';
+
+// Notes are a stack pushed over the tabs: Library (tree) → note pushes with a
+// native back button. A note opened straight from elsewhere (a meeting) is
+// the stack's first screen, so it brings its own way back.
 export default function NotesLayout() {
   const colorScheme = useColorScheme();
   const tint = colorScheme === 'dark' ? '#ffffff' : '#000000';
@@ -18,18 +18,17 @@ export default function NotesLayout() {
     >
       <Stack.Screen
         name="index"
-        options={({ navigation }) => ({
-          title: 'Library',
-          // Plain hamburger, matching the standard drawer header look.
-          headerLeft: () => (
-            <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} hitSlop={10}>
-              <Image source="sf:line.3.horizontal" style={{ width: 22, height: 22 }} tintColor={tint} />
-            </Pressable>
-          ),
-        })}
+        options={{ title: 'Library', headerLeft: () => <BackButton /> }}
       />
       {/* Native back chevron, no label. */}
-      <Stack.Screen name="view" options={{ title: 'Note', headerBackButtonDisplayMode: 'minimal' }} />
+      <Stack.Screen
+        name="view"
+        options={({ navigation }) => ({
+          title: 'Note',
+          headerBackButtonDisplayMode: 'minimal',
+          ...(navigation.canGoBack() ? {} : { headerLeft: () => <BackButton /> }),
+        })}
+      />
     </Stack>
   );
 }

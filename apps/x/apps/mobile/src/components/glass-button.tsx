@@ -2,12 +2,18 @@ import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { Pressable, useColorScheme } from 'react-native';
 
-// The one hamburger: glass circle, identical on every screen that opens the
-// drawer.
-export function GlassHamburger({ onPress, marginLeft = 14, size = 44 }: { onPress: () => void; marginLeft?: number; size?: number }) {
+// The one floating button: a glass circle, identical on every screen that
+// floats its header (the chat's way back).
+export function GlassButton({ icon, label, onPress, marginLeft = 14, size = 44 }: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  marginLeft?: number;
+  size?: number;
+}) {
   const colorScheme = useColorScheme();
   return (
-    <Pressable onPress={onPress} hitSlop={8} style={{ marginLeft }}>
+    <Pressable onPress={onPress} hitSlop={8} style={{ marginLeft }} accessibilityRole="button" accessibilityLabel={label}>
       <BlurView
         intensity={40}
         tint={colorScheme === 'dark' ? 'dark' : 'light'}
@@ -20,8 +26,9 @@ export function GlassHamburger({ onPress, marginLeft = 14, size = 44 }: { onPres
         }}
       >
         <Image
-          source="sf:line.3.horizontal"
-          style={{ width: 22, height: 22 }}
+          source={icon}
+          style={{ width: 20, height: 20 }}
+          contentFit="contain"
           tintColor={colorScheme === 'dark' ? '#ffffff' : '#000000'}
         />
       </BlurView>
