@@ -104,6 +104,8 @@ export function useVoiceMode() {
         // Refresh auth if we don't have it cached yet
         if (!cachedAuth) {
             await refreshAuth();
+            // Stopped while the account was fetched: no socket to open.
+            if (!activeRef.current) return;
         }
         if (!cachedAuth) {
             // Said aloud rather than a mic that listens and writes nothing.
@@ -293,14 +295,14 @@ export function useVoiceMode() {
             return 'mic-denied';
         }
 
-        // Kick off mic + WebSocket in parallel, don't await WebSocket
-        const [stream] = await Promise.all([
-            navigator.mediaDevices.getUserMedia({ audio: true }).catch((err) => {
-                console.error('Microphone access denied:', err);
-                return null;
-            }),
-            connectWs(),
-        ]);
+        // Mic first, the socket alongside: capture starts as soon as the mic
+        // is open and buffers until the socket is up. Waiting for the socket
+        // (the first time, it fetches the account) lost the first words.
+        void connectWs();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch((err) => {
+            console.error('Microphone access denied:', err);
+            return null;
+        });
 
         if (!stream) {
             // connectWs() may have already opened a socket — tear everything
