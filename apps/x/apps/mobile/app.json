@@ -45,6 +45,12 @@
         }
       ],
       "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "The microphone is used to talk to your Rowboat agents with voice."
+        }
+      ],
       "expo-font",
       "expo-image"
     ],

@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -24,12 +25,33 @@ import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
 import { baarasseurs } from '@x/shared';
 import { BaarasseurAvatar, useBaarasseurs } from '@/lib/baarasseurs';
+import { speak, speakableOpening, stopSpeaking, useReadAloud, useVoiceInput } from '@/lib/voice';
+
+/** The reply's text: the last model call that answered in words. */
+function replyText(state: { modelCalls: Array<{ response?: { content?: unknown } | null }> }): string {
+  for (let i = state.modelCalls.length - 1; i >= 0; i--) {
+    const content = state.modelCalls[i].response?.content;
+    const text = typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content.map((p: { type?: string; text?: string }) => (p.type === 'text' && typeof p.text === 'string' ? p.text : '')).join('')
+        : '';
+    if (text.trim()) return text;
+  }
+  return '';
+}
 
 // The home screen IS a chat (Claude/ChatGPT pattern). `id` picks the session;
 // empty/no id is the new-chat state — the session is created lazily on the
 // first send, so abandoned "new chats" never litter the history.
 
-function Turn({ turnId, isLatest, onStreaming }: { turnId: string; isLatest: boolean; onStreaming?: (streaming: boolean) => void }) {
+function Turn({ turnId, isLatest, onStreaming, onFinished }: {
+  turnId: string;
+  isLatest: boolean;
+  onStreaming?: (streaming: boolean) => void;
+  /** The reply just ended while on screen (not an old turn reopened): its text. */
+  onFinished?: (text: string) => void;
+}) {
   const colors = useColors();
   const { sessions } = useConnection();
   const { state, liveText, error } = useLiveTurn(turnId, { deltas: isLatest });
@@ -39,6 +61,17 @@ function Turn({ turnId, isLatest, onStreaming }: { turnId: string; isLatest: boo
   useEffect(() => {
     if (isLatest) onStreaming?.(live);
   }, [isLatest, live, onStreaming]);
+
+  const seenLive = useRef(false);
+  useEffect(() => {
+    if (!state) return;
+    if (!state.terminal) {
+      seenLive.current = true;
+    } else if (seenLive.current && isLatest) {
+      seenLive.current = false;
+      onFinished?.(replyText(state));
+    }
+  }, [state, isLatest, onFinished]);
 
   const onPermission = useCallback(
     (toolCallId: string, decision: 'allow' | 'deny') => {
@@ -99,7 +132,9 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const models = useModels();
-  const { pairing, sessions, events } = useConnection();
+  const { pairing, sessions, events, rpc } = useConnection();
+  const voice = useVoiceInput(rpc);
+  const [readAloud, setReadAloud] = useReadAloud();
   const params = { agent };
   const { team } = useBaarasseurs();
   // The web search switch, as on the desktop's composer.
@@ -158,11 +193,11 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   const latestTurnId = turnRefs[turnRefs.length - 1]?.turnId;
   const [latestStreaming, setLatestStreaming] = useState(false);
 
-  const send = useCallback(async () => {
-    const content = draft.trim();
+  const send = useCallback(async (spoken?: string) => {
+    const content = (spoken ?? draft).trim();
     if (!content || !sessions) return;
     setSending(true);
-    setDraft('');
+    if (spoken === undefined) setDraft('');
     try {
       let sessionId = id;
       if (!sessionId) {
@@ -176,7 +211,9 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
           agentId,
           overrides: {
             ...(model ? { model: { provider: model.provider, model: model.model } } : {}),
-            ...(search ? { composition: { searchEnabled: true } } : {}),
+            ...(search || spoken !== undefined
+              ? { composition: { ...(search ? { searchEnabled: true } : {}), ...(spoken !== undefined ? { voiceInput: true } : {}) } }
+              : {}),
           },
         },
       });
@@ -185,7 +222,7 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setDraft(content); // don't lose the message
+      setDraft(content); // don't lose the message (a spoken one lands in the box)
     } finally {
       setSending(false);
     }
@@ -198,8 +235,36 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   }, [modelsRefresh]);
 
   const stop = useCallback(() => {
+    stopSpeaking();
     if (latestTurnId) void sessions?.stopTurn(latestTurnId);
   }, [sessions, latestTurnId]);
+
+  // Tap to speak, tap again to send what was said.
+  const onMic = useCallback(async () => {
+    try {
+      if (voice.state === 'idle') {
+        if ((await voice.start()) === 'denied') {
+          Alert.alert('Microphone', 'Allow Baarali to use the microphone in Settings to talk to it.');
+        } else if (process.env.EXPO_OS === 'ios') {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        return;
+      }
+      if (voice.state !== 'recording') return;
+      const text = await voice.finish();
+      if (text) await send(text);
+      else setError('Nothing was heard. Try again, a little closer to the phone.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [voice, send]);
+
+  // With the speaker on, the reply that just ended is read aloud.
+  const onFinished = useCallback((text: string) => {
+    if (!readAloud || !rpc) return;
+    const opening = speakableOpening(text);
+    if (opening) void speak(rpc, opening).catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+  }, [readAloud, rpc]);
 
   if (pairing === undefined) {
     return (
@@ -245,6 +310,7 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
                 turnId={ref.turnId}
                 isLatest={ref.turnId === latestTurnId}
                 onStreaming={setLatestStreaming}
+                onFinished={onFinished}
               />
             ))}
           </ScrollView>
@@ -295,12 +361,38 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
             >
               <Image source="sf:globe" style={{ width: 16, height: 16 }} tintColor={search ? colors.onAccent : colors.secondaryLabel} />
             </Pressable>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: readAloud }}
+              accessibilityLabel="Read replies aloud"
+              onPress={() => setReadAloud(!readAloud)}
+              hitSlop={6}
+              style={{
+                width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 6,
+                backgroundColor: readAloud ? colors.accent : 'transparent',
+                borderWidth: readAloud ? 0 : 1, borderColor: colors.separator,
+              }}
+            >
+              <Image source="sf:speaker.wave.2" style={{ width: 16, height: 16 }} tintColor={readAloud ? colors.onAccent : colors.secondaryLabel} />
+            </Pressable>
             <ModelPill models={models} />
             <View style={{ flex: 1 }} />
+            {voice.state === 'recording' ? (
+              <Text style={{ fontSize: 13, color: colors.secondaryLabel, marginRight: 8 }}>Listening… tap to send</Text>
+            ) : voice.state === 'transcribing' ? (
+              <ActivityIndicator style={{ marginRight: 8 }} />
+            ) : null}
             {sending || latestStreaming ? (
               <RoundButton icon="sf:stop.fill" onPress={stop} />
+            ) : draft.trim() ? (
+              <RoundButton icon="sf:arrow.up" onPress={() => void send()} />
             ) : (
-              <RoundButton icon="sf:arrow.up" onPress={() => void send()} disabled={!draft.trim()} />
+              <RoundButton
+                icon={voice.state === 'recording' ? 'sf:stop.fill' : 'sf:mic.fill'}
+                onPress={() => void onMic()}
+                disabled={voice.state === 'transcribing' || !rpc}
+                label={voice.state === 'recording' ? 'Send what I said' : 'Talk'}
+              />
             )}
           </View>
         </View>
@@ -309,10 +401,12 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
   );
 }
 
-function RoundButton({ icon, onPress, disabled }: { icon: string; onPress: () => void; disabled?: boolean }) {
+function RoundButton({ icon, onPress, disabled, label }: { icon: string; onPress: () => void; disabled?: boolean; label?: string }) {
   const colors = useColors();
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       disabled={disabled}
       hitSlop={6}

@@ -3163,6 +3163,12 @@ export const FR: Dictionary = {
     "Voice input is unavailable right now. Try again in a few minutes.": "La dictée est indisponible pour le moment. Réessayez dans quelques minutes.",
     // The composer's speaker (07/10/2026): replies of a typed chat read aloud.
     "Read replies aloud": "Lire les réponses à voix haute",
+    // The phone as a voice agent (mobile chat.tsx, 07/10/2026).
+    "Talk": "Parler",
+    "Send what I said": "Envoyer ce que j'ai dit",
+    "Listening… tap to send": "Je vous écoute… touchez pour envoyer",
+    "Allow Baarali to use the microphone in Settings to talk to it.": "Autorisez Baarali à utiliser le micro dans Réglages pour lui parler.",
+    "Nothing was heard. Try again, a little closer to the phone.": "Rien n'a été entendu. Réessayez, un peu plus près du téléphone.",
     "Read replies aloud: on": "Lecture à voix haute : activée",
     "Read replies aloud: off": "Lecture à voix haute : désactivée",
     "The next replies will be read aloud.": "Les prochaines réponses seront lues à voix haute.",
