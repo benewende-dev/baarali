@@ -2683,6 +2683,9 @@ export function setupIpcHandlers() {
     'voice:getConfig': async () => {
       return voice.getVoiceConfig();
     },
+    'voice:transcribe': async (_event, args) => {
+      return voice.transcribeAudio(Buffer.from(args.audioBase64, 'base64'), { mimeType: args.mimeType });
+    },
     'voice:synthesize': async (_event, args) => {
       return voice.synthesizeSpeech(args.text);
     },

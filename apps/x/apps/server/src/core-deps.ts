@@ -1303,6 +1303,7 @@ export function createCoreRpcHandlers(opts?: { sessionsIndexReady?: Promise<void
       activeTtsStreams.delete(args.requestId);
       return {};
     },
+    'voice:transcribe': async (args) => voice.transcribeAudio(Buffer.from(args.audioBase64, 'base64'), { mimeType: args.mimeType }),
     'voice:synthesize': async (args) => {
       return voice.synthesizeSpeech(args.text);
     },

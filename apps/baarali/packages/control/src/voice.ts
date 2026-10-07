@@ -183,6 +183,58 @@ export function speakerFor(deps: VoiceDeps, plan: Plan, voiceId: string, text: s
   };
 }
 
+/** A recording sent whole (the phone's push-to-talk): 25 MB is about an hour of compressed speech. */
+export const MAX_RECORDING_BYTES = 25 * 1024 * 1024;
+
+/**
+ * `POST /v1/voice/transcribe`: a whole recording (m4a, wav, webm, ogg, mp3…)
+ * in the body, its type in Content-Type; `{ transcript }` back. Deepgram's
+ * pre-recorded API, which reads any container, unlike the live socket; the
+ * quota counts the audio's duration at the live price.
+ */
+export async function transcribe(deps: VoiceDeps, account: Account, req: Request): Promise<Response> {
+  const audio = new Uint8Array(await req.arrayBuffer());
+  if (audio.length === 0) return errorResponse(400, { code: 'empty_audio', message: 'audio is required' });
+  if (audio.length > MAX_RECORDING_BYTES) return errorResponse(413, { code: 'audio_too_long', message: 'At most 25 MB of audio' });
+
+  const gate = await enter(deps, account);
+  if (!gate.ok) return errorResponse(gate.status, gate.error);
+
+  const params = new URLSearchParams({ model: 'nova-3', language: 'multi', smart_format: 'true', punctuate: 'true' });
+  const base = deps.deepgramBase ?? `https://${DEEPGRAM_HOST}`;
+  let credits = 0;
+  let status = 502;
+  try {
+    const res = await deps.fetch(`${base}/v1/listen?${params.toString()}`, {
+      method: 'POST',
+      headers: { authorization: `Token ${deps.deepgramKey}`, 'content-type': req.headers.get('content-type') || 'application/octet-stream' },
+      body: audio,
+    });
+    status = res.status;
+    if (!res.ok) {
+      console.error('[voice] transcribe refused', res.status, await res.text().catch(() => ''));
+      return errorResponse(502, { code: 'upstream_error', message: `Voice provider answered ${res.status}` });
+    }
+    const result = (await res.json()) as {
+      metadata?: { duration?: number };
+      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+    };
+    const seconds = typeof result.metadata?.duration === 'number' ? result.metadata.duration : 0;
+    credits = sttCredits(seconds * 1000, 1);
+    const transcript = (result.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? '').trim();
+    return new Response(JSON.stringify({ transcript }), { status: 200, headers: { 'content-type': 'application/json' } });
+  } catch (err) {
+    console.error('[voice] transcribe', err);
+    return errorResponse(502, { code: 'upstream_unreachable', message: 'Voice provider unreachable' });
+  } finally {
+    await spend(deps, account, credits);
+    await deps.store.appendUsage({
+      accountId: account.id, at: deps.now(), path: '/voice/transcribe', model: 'nova-3', requestedModel: null,
+      status, credits, estimated: false, useCase: 'voice', agentName: null,
+    });
+  }
+}
+
 /** `POST /v1/voice/text-to-speech/:voiceId`: mp3, streamed piece after piece. */
 export async function speak(deps: VoiceDeps, account: Account, voiceId: string, req: Request): Promise<Response> {
   let text: unknown;

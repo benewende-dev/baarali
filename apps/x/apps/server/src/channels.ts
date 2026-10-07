@@ -225,6 +225,7 @@ export const RPC_CHANNELS = [
   'inline-task:classifySchedule',
   'inline-task:process',
   'voice:synthesize',
+  'voice:transcribe',
   'live-note:run',
   'live-note:set',
   'live-note:setActive',

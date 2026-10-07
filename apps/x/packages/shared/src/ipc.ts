@@ -2768,6 +2768,16 @@ export const ipcSchemas = {
       elevenlabs: z.object({ apiKey: z.string(), voiceId: z.string().optional() }).nullable(),
     }),
   },
+  // A whole recording to text (Baarali, 07/10/2026): the phone's push-to-talk.
+  'voice:transcribe': {
+    req: z.object({
+      audioBase64: z.string(),
+      mimeType: z.string().optional(),
+    }),
+    res: z.object({
+      transcript: z.string(),
+    }),
+  },
   'voice:synthesize': {
     req: z.object({
       text: z.string(),

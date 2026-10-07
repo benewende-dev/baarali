@@ -154,6 +154,50 @@ describe('voice, reading aloud', () => {
   });
 });
 
+describe('voice, a whole recording', () => {
+  function setup(answer: () => Response, key: string | null = 'dg-key') {
+    const s = store();
+    const calls: Array<{ url: string; type: string; auth: string; bytes: number }> = [];
+    const app = createApp({
+      store: s, openRouterKey: 'or', publicUrl: 'https://c.test', appName: 'Baarali', now: () => T0, mediaPacks: [],
+      deepgramKey: key ?? undefined,
+      fetch: (async (url: string, init: RequestInit = {}) => {
+        const h = init.headers as Record<string, string>;
+        calls.push({ url: String(url), type: h['content-type'], auth: h.authorization, bytes: (init.body as Uint8Array).length });
+        return answer();
+      }) as typeof fetch,
+    });
+    const send = (bytes: number, token = 'me') =>
+      app.request('/v1/voice/transcribe', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'audio/mp4' },
+        body: new Uint8Array(bytes),
+      });
+    return { s, calls, send };
+  }
+  const deepgram = () =>
+    Response.json({ metadata: { duration: 30 }, results: { channels: [{ alternatives: [{ transcript: ' Bonjour à vous. ' }] }] } });
+
+  it('sends the recording to Deepgram in multi and charges its duration', async () => {
+    const { s, calls, send } = setup(deepgram);
+    const res = await send(1000);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ transcript: 'Bonjour à vous.' });
+    expect(calls[0].url).toContain('/v1/listen?model=nova-3&language=multi');
+    expect(calls[0]).toMatchObject({ type: 'audio/mp4', auth: 'Token dg-key', bytes: 1000 });
+    expect(s.usage.at(-1)).toMatchObject({ path: '/voice/transcribe', credits: sttCredits(30_000, 1) });
+  });
+
+  it('refuses empty audio, no token, no Deepgram, and passes on a refusal unbilled', async () => {
+    expect((await setup(deepgram).send(0)).status).toBe(400);
+    expect((await setup(deepgram).send(10, 'nobody')).status).toBe(401);
+    expect((await setup(deepgram, null).send(10)).status).toBe(503);
+    const refused = setup(() => new Response('bad', { status: 400 }));
+    expect((await refused.send(10)).status).toBe(502);
+    expect(refused.s.usage.at(-1)?.credits).toBe(0);
+  });
+});
+
 describe('voice, listening', () => {
   /** Deepgram's stand-in: answers the handshake, then sends one text frame. */
   async function fakeDeepgram(status = 101) {

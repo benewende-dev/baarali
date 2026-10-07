@@ -17,7 +17,7 @@ import { InstanceUnavailable, type Instances } from './instances.js';
 import { createGeneration, getGeneration, listMediaModels, mediaBalance, mediaHistory } from './media-route.js';
 import { advance, budgetsForWeek, gauges, initialState } from './quota.js';
 import { hashToken, type Account, type ControlStore } from './store.js';
-import { speak, type VoiceDeps } from './voice.js';
+import { speak, transcribe, type VoiceDeps } from './voice.js';
 
 export type ControlDeps = ProxyDeps & {
   /** Unset: media generation is off (503). */
@@ -188,6 +188,12 @@ export function createApp(deps: ControlDeps) {
 
   app.all('/v1/llm/*', (c) => proxyLlm({ ...deps, models, upstreamModels }, c.get('account'), c.req.raw));
 
+  // A whole recording to text (voice.ts): the phone's push-to-talk, the apps' file transcription.
+  app.post('/v1/voice/transcribe', (c) =>
+    deps.deepgramKey
+      ? transcribe({ ...deps, deepgramKey: deps.deepgramKey }, c.get('account'), c.req.raw)
+      : c.json({ error: { code: 'voice_unavailable', message: 'Voice is not configured' } }, 503),
+  );
   // Reading aloud (voice.ts); listening is the WebSocket of main.ts.
   app.post('/v1/voice/text-to-speech/:voiceId', (c) =>
     deps.deepgramKey
