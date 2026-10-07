@@ -5,7 +5,7 @@ import { buildApiConfig } from './config.js';
 import { OPENROUTER_BASE, proxyLlm, type ProxyDeps } from './llm-proxy.js';
 import { ModelCatalog, UpstreamModels } from './model-catalog.js';
 import { isAdmin, topUpMedia, type SoldPack } from './admin.js';
-import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner } from './announcements.js';
+import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner, reaches } from './announcements.js';
 import { mountAdminConsole } from './admin-console.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -221,7 +221,12 @@ export function createApp(deps: ControlDeps) {
     if (typeof kind !== 'string' || !(ANNOUNCEMENT_EVENTS as readonly string[]).includes(kind)) {
       return c.json({ error: { code: 'invalid_request', message: `kind: one of ${ANNOUNCEMENT_EVENTS.join(', ')}` } }, 400);
     }
-    const counted = await deps.store.recordAnnouncementEvent(c.req.param('id'), c.get('account').id, kind as (typeof ANNOUNCEMENT_EVENTS)[number], deps.now());
+    // Only an announcement meant for this account's plan: the console's
+    // figures must not count people it was never shown to.
+    const account = c.get('account');
+    const found = (await deps.store.announcements(50)).find((a) => a.id === c.req.param('id'));
+    if (!found || !reaches(found, await deps.store.plan(account.planId))) return c.json({ error: { code: 'not_found' } }, 404);
+    const counted = await deps.store.recordAnnouncementEvent(found.id, account.id, kind as (typeof ANNOUNCEMENT_EVENTS)[number], deps.now());
     return c.json({ counted });
   });
 

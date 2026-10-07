@@ -434,6 +434,14 @@ describe('announcements', () => {
     expect((await post('boss', '/admin/api/announcements/ann_none/remove')).status).toBe(404);
   });
 
+  it('counts nothing from an account the banner was not meant for', async () => {
+    const { post, app } = setup();
+    const { id } = (await (await post('boss', '/admin/api/announcements', { ...draft, audience: 'paid' })).json()) as { id: string };
+    const res = await app.request(`/v1/announcement/${id}/events`, { method: 'POST', headers: { authorization: 'Bearer tok-awa', 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'view' }) });
+    expect(res.status).toBe(404);
+    expect((await app.request('/v1/announcement/ann_none/events', { method: 'POST', headers: { authorization: 'Bearer tok-awa', 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'view' }) })).status).toBe(404);
+  });
+
   it('asks the apps for their own token', async () => {
     const { app } = setup();
     expect((await app.request('/v1/announcement')).status).toBe(401);

@@ -108,7 +108,8 @@ export function parseDraft(body: Record<string, unknown>, now: number): DraftRes
 /** On screen now: published, not withdrawn, within its dates. */
 export const isLive = (a: Announcement, now: number) => a.removedAt === null && a.startsAt <= now && now < a.endsAt;
 
-const reaches = (a: Announcement, plan: Plan | null) =>
+/** Whether the announcement is meant for an account on this plan. */
+export const reaches = (a: Announcement, plan: Plan | null) =>
   a.audience === 'all' || (a.audience === 'free') === (!plan || plan.category === 'free');
 
 /**
