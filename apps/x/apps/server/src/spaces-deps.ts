@@ -8,6 +8,7 @@ import { cancelScheduled, listScheduled, scheduleItem } from '@x/core/dist/space
 import { invokeTopicAgent, stopTopicAgent, topicSessionId } from '@x/core/dist/spaces/topic-agent.js';
 import { onSpaceAgentActivity, startSpaceAgentActivity } from '@x/core/dist/spaces/agent-activity.js';
 import { startSpaceNotifications } from '@x/core/dist/spaces/notify.js';
+import { enrollBaarasseur, orgIdForAddress, startBaarasseurListeners } from '@x/core/dist/spaces/baarasseur-members.js';
 import { resolveResponseSession, startSpaceResponseIndex } from '@x/core/dist/spaces/response-index.js';
 import { fetchLinkPreview } from '@x/core/dist/spaces/link-preview.js';
 import { SpacesClient } from '@x/core/dist/spaces/client.js';
@@ -48,6 +49,8 @@ onSpaceAgentActivity((event) => emitSpacesEvent(event));
 void startSpaceAgentActivity().catch((err) => console.error('[spaces] agent activity feed failed to start:', err));
 // The org's `notify` frames become OS notifications (unread arc, 2026-09-10).
 startSpaceNotifications();
+// BAARALI(07/10/2026): the baarasseurs in groups listen for their name.
+startBaarasseurListeners();
 // The per-response index ("which run posted this reply"): same bus, its own
 // consumer — see core/spaces/response-index.
 void startSpaceResponseIndex().catch((err) => console.error('[spaces] response index failed to start:', err));
@@ -87,6 +90,7 @@ type SpacesRpcChannel =
   | 'spaces:accountState' | 'spaces:signInRowboat' | 'spaces:addOrgByAddress'
   | 'spaces:listSpaces' | 'spaces:createSpace' | 'spaces:openDirect' | 'spaces:listMembers' | 'spaces:createInvite'
   | 'spaces:listOrgMembers' | 'spaces:renameSpace' | 'spaces:addMembers'
+  | 'spaces:enrollBaarasseur'
   | 'spaces:listAgents' | 'spaces:addAgent' | 'spaces:createAgentKey' | 'spaces:revokeAgentKey'
   | 'spaces:resolveInvite' | 'spaces:acceptInvite' | 'spaces:listAssets' | 'spaces:createAsset' | 'spaces:moveAsset'
   | 'spaces:deleteAsset' | 'spaces:restoreAsset' | 'spaces:uploadBlob' | 'spaces:readAsset'
@@ -422,6 +426,11 @@ export const spacesRpcHandlers: SpacesHandlers = {
   'spaces:listOrgMembers': async (args) => ({ members: await orgs.getClient(args.orgId).listOrgMembers() }),
   'spaces:renameSpace': async (args) => ({ space: await orgs.getClient(args.orgId).renameSpace(args.spaceId, args.name) }),
   'spaces:addMembers': async (args) => ({ memberships: await orgs.getClient(args.orgId).addMembers(args.spaceId, args.memberIds) }),
+  'spaces:enrollBaarasseur': async (args) => {
+    const orgId = args.orgId ?? (args.orgAddress ? orgIdForAddress(args.orgAddress) : null);
+    if (!orgId) throw new Error('unknown org');
+    return enrollBaarasseur(orgId, args.baarasseurId);
+  },
   'spaces:listAgents': async (args) => ({ agents: await orgs.getClient(args.orgId).listAgents() }),
   'spaces:addAgent': async (args) => orgs.getClient(args.orgId).addAgent(args.displayName),
   'spaces:createAgentKey': async (args) => ({ key: await orgs.getClient(args.orgId).createAgentKey(args.agentId) }),

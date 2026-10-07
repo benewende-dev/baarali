@@ -13,6 +13,7 @@ import {
     McpServerList,
 } from "@x/shared/dist/mcp.js";
 import { spacesMcpServers } from "../spaces/orgs.js";
+import { baarasseurMcpServers } from "../spaces/baarasseur-members.js";
 
 type mcpState = {
     state: z.infer<typeof connectionState>,
@@ -38,7 +39,9 @@ async function effectiveServers(): Promise<z.infer<typeof McpServerConfig>["mcpS
 }
 
 async function getClient(serverName: string): Promise<Client> {
-    const mcpServers = await effectiveServers();
+    // BAARALI(07/10/2026): a baarasseur in a group reaches the org with its own
+    // key. Resolved here only, so no listing (listServers) ever shows a key.
+    const mcpServers = { ...(await effectiveServers()), ...baarasseurMcpServers() };
     const config = mcpServers[serverName];
     if (!config) {
         throw new Error(`MCP server ${serverName} not found`);

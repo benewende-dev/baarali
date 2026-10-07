@@ -343,6 +343,8 @@ export const RPC_CHANNELS = [
   'spaces:listOrgMembers',
   'spaces:renameSpace',
   'spaces:addMembers',
+  // BAARALI(07/10/2026): a baarasseur joins a group (the phone asks too).
+  'spaces:enrollBaarasseur',
   'spaces:listAgents',
   'spaces:addAgent',
   'spaces:createAgentKey',

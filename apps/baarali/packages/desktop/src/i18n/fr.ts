@@ -3621,7 +3621,6 @@ export const FR: Dictionary = {
     "Find an agent or a person": "Chercher un agent ou une personne",
     "Your agents": "Vos agents",
     "Always in your groups: write @baarali": "Toujours dans vos groupes : écrivez @baarali",
-    "Soon in groups": "Bientôt dans les groupes",
     "Nobody else in this org yet.": "Personne d’autre dans cette organisation pour l’instant.",
     "A link to share, once the group is created": "Un lien à partager, une fois le groupe créé",
   },

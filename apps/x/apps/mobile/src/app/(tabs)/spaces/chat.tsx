@@ -8,7 +8,9 @@ import { useKeyboardVisible } from '@/lib/use-keyboard-visible';
 import type { Member, Message } from '@rowboat/spaces-protocol';
 
 import { MessageActionSheet, MessageRow, applyReaction } from '@/components/space-message';
+import { useConnection } from '@/lib/connection';
 import { useSpacesAccount } from '@/lib/spaces/account';
+import { askRowboatIfCalled, tokenizeMentions } from '@/lib/spaces/mentions';
 import { SpacesClient } from '@/lib/spaces/client';
 import { SpacesLive } from '@/lib/spaces/live';
 import { useColors } from '@/theme/colors';
@@ -21,6 +23,7 @@ export default function SpaceChatScreen() {
   const insets = useSafeAreaInsets();
   const keyboardVisible = useKeyboardVisible();
   const account = useSpacesAccount();
+  const { rpc } = useConnection();
   const params = useLocalSearchParams<{ org: string; space: string; title: string; me: string }>();
   const { org, space, title, me } = params;
 
@@ -114,8 +117,10 @@ export default function SpaceChatScreen() {
     setSending(true);
     setDraft('');
     try {
-      const { message } = await client.postMessage(space, { body, actingMode: 'direct' });
+      // BAARALI(07/10/2026): « @Name » typed here names the member for real.
+      const { message } = await client.postMessage(space, { body: tokenizeMentions(body, members.values()), actingMode: 'direct' });
       foldMessage(message);
+      void askRowboatIfCalled(rpc, { address: org, spaceId: space, spaceName: title ?? '', messageId: message.id, threadRootId: message.id, body: message.body }).catch(() => {});
     } catch (err) {
       setDraft(body);
       setError(err instanceof Error ? err.message : String(err));

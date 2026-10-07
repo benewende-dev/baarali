@@ -3983,6 +3983,13 @@ export const ipcSchemas = {
     req: z.object({ orgId: z.string(), spaceId: z.string(), memberIds: z.array(z.string()).min(1) }),
     res: z.object({ memberships: z.array(z.custom<SpacesTypes.Membership>()) }),
   },
+  // BAARALI(07/10/2026): a baarasseur as a member of the org, made once, for a
+  // group's addMembers (core spaces/baarasseur-members.ts). The phone names
+  // the org by its address: its org ids are not the instance's.
+  'spaces:enrollBaarasseur': {
+    req: z.object({ orgId: z.string().optional(), orgAddress: z.string().optional(), baarasseurId: z.string() }),
+    res: z.object({ memberId: z.string() }),
+  },
   // Direct messages: get-or-create the DM with another org member. No
   // invite, no acceptance — the other side learns of it by a space_added
   // frame on 'spaces:events' and shows it in their sidebar.

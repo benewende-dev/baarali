@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { AgentBadge, MemberAvatar } from '@/components/spaces/atoms'
 import { refreshMembers, useOrgRoster } from '@/hooks/use-space-members'
+import { useBaarasseurs } from '@/lib/baarasseurs'
 import type { OrgWithSpaces } from '@/hooks/use-spaces'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,11 @@ import { cn } from '@/lib/utils'
 // agents, to a space they are in. The candidates are the org roster (the
 // whole org since 2026-09-29) minus who is already here. They learn of it by
 // their sidebar and the stream's join line; no notification in v1.
+//
+// BAARALI(07/10/2026): the person's baarasseurs are offered too. One that is
+// not in the org yet joins it first as an agent the person owns (core
+// spaces/baarasseur-members.ts keeps its key), then the space, like the
+// phone's « New group » does.
 
 export function AddMembersDialog({ org, space, members, open, onOpenChange }: {
     org: OrgWithSpaces
@@ -28,6 +34,7 @@ export function AddMembersDialog({ org, space, members, open, onOpenChange }: {
     const [query, setQuery] = useState('')
     const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set())
     const [adding, setAdding] = useState(false)
+    const { team } = useBaarasseurs()
 
     const inSpace = useMemo(() => new Set(members.map((m) => m.id)), [members])
     const candidates = useMemo(() => {
@@ -42,6 +49,14 @@ export function AddMembersDialog({ org, space, members, open, onOpenChange }: {
         setAdding(false)
     }, [open])
 
+    // A baarasseur already in the org is its roster entry (same name, owned by the person).
+    const crew = useMemo(() => {
+        const q = query.trim().toLowerCase()
+        const mine = roster.filter((m) => m.kind === 'agent' && m.ownerId === org.memberId)
+        return (team ?? []).filter((b) =>
+            !mine.some((m) => m.displayName === b.name) && (!q || b.name.toLowerCase().includes(q)))
+    }, [team, roster, org.memberId, query])
+
     const toggle = (id: string) => setPicked((prev) => {
         const next = new Set(prev)
         if (next.has(id)) next.delete(id)
@@ -53,7 +68,13 @@ export function AddMembersDialog({ org, space, members, open, onOpenChange }: {
         if (picked.size === 0 || adding) return
         setAdding(true)
         try {
-            await window.ipc.invoke('spaces:addMembers', { orgId: org.id, spaceId: space.id, memberIds: [...picked] })
+            const memberIds = [...picked].filter((id) => !id.startsWith('b:'))
+            for (const id of picked) {
+                if (!id.startsWith('b:')) continue
+                const { memberId } = await window.ipc.invoke('spaces:enrollBaarasseur', { orgId: org.id, baarasseurId: id.slice(2) })
+                memberIds.push(memberId)
+            }
+            await window.ipc.invoke('spaces:addMembers', { orgId: org.id, spaceId: space.id, memberIds })
             refreshMembers(org.id, space.id, { force: true })
             toast(picked.size === 1 ? `Added to #${space.name}` : `Added ${picked.size} to #${space.name}`, 'success')
             onOpenChange(false)
@@ -81,7 +102,27 @@ export function AddMembersDialog({ org, space, members, open, onOpenChange }: {
                     />
                 </div>
                 <div className="max-h-72 overflow-y-auto border-t border-border p-1.5">
-                    {candidates.length === 0 ? (
+                    {crew.map((b) => {
+                        const on = picked.has(`b:${b.id}`)
+                        return (
+                            <button
+                                key={b.id}
+                                type="button"
+                                role="checkbox"
+                                aria-checked={on}
+                                onClick={() => toggle(`b:${b.id}`)}
+                                className={cn('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/60', on && 'bg-accent')}
+                            >
+                                <MemberAvatar id={b.id} name={b.name} size="md" agent />
+                                <span className="min-w-0 flex-1 truncate">{b.name}<span className="ml-1.5 text-xs text-muted-foreground">{b.role}</span></span>
+                                <AgentBadge />
+                                <span className={cn('inline-flex size-4 shrink-0 items-center justify-center rounded border', on ? 'border-foreground bg-foreground text-background' : 'border-border')}>
+                                    {on && <Check className="size-3" />}
+                                </span>
+                            </button>
+                        )
+                    })}
+                    {candidates.length === 0 && crew.length === 0 ? (
                         <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                             {query.trim() ? 'No one matches.' : `Everyone in ${org.name} is already in #${space.name}.`}
                         </div>
