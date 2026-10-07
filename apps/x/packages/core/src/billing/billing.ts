@@ -1,6 +1,6 @@
 import { getAccessToken } from '../auth/tokens.js';
 import { API_URL } from '../config/env.js';
-import { AnnouncementSchema, MediaCreditsSchema, PlanOffersSchema, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type PlanOffers } from '@x/shared/dist/billing.js';
+import { AnnouncementSchema, MediaCreditsSchema, NoticeInboxSchema, PlanOffersSchema, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type NoticeEventKind, type NoticeInbox, type PlanOffers } from '@x/shared/dist/billing.js';
 import { getRowboatConfig } from '../config/rowboat.js';
 
 export async function getBillingInfo(): Promise<BillingInfo> {
@@ -134,5 +134,54 @@ export async function sendAnnouncementEvent(id: string, kind: AnnouncementEventK
   } catch {
     // A lost count never bothers the person.
     return false;
+  }
+}
+
+/**
+ * The admin console's messages for this person (control GET
+ * /v1/notifications, Baarali, 07/10/2026). Null when the API serves none (an
+ * upstream deployment) or cannot be reached: the bell then stays quiet.
+ */
+export async function getNotifications(): Promise<NoticeInbox | null> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/notifications`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) return null;
+    return NoticeInboxSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+/** Read or followed: the control plane counts the first of each. Best effort. */
+export async function sendNotificationEvent(id: string, kind: NoticeEventKind): Promise<boolean> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/notifications/${encodeURIComponent(id)}/events`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind }),
+    });
+    if (!response.ok) return false;
+    return ((await response.json()) as { counted?: unknown }).counted === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Everything in the bell marked read; how many were not. */
+export async function readAllNotifications(): Promise<number> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/notifications/read-all`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: '{}',
+    });
+    if (!response.ok) return 0;
+    const changed = ((await response.json()) as { changed?: unknown }).changed;
+    return typeof changed === 'number' ? changed : 0;
+  } catch {
+    return 0;
   }
 }

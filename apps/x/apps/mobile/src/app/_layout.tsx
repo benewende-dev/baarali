@@ -59,6 +59,8 @@ export default function RootLayout() {
             <Stack.Screen name="apps" options={{ title: 'Apps and prompts' }} />
             <Stack.Screen name="settings" options={{ title: 'Settings' }} />
             <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+            {/* BAARALI(07/10/2026): the admin console's messages, behind the home tab's bell. */}
+            <Stack.Screen name="inbox" options={{ title: 'Notifications' }} />
             <Stack.Screen name="pairing" options={{ title: '' }} />
             <Stack.Screen name="pair-dev" options={{ headerShown: false }} />
           </Stack>

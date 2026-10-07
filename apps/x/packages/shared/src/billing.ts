@@ -157,3 +157,25 @@ export type Announcement = z.infer<typeof AnnouncementSchema>;
 
 export const AnnouncementEventKindSchema = z.enum(['view', 'click', 'dismiss']);
 export type AnnouncementEventKind = z.infer<typeof AnnouncementEventKindSchema>;
+
+// The admin console's messages for this person (control GET /v1/notifications,
+// Baarali, 07/10/2026): the bell on the Mac, the inbox on the phone.
+export const NoticeSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  body: z.string(),
+  /** The button's words; null: the message itself leads to the target. */
+  button: z.string().nullable(),
+  target: z.enum(['none', 'chat', 'plans', 'usage', 'link']),
+  /** An https address, with `target: 'link'` only. */
+  link: z.string().nullable(),
+  sentAt: z.string(),
+  read: z.boolean(),
+});
+export type Notice = z.infer<typeof NoticeSchema>;
+
+export const NoticeInboxSchema = z.object({ data: z.array(NoticeSchema), unread: z.number() });
+export type NoticeInbox = z.infer<typeof NoticeInboxSchema>;
+
+export const NoticeEventKindSchema = z.enum(['read', 'click']);
+export type NoticeEventKind = z.infer<typeof NoticeEventKindSchema>;

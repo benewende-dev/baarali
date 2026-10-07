@@ -1,4 +1,5 @@
 import { OpenBrowserContext } from '@/contexts/browser-context';
+import { isNotificationsLink, OPEN_NOTIFICATIONS_EVENT } from '@/lib/notifications'
 import { WorkspaceSessionTabs } from './components/code/workspace-session-tabs'
 import { DocumentFileViewer } from '@/components/document-file-viewer'
 import { parseSpacesLink, readLastSpace, resolveSpacesLocation, serverLandingSpaceId, type SpacesLinkTarget } from '@/lib/spaces-navigation'
@@ -5986,6 +5987,11 @@ function App() {
 
   useEffect(() => {
     const handle = (url: string) => {
+      // BAARALI(07/10/2026): a console message's notification opens the bell.
+      if (isNotificationsLink(url)) {
+        window.dispatchEvent(new CustomEvent(OPEN_NOTIFICATIONS_EVENT))
+        return
+      }
       const link = parseSpacesLink(url)
       if (link) {
         void openSpacesLink(link)

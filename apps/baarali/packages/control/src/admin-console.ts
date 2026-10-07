@@ -4,6 +4,7 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { isAdmin, type SoldPack } from './admin.js';
 import { adminPage, deniedPage } from './admin-page.js';
 import { isLive, parseDraft, type Announcement } from './announcements.js';
+import { audienceOf, emailable, parseNoticeDraft, sendNotice, type DispatchDeps, type Notice } from './notifications.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
 import { ASSUMPTIONS, OFFERS } from './catalog.js';
 import { html } from './html.js';
@@ -51,6 +52,8 @@ export interface ConsoleDeps {
   models: ModelCatalog;
   upstreamModels: UpstreamModels;
   now: () => number;
+  /** Notifications: the store, the clock and, when email is on, the mailer. */
+  notices: DispatchDeps;
 }
 
 /** One write touches this many models at most: a whole vendor fits, a slip does not empty the catalog. */
@@ -576,6 +579,93 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     if (found.removedAt !== null) return c.json({ changed: false });
     await store.saveAnnouncement({ ...found, removedAt: deps.now() });
     await log(actor, 'announcement-removed', null, `Annonce retirée : « ${found.text} »`);
+    return c.json({ changed: true });
+  });
+
+  // Notifications (07/10/2026): a message for everyone, a group or one person.
+  const AUDIENCE_WORDS: Record<Notice['audience'], string> = {
+    all: 'Tous', free: 'Découverte', paid: 'Forfaits payants', limit: 'Limite atteinte', inactive: 'Inactifs 14 j', account: 'Un client',
+  };
+  /** The people a message would reach now: how many, and how many by email. */
+  const reach = async (audience: Notice['audience'], accountEmail: string | null) => {
+    const now = deps.now();
+    const [list, plans] = await Promise.all([store.listAccounts(now), store.plans()]);
+    const accountId = audience === 'account' ? (list.find((s) => s.account.email?.toLowerCase() === accountEmail)?.account.id ?? null) : null;
+    const people = audience === 'account' && !accountId ? [] : audienceOf({ audience, accountId }, list, plans, now);
+    return { accountId, people, count: people.length, emailable: people.filter(emailable).length };
+  };
+
+  app.post('/admin/api/notifications/audience', async (c) => {
+    const actor = await api(c, false);
+    if (actor instanceof Response) return actor;
+    const b = await body(c);
+    const audience = typeof b.audience === 'string' ? (b.audience as Notice['audience']) : 'all';
+    if (!Object.hasOwn(AUDIENCE_WORDS, audience)) return c.json({ error: { code: 'invalid_request', message: 'Public inconnu.' } }, 400);
+    const email = typeof b.accountEmail === 'string' ? b.accountEmail.trim().toLowerCase() : null;
+    const r = await reach(audience, email);
+    return c.json({ count: r.count, emailable: r.emailable, found: audience !== 'account' || r.accountId !== null });
+  });
+
+  app.get('/admin/api/notifications', async (c) => {
+    const actor = await api(c, false);
+    if (actor instanceof Response) return actor;
+    const list = await store.notifications(50);
+    const stats = await store.notificationStats(list.map((n) => n.id));
+    const accounts = list.some((n) => n.accountId) ? await store.listAccounts(deps.now()) : [];
+    const emailOf = (id: string | null) => (id ? (accounts.find((a) => a.account.id === id)?.account.email ?? id) : null);
+    return c.json({
+      email: Boolean(deps.notices.mailer),
+      data: list.map((n) => ({
+        ...n,
+        audienceLabel: n.audience === 'account' ? (emailOf(n.accountId) ?? AUDIENCE_WORDS.account) : AUDIENCE_WORDS[n.audience],
+        status: n.cancelledAt !== null ? 'cancelled' : n.sentAt !== null ? 'sent' : 'scheduled',
+        stats: stats[n.id],
+      })),
+    });
+  });
+
+  app.post('/admin/api/notifications', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const now = deps.now();
+    const b = await body(c);
+    const test = b.test === true;
+    const parsed = parseNoticeDraft(b, now);
+    if (!parsed.ok) return c.json({ error: { code: 'invalid_request', message: parsed.message } }, 400);
+    const d = parsed.draft;
+    if (d.email && !deps.notices.mailer) return c.json({ error: { code: 'invalid_request', message: 'L’email n’est pas branché sur ce serveur.' } }, 400);
+    // A test goes to the admin alone, now: their own account must exist.
+    const r = await reach(test ? 'account' : d.audience, test ? actor.toLowerCase() : d.accountEmail);
+    if ((test || d.audience === 'account') && !r.accountId) {
+      return c.json({ error: { code: 'invalid_request', message: test ? 'Ton compte Baarali est introuvable : connecte-toi une fois à l’app avec cet email.' : 'Aucun client avec cet email.' } }, 400);
+    }
+    const notice: Notice = {
+      id: `ntf_${randomUUID()}`,
+      title: d.title, body: d.body, button: d.button, target: d.target, link: d.link,
+      audience: test ? 'account' : d.audience,
+      accountId: test || d.audience === 'account' ? r.accountId : null,
+      app: d.app, email: d.email,
+      sendAt: test ? now : d.sendAt,
+      createdAt: now, createdBy: actor, sentAt: null, cancelledAt: null, test,
+    };
+    await store.saveNotification(notice);
+    const due = notice.sendAt <= now;
+    const result = due ? await sendNotice(deps.notices, notice) : { delivered: 0, emailed: 0 };
+    if (!test) {
+      const when = due ? 'envoyée' : `programmée pour le ${new Date(notice.sendAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+      await log(actor, 'notification', notice.accountId, `Notification ${when} (${AUDIENCE_WORDS[notice.audience]}) : « ${notice.title} »`);
+    }
+    return c.json({ id: notice.id, scheduled: !due, ...result }, 201);
+  });
+
+  app.post('/admin/api/notifications/:id/cancel', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const found = (await store.notifications(100)).find((n) => n.id === c.req.param('id'));
+    if (!found) return c.json({ error: { code: 'not_found' } }, 404);
+    // Atomic: a message leaving at this very moment is not cancelled after the fact.
+    if (!(await store.cancelNotification(found.id, deps.now()))) return c.json({ changed: false });
+    await log(actor, 'notification-cancelled', found.accountId, `Notification annulée : « ${found.title} »`);
     return c.json({ changed: true });
   });
 

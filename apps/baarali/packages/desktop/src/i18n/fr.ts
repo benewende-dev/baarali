@@ -13,6 +13,13 @@ export const FR: Dictionary = {
   exact: {
     // The model picker sorted by vendor (renderer model-selector.tsx, mobile
     // model-picker.tsx, 03/10/2026): a padlocked model names the plan that opens it.
+    // The bell of the admin console's messages (renderer notification-bell.tsx,
+    // settings-dialog.tsx, 07/10/2026).
+    "Mark all as read": "Tout marquer comme lu",
+    "Read all": "Tout lire",
+    "No notifications yet": "Aucune notification pour l’instant",
+    "Messages from Baarali": "Messages de Baarali",
+    "News and offers from the Baarali team. They always stay in the bell; this only shows them on your screen.": "Les nouveautés et offres de l’équipe Baarali. Elles restent toujours dans la cloche ; ce réglage les affiche seulement à l’écran.",
     "Recommended": "Conseillé",
     "· from": "· dès",
     "Other models": "Autres modèles",

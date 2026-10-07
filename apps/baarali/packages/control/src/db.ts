@@ -223,6 +223,41 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (announcement_id, account_id, kind)
   );
   `,
+  // 8 — Notifications (07/10/2026): a message from the admin console, each
+  // person's copy with its read and click, and the email opt-out.
+  `
+  ALTER TABLE baarali.accounts ADD COLUMN email_opt_out_at timestamptz;
+
+  CREATE TABLE baarali.notifications (
+    id text PRIMARY KEY,
+    title text NOT NULL,
+    body text NOT NULL,
+    button text,
+    target text NOT NULL CHECK (target IN ('none', 'chat', 'plans', 'usage', 'link')),
+    link text,
+    audience text NOT NULL CHECK (audience IN ('all', 'free', 'paid', 'limit', 'inactive', 'account')),
+    account_id text REFERENCES baarali.accounts(id),
+    app boolean NOT NULL,
+    email boolean NOT NULL,
+    send_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    created_by text NOT NULL,
+    sent_at timestamptz,
+    cancelled_at timestamptz,
+    test boolean NOT NULL DEFAULT false
+  );
+
+  CREATE TABLE baarali.notification_deliveries (
+    notification_id text NOT NULL REFERENCES baarali.notifications(id),
+    account_id text NOT NULL REFERENCES baarali.accounts(id),
+    delivered_at timestamptz NOT NULL,
+    emailed_at timestamptz,
+    read_at timestamptz,
+    clicked_at timestamptz,
+    PRIMARY KEY (notification_id, account_id)
+  );
+  CREATE INDEX notification_deliveries_account ON baarali.notification_deliveries (account_id, delivered_at DESC);
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

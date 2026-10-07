@@ -1524,7 +1524,7 @@ function CodeModeSettings({ dialogOpen }: { dialogOpen: boolean }) {
 
 // --- Notification Settings ---
 
-type NotificationCategoryKey = "chat_completion" | "new_email" | "agent_permission" | "background_task" | "todo" | "meeting_detection" | "meeting_notes_ready" | "space_mention"
+type NotificationCategoryKey = "chat_completion" | "new_email" | "agent_permission" | "background_task" | "todo" | "meeting_detection" | "meeting_notes_ready" | "space_mention" | "baarali_news"
 
 const ALL_NOTIFICATION_CATEGORIES: { key: NotificationCategoryKey; label: string; description: string }[] = [
   {
@@ -1566,6 +1566,12 @@ const ALL_NOTIFICATION_CATEGORIES: { key: NotificationCategoryKey; label: string
     key: "space_mention",
     label: "Space mentions & DMs",
     description: "When someone mentions you, uses @here, messages you directly, or replies in a thread you follow. Also reminders you set in a space. Click to open the conversation. Only shown while the app is in the background.",
+  },
+  // BAARALI(07/10/2026): the admin console's messages; they stay in the bell either way.
+  {
+    key: "baarali_news",
+    label: "Messages from Baarali",
+    description: "News and offers from the Baarali team. They always stay in the bell; this only shows them on your screen.",
   },
 ]
 
