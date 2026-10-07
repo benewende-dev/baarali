@@ -61,6 +61,7 @@ import { ElectronBrowserControlService } from "./browser/control-service.js";
 import { screenPointerService } from "./screen-pointer.js";
 import { textInsertService } from "./text-insert.js";
 import { ElectronNotificationService } from "./notification/electron-notification-service.js";
+import { startBaaraliNotifications } from "./baarali-notifications.js";
 import {
   DEEP_LINK_SCHEME,
   dispatchUrl,
@@ -853,6 +854,9 @@ app.whenReady().then(async () => {
 
   // start todo event watcher (forwards bus → renderer)
   startTodoWatcher();
+
+  // BAARALI(07/10/2026): the admin console's messages on the Mac's screen.
+  startBaaraliNotifications(APP_LAUNCHED_AT);
 
   // Schedulers, sync services, event processor, background agents — the
   // headless-safe half of boot, shared with the standalone rowboat-server

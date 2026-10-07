@@ -130,6 +130,27 @@ label.f input:disabled { opacity:.5; }
 #a-list .it time { min-width:170px; }
 #a-list .it p { flex:1; }
 .spacer { flex:1; }
+.tile { width:24px; height:24px; border-radius:7px; background:var(--blue); color:#fff; display:grid; place-items:center; font:600 13px "Source Serif 4", Georgia, serif; flex:none; }
+textarea { font:inherit; font-size:16px; color:var(--ink); background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:6px 10px; width:100%; box-sizing:border-box; min-height:84px; resize:vertical; }
+@media (min-width:821px) { textarea { font-size:14px; } }
+.channels { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+.ch { display:flex; gap:10px; align-items:flex-start; border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; color:var(--text); }
+.ch input { width:auto; margin-top:3px; }
+.ch b { display:block; color:var(--ink); font-weight:500; font-size:13px; }
+.ch small { color:var(--muted); font-size:12px; }
+.ch.off { opacity:.55; cursor:not-allowed; }
+.notif { display:flex; gap:10px; align-items:flex-start; background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:10px 12px; box-shadow:0 8px 24px rgb(0 0 0 / .08); max-width:360px; }
+.notif b { display:block; color:var(--ink); font-size:13px; }
+.notif span { font-size:12px; color:var(--muted); }
+.mail { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px; max-width:420px; }
+.mail .from { font-size:12px; color:var(--muted); }
+.mail h4 { margin:6px 0; font:600 16px "Source Serif 4", Georgia, serif; color:var(--ink); }
+.mail p { margin:0 0 10px; font-size:13px; white-space:pre-line; }
+.inapp { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:4px 12px; }
+.inapp p { white-space:pre-line; }
+#n-reach { margin:0; }
+#n-list .it time { min-width:170px; }
+#n-list .it p { flex:1; }
 .spaced { margin-top:16px; }
 .preview { border:1px dashed var(--line); border-radius:12px; padding:14px; background:var(--mist); }
 .appmock { background:var(--paper); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
@@ -203,6 +224,7 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
     <button data-v="instances">Instances <span class="count" id="n-instances"></span></button>
     <button data-v="modeles">Modèles <span class="count" id="n-models"></span></button>
     <h6>Faire grandir</h6>
+    <button data-v="notifs">Notifications <span class="count" id="n-notifs"></span></button>
     <button data-v="annonces">Annonces <span class="count" id="n-announce"></span></button>
     <h6>Garder la trace</h6>
     <button data-v="journal">Journal</button>
@@ -288,6 +310,67 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
         <p class="muted" id="pv-note">Rangé par éditeur. Les modèles « Conseillé » passent en tête de leur éditeur ; ceux d'un forfait au-dessus restent visibles, avec un cadenas et le forfait qui les ouvre.</p>
       </section>
     </div>
+  </div>
+
+  <div data-p="notifs" hidden>
+    <div class="head"><div><h1>Notifications</h1><p>Écrire à un client, à un groupe ou à tout le monde : dans l'app, sur l'écran du Mac, ou par email.</p></div></div>
+    <div class="grid2">
+      <section class="card"><h2>Nouveau message</h2>
+        <p class="hint">Le compteur indique combien de personnes le recevront avant l'envoi.</p>
+        <form class="form" id="n-form">
+          <label class="f">Pour<select id="n-audience">
+            <option value="all">Tous les clients</option>
+            <option value="free">Forfait Découverte</option>
+            <option value="paid">Forfaits payants</option>
+            <option value="limit">Limite atteinte en ce moment</option>
+            <option value="inactive">Inactifs depuis 14 jours</option>
+            <option value="account">Un client précis…</option>
+          </select></label>
+          <label class="f">Envoi<select id="n-when"><option value="now">Maintenant</option><option value="later">Programmer…</option></select></label>
+          <label class="f wide" id="n-account-row" hidden>Email du client<input id="n-account" type="email" placeholder="awa@exemple.com" autocomplete="off"></label>
+          <label class="f wide" id="n-at-row" hidden>Le<input id="n-at" type="datetime-local"></label>
+          <div class="f wide">Par où
+            <div class="channels">
+              <label class="ch"><input type="checkbox" id="n-app" checked><span><b>Dans l'app</b><small>Dans la cloche, et sur l'écran du Mac si l'app est ouverte</small></span></label>
+              <label class="ch" id="n-email-ch"><input type="checkbox" id="n-email"><span><b>Email</b><small id="n-email-hint">Par Resend, depuis l'adresse des codes de connexion</small></span></label>
+              <label class="ch off"><input type="checkbox" disabled><span><b>SMS</b><small>Aucun fournisseur branché pour l'instant</small></span></label>
+              <label class="ch off"><input type="checkbox" disabled><span><b>Téléphone</b><small>Avec l'app mobile publiée sur les stores</small></span></label>
+            </div>
+          </div>
+          <label class="f wide"><span class="fl">Titre<span id="n-title-count"></span></span><input id="n-title" maxlength="60" required placeholder="Baarali code pour toi"></label>
+          <label class="f wide"><span class="fl">Message<span id="n-body-count"></span></span><textarea id="n-body" maxlength="500" required placeholder="Demande au Chat de te fabriquer un petit outil : calcul de marge, suivi de stock… Il le construit et le lance tout seul."></textarea></label>
+          <label class="f">Bouton (facultatif)<input id="n-button" maxlength="24" placeholder="Essayer"></label>
+          <label class="f">Mène vers<select id="n-target">
+            <option value="chat">Le Chat</option>
+            <option value="plans">Les forfaits</option>
+            <option value="usage">Utilisation</option>
+            <option value="link">Un lien…</option>
+            <option value="none">Nulle part</option>
+          </select></label>
+          <label class="f wide" id="n-link-row" hidden>Lien<input id="n-link" type="url" placeholder="https://baarali.com/…"></label>
+          <div class="wide toolbar formbar">
+            <span class="hint" id="n-reach">…</span>
+            <span class="spacer"></span>
+            <button class="btn" type="button" id="n-test">M'envoyer un test</button>
+            <button class="btn primary" type="submit" id="n-send">Envoyer</button>
+          </div>
+        </form>
+      </section>
+      <section class="card"><h2>Ce que le client voit</h2>
+        <div class="tabs" id="n-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected="true" data-t="app">Dans l'app</button>
+          <button type="button" role="tab" aria-selected="false" data-t="mac">Écran du Mac</button>
+          <button type="button" role="tab" aria-selected="false" data-t="mail">Email</button>
+        </div>
+        <div class="preview">
+          <div data-pv="app" class="inapp"><div class="it"><span class="tile">B</span><p><b id="pv-n-title"></b><br><small id="pv-n-body"></small></p></div></div>
+          <div data-pv="mac" hidden><div class="notif"><span class="tile">B</span><div><b id="pv-m-title"></b><span id="pv-m-body"></span></div></div></div>
+          <div data-pv="mail" hidden><div class="mail"><div class="from">Baarali</div><h4 id="pv-e-title"></h4><p id="pv-e-body"></p><span class="btn primary" id="pv-e-button"></span><p class="hint spaced">Ne plus recevoir ces emails</p></div></div>
+        </div>
+        <p class="hint spaced">Un envoi programmé part à son heure, ou dès que le serveur se réveille s'il dormait.</p>
+      </section>
+    </div>
+    <section class="card spaced"><h2>Envoyés</h2><p class="hint">Lus = ouverts dans l'app ou dans l'email.</p><div class="list" id="n-list"></div></section>
   </div>
 
   <div data-p="annonces" hidden>
@@ -416,7 +499,7 @@ function bar(p) {
 }
 
 // Navigation, remembered in the address (#clients…).
-const views = ["apercu", "clients", "instances", "modeles", "annonces", "journal"];
+const views = ["apercu", "clients", "instances", "modeles", "notifs", "annonces", "journal"];
 function show(v) {
   if (!views.includes(v)) v = "apercu";
   for (const s of document.querySelectorAll("[data-p]")) s.hidden = s.dataset.p !== v;
@@ -441,6 +524,7 @@ async function load(v) {
     if (v === "instances") await loadInstances();
     if (v === "journal") await loadJournal();
     if (v === "modeles") await loadModels();
+    if (v === "notifs") await loadNotifications();
     if (v === "annonces") await loadAnnouncements();
   } catch (e) { if (e.message !== "signed out") toast("Chargement impossible. Réessaie."); }
 }
@@ -826,6 +910,111 @@ async function loadAnnouncements() {
       } }, "Retirer") : null);
   }) : [el("p", { class: "empty" }, "Aucune annonce pour l'instant.")]));
 }
+
+// Notifications: the form, who it reaches, the three previews, and what each one did.
+const N_STATUS = { sent: ["Envoyée", "ok"], scheduled: ["Programmée", "blue"], cancelled: ["Annulée", ""] };
+const N_TARGETS = { none: "", chat: "Le Chat", plans: "Les forfaits", usage: "Utilisation", link: "Un lien" };
+let emailOn = false;
+let reachCount = null;
+function notifBody(test) {
+  const later = $("n-when").value === "later" && !test;
+  return {
+    title: $("n-title").value, body: $("n-body").value, button: $("n-button").value, target: $("n-target").value, link: $("n-link").value,
+    audience: $("n-audience").value, accountEmail: $("n-account").value,
+    app: $("n-app").checked, email: $("n-email").checked,
+    sendAt: later && $("n-at").value ? new Date($("n-at").value).getTime() : undefined,
+    test,
+  };
+}
+function previewNotif() {
+  const target = $("n-target").value;
+  $("n-link-row").hidden = target !== "link";
+  $("n-button").disabled = target === "none";
+  $("n-account-row").hidden = $("n-audience").value !== "account";
+  $("n-at-row").hidden = $("n-when").value !== "later";
+  const title = $("n-title").value.trim() || "Ton titre ici";
+  const body = $("n-body").value.trim() || "Ton message ici.";
+  const short = body.length > 90 ? body.slice(0, 88) + "…" : body;
+  $("pv-n-title").textContent = title; $("pv-n-body").textContent = short;
+  $("pv-m-title").textContent = title; $("pv-m-body").textContent = short;
+  $("pv-e-title").textContent = title; $("pv-e-body").textContent = body;
+  const button = $("n-button").value.trim();
+  $("pv-e-button").textContent = button; $("pv-e-button").hidden = !button || target === "none";
+  $("n-title-count").textContent = $("n-title").value.length + " / 60";
+  $("n-body-count").textContent = $("n-body").value.length + " / 500";
+  armSend(false);
+}
+for (const id of ["n-title", "n-body", "n-button", "n-target", "n-when", "n-app", "n-email"]) $(id).addEventListener("input", previewNotif);
+$("n-tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  for (const t of $("n-tabs").children) t.setAttribute("aria-selected", String(t === b));
+  for (const p of document.querySelectorAll("[data-pv]")) p.hidden = p.dataset.pv !== b.dataset.t;
+});
+async function countReach() {
+  const audience = $("n-audience").value;
+  try {
+    const r = await send("/notifications/audience", { audience, accountEmail: $("n-account").value });
+    reachCount = r.count;
+    $("n-reach").textContent = audience === "account" && !r.found
+      ? ($("n-account").value ? "Aucun client avec cet email" : "Donne l'email du client")
+      : fr.format(r.count) + (r.count > 1 ? " personnes" : " personne") + (emailOn ? " · " + fr.format(r.emailable) + " par email" : "");
+  } catch { $("n-reach").textContent = ""; }
+  armSend(false);
+}
+let reachTimer;
+for (const id of ["n-audience", "n-account"]) $(id).addEventListener("input", () => { previewNotif(); clearTimeout(reachTimer); reachTimer = setTimeout(countReach, 300); });
+// Sending to people cannot be undone: the button asks once more, with the count.
+let armed = false;
+function armSend(on) {
+  armed = on;
+  const later = $("n-when").value === "later";
+  $("n-send").textContent = on ? "Confirmer : " + fr.format(reachCount || 0) + " personne(s)" : later ? "Programmer" : "Envoyer";
+}
+$("n-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!armed) { armSend(true); return; }
+  const b = $("n-send"); b.disabled = true;
+  try {
+    const r = await send("/notifications", notifBody(false));
+    toast(r.scheduled ? "Programmée" : "Envoyée à " + fr.format(r.delivered) + " personne(s)" + (r.emailed ? ", " + fr.format(r.emailed) + " email(s)" : ""));
+    $("n-form").reset(); $("n-email").checked = false; previewNotif(); await countReach(); await loadNotifications();
+  } catch (err) { toast(err.message); }
+  finally { b.disabled = false; armSend(false); }
+});
+$("n-test").addEventListener("click", async (e) => {
+  const b = e.currentTarget; b.disabled = true;
+  try { const r = await send("/notifications", notifBody(true)); toast("Test envoyé" + (r.emailed ? " (app et email)" : " dans ton app")); }
+  catch (err) { toast(err.message); }
+  finally { b.disabled = false; }
+});
+async function loadNotifications() {
+  const r = await get("/notifications");
+  emailOn = r.email;
+  $("n-email").disabled = !emailOn;
+  $("n-email-ch").classList.toggle("off", !emailOn);
+  $("n-email-hint").textContent = emailOn ? "Par Resend, depuis l'adresse des codes de connexion" : "Pas branché sur ce serveur";
+  const scheduled = r.data.filter((n) => n.status === "scheduled").length;
+  $("n-notifs").textContent = scheduled ? String(scheduled) : "";
+  $("n-list").replaceChildren(...(r.data.length ? r.data.map((n) => {
+    const [word, tone] = N_STATUS[n.status];
+    const ways = [n.app ? "App" : null, n.email ? "Email" : null].filter(Boolean).join(" et ");
+    const s = n.stats;
+    const figures = n.status === "sent"
+      ? [fr.format(s.delivered) + " reçus", n.email ? fr.format(s.emailed) + " emails" : null, fr.format(s.read) + " lus", fr.format(s.clicked) + " clics"].filter(Boolean).join(" · ")
+      : null;
+    return el("div", { class: "it" },
+      el("time", {}, stamp.format(n.sentAt ?? n.sendAt)),
+      el("p", {}, el("b", {}, n.title), " ", el("span", { class: "pill " + tone }, n.test ? "Test" : word), el("br"),
+        el("small", {}, [n.audienceLabel, ways, n.button ? n.button + " → " + N_TARGETS[n.target] : null, figures, "par " + n.createdBy].filter(Boolean).join(" · "))),
+      n.status === "scheduled" ? el("button", { class: "btn danger", type: "button", onclick: async (e) => {
+        e.currentTarget.disabled = true;
+        try { const x = await send("/notifications/" + encodeURIComponent(n.id) + "/cancel"); toast(x.changed ? "Envoi annulé" : "Déjà parti"); await loadNotifications(); }
+        catch (err) { toast(err.message); e.currentTarget.disabled = false; }
+      } }, "Annuler") : null);
+  }) : [el("p", { class: "empty" }, "Aucun message pour l'instant.")]));
+  if (reachCount === null) await countReach();
+}
+previewNotif();
 
 async function loadJournal() {
   const r = await get("/journal");

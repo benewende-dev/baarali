@@ -12,6 +12,7 @@ import { migrate, poolDb } from './db.js';
 import { PgStore } from './pg-store.js';
 import { LISTEN_PATH, createListenRelay } from './voice.js';
 import { MemoryStore, hashToken, type Account, type ControlStore } from './store.js';
+import { MemoryMailer, NoticeDispatcher, NoticeLinks, ResendMailer, type Mailer } from './notifications.js';
 
 // Entry point (roadmap §4): the owner, their instance token, the plan catalog
 // of catalog.ts. With DATABASE_URL, everything lives in Postgres (decided
@@ -151,6 +152,20 @@ const gateway = instances ? createGateway({ store, instances, now: Date.now, fet
 const deepgramKey = process.env.DEEPGRAM_API_KEY || undefined;
 console.log(`[control] voice: ${deepgramKey ? 'deepgram' : 'off'}${process.env.ELEVENLABS_API_KEY ? ', elevenlabs for pro' : ''}`);
 
+// The console's notifications by email: Resend, from the sign-in codes'
+// address; their links are signed with a key derived from the auth secret.
+const mailer: Mailer | undefined =
+  process.env.BAARALI_DEV_CODES === '1'
+    ? new MemoryMailer()
+    : process.env.RESEND_API_KEY && process.env.EMAIL_FROM
+      ? new ResendMailer(process.env.RESEND_API_KEY, process.env.EMAIL_FROM)
+      : undefined;
+const noticeLinks = process.env.BAARALI_AUTH_SECRET ? new NoticeLinks(process.env.BAARALI_AUTH_SECRET, publicUrl) : undefined;
+const notices = new NoticeDispatcher({ store, now: Date.now, mailer: noticeLinks ? mailer : undefined, links: noticeLinks });
+// Scheduled ones leave on time while the machine is awake (app.ts sends them on waking too).
+setInterval(() => void notices.run(), 60_000).unref();
+console.log(`[control] notifications: app${mailer && noticeLinks ? ', email' : ''}`);
+
 const app = createApp({
   store,
   openRouterKey: required('OPENROUTER_API_KEY'),
@@ -181,6 +196,9 @@ const app = createApp({
   instances,
   gateway,
   spacesUrl,
+  mailer: noticeLinks ? mailer : undefined,
+  noticeLinks,
+  notices,
   fetch: globalThis.fetch,
   now: Date.now,
 });

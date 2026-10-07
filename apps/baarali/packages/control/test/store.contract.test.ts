@@ -237,6 +237,65 @@ describe.each([
       ann_2: { view: 2, click: 0, dismiss: 1 },
     });
   });
+
+  it('sends a notification once, keeps each copy, and counts reads and clicks', async () => {
+    const store = await make();
+    const base = {
+      body: 'Corps', button: null, target: 'none' as const, link: null, audience: 'all' as const, accountId: null,
+      app: true, email: false, sendAt: T0, createdBy: 'a@x', sentAt: null, cancelledAt: null, test: false,
+    };
+    await store.saveNotification({ ...base, id: 'ntf_1', title: 'Un', createdAt: T0 });
+    await store.saveNotification({ ...base, id: 'ntf_2', title: 'Deux', createdAt: T0 + 1, app: false, email: true });
+    await store.saveNotification({ ...base, id: 'ntf_3', title: 'Trois', createdAt: T0 + 2, sendAt: T0 + 99 });
+    expect((await store.notifications(10)).map((n) => n.id)).toEqual(['ntf_3', 'ntf_2', 'ntf_1']);
+
+    // Leaves once; a cancelled one never; a sent one cannot be cancelled.
+    expect(await store.claimNotification('ntf_1', T0 + 5)).toBe(true);
+    expect(await store.claimNotification('ntf_1', T0 + 6)).toBe(false);
+    expect(await store.cancelNotification('ntf_1', T0 + 7)).toBe(false);
+    expect(await store.cancelNotification('ntf_3', T0 + 7)).toBe(true);
+    expect(await store.claimNotification('ntf_3', T0 + 8)).toBe(false);
+    // Saving again does not undo either.
+    await store.saveNotification({ ...base, id: 'ntf_1', title: 'Un bis', createdAt: T0 });
+    const after = await store.notifications(10);
+    expect(after.find((n) => n.id === 'ntf_1')).toMatchObject({ title: 'Un bis', sentAt: T0 + 5, cancelledAt: null });
+    expect(after.find((n) => n.id === 'ntf_3')?.cancelledAt).toBe(T0 + 7);
+
+    await store.deliverNotification('ntf_1', [ME.id, OTHER.id, ME.id], T0 + 5);
+    await store.deliverNotification('ntf_1', [ME.id], T0 + 50);
+    await store.claimNotification('ntf_2', T0 + 10);
+    await store.deliverNotification('ntf_2', [ME.id], T0 + 10);
+    await store.markEmailed('ntf_2', [ME.id], T0 + 11);
+
+    // The inbox holds what is read in the app only, with the first delivery time.
+    const inbox = await store.inbox(ME.id, 10);
+    expect(inbox.map((x) => [x.notice.id, x.delivery.deliveredAt, x.delivery.readAt])).toEqual([['ntf_1', T0 + 5, null]]);
+
+    expect(await store.recordNotificationEvent('ntf_1', ME.id, 'read', T0 + 20)).toBe(true);
+    expect(await store.recordNotificationEvent('ntf_1', ME.id, 'read', T0 + 21)).toBe(false);
+    expect(await store.recordNotificationEvent('ntf_1', ME.id, 'click', T0 + 22)).toBe(true);
+    expect(await store.recordNotificationEvent('ntf_1', ME.id, 'click', T0 + 23)).toBe(false);
+    // A click alone is a read too.
+    expect(await store.recordNotificationEvent('ntf_2', ME.id, 'click', T0 + 24)).toBe(true);
+    // No copy, nothing counted.
+    expect(await store.recordNotificationEvent('ntf_3', ME.id, 'read', T0 + 25)).toBe(false);
+    expect((await store.inbox(ME.id, 10))[0].delivery.readAt).toBe(T0 + 20);
+
+    expect(await store.notificationStats(['ntf_1', 'ntf_2', 'ntf_3'])).toEqual({
+      ntf_1: { delivered: 2, emailed: 0, read: 1, clicked: 1 },
+      ntf_2: { delivered: 1, emailed: 1, read: 1, clicked: 1 },
+      ntf_3: { delivered: 0, emailed: 0, read: 0, clicked: 0 },
+    });
+  });
+
+  it('remembers who opted out of emails', async () => {
+    const store = await make();
+    expect(await store.setEmailOptOut(ME.id, T0)).toBe(true);
+    expect((await store.listAccounts(T0)).find((s) => s.account.id === ME.id)?.account.emailOptOutAt).toBe(T0);
+    expect(await store.setEmailOptOut(ME.id, null)).toBe(true);
+    expect((await store.listAccounts(T0)).find((s) => s.account.id === ME.id)?.account.emailOptOutAt).toBeUndefined();
+    expect(await store.setEmailOptOut('acc_none', T0)).toBe(false);
+  });
 });
 
 describe('linking an account to a sign-in', () => {

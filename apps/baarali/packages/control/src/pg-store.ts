@@ -1,5 +1,6 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import { isStrength, type ModelSetting } from './model-access.js';
+import type { Delivery, Notice, NoticeEvent, NoticeStats } from './notifications.js';
 import type { Db, Queryable } from './db.js';
 import type { QuotaState } from './quota.js';
 import {
@@ -32,9 +33,10 @@ interface AccountRow {
   plan_id: string;
   created_at: Date;
   suspended_at: Date | null;
+  email_opt_out_at: Date | null;
 }
 
-const ACCOUNT_COLUMNS = 'a.id, a.email, a.plan_id, a.created_at, a.suspended_at';
+const ACCOUNT_COLUMNS = 'a.id, a.email, a.plan_id, a.created_at, a.suspended_at, a.email_opt_out_at';
 
 interface DeviceRow {
   id: string;
@@ -62,6 +64,24 @@ const toAccount = (r: AccountRow): Account => ({
   planId: r.plan_id,
   createdAt: r.created_at.getTime(),
   ...(r.suspended_at ? { suspendedAt: r.suspended_at.getTime() } : {}),
+  ...(r.email_opt_out_at ? { emailOptOutAt: new Date(r.email_opt_out_at).getTime() } : {}),
+});
+
+interface NoticeRow {
+  id: string; title: string; body: string; button: string | null; target: Notice['target']; link: string | null;
+  audience: Notice['audience']; account_id: string | null; app: boolean; email: boolean; send_at: Date | string;
+  created_at: Date | string; created_by: string; sent_at: Date | string | null; cancelled_at: Date | string | null; test: boolean;
+}
+
+const NOTICE_COLUMNS = 'n.id, n.title, n.body, n.button, n.target, n.link, n.audience, n.account_id, n.app, n.email, n.send_at, n.created_at, n.created_by, n.sent_at, n.cancelled_at, n.test';
+
+const t = (d: Date | string) => new Date(d).getTime();
+const tn = (d: Date | string | null) => (d === null ? null : t(d));
+
+const toNotice = (r: NoticeRow): Notice => ({
+  id: r.id, title: r.title, body: r.body, button: r.button, target: r.target, link: r.link, audience: r.audience,
+  accountId: r.account_id, app: r.app, email: r.email, sendAt: t(r.send_at), createdAt: t(r.created_at), createdBy: r.created_by,
+  sentAt: tn(r.sent_at), cancelledAt: tn(r.cancelled_at), test: r.test,
 });
 
 async function balanceOf(q: Queryable, accountId: string): Promise<number> {
@@ -325,6 +345,11 @@ export class PgStore implements ControlStore {
     return rows.length > 0;
   }
 
+  async setEmailOptOut(accountId: string, at: number | null) {
+    const { rows } = await this.db.query('UPDATE baarali.accounts SET email_opt_out_at = $2 WHERE id = $1 RETURNING id', [accountId, date(at)]);
+    return rows.length > 0;
+  }
+
   async allInstances(): Promise<InstanceRecord[]> {
     const { rows } = await this.db.query<{ account_id: string; app: string; machine_id: string | null; volume_id: string | null; image: string | null; managed: boolean; keys: number }>(
       'SELECT account_id, app, machine_id, volume_id, image, managed, keys FROM baarali.instances ORDER BY created_at',
@@ -434,6 +459,97 @@ export class PgStore implements ControlStore {
       [ids],
     );
     for (const r of rows) stats[r.announcement_id][r.kind] = num(r.n);
+    return stats;
+  }
+
+  async notifications(limit: number): Promise<Notice[]> {
+    const { rows } = await this.db.query<NoticeRow>(`SELECT ${NOTICE_COLUMNS} FROM baarali.notifications n ORDER BY n.created_at DESC, n.id DESC LIMIT $1`, [limit]);
+    return rows.map(toNotice);
+  }
+
+  async saveNotification(n: Notice) {
+    await this.db.query(
+      `INSERT INTO baarali.notifications (id, title, body, button, target, link, audience, account_id, app, email, send_at, created_at, created_by, cancelled_at, test)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, body = EXCLUDED.body, button = EXCLUDED.button, target = EXCLUDED.target,
+         link = EXCLUDED.link, audience = EXCLUDED.audience, account_id = EXCLUDED.account_id, app = EXCLUDED.app, email = EXCLUDED.email,
+         send_at = EXCLUDED.send_at`,
+      [n.id, n.title, n.body, n.button, n.target, n.link, n.audience, n.accountId, n.app, n.email, new Date(n.sendAt), new Date(n.createdAt), n.createdBy, date(n.cancelledAt), n.test],
+    );
+  }
+
+  async claimNotification(id: string, at: number) {
+    const { rows } = await this.db.query(
+      'UPDATE baarali.notifications SET sent_at = $2 WHERE id = $1 AND sent_at IS NULL AND cancelled_at IS NULL RETURNING id',
+      [id, new Date(at)],
+    );
+    return rows.length > 0;
+  }
+
+  async cancelNotification(id: string, at: number) {
+    const { rows } = await this.db.query(
+      'UPDATE baarali.notifications SET cancelled_at = $2 WHERE id = $1 AND sent_at IS NULL AND cancelled_at IS NULL RETURNING id',
+      [id, new Date(at)],
+    );
+    return rows.length > 0;
+  }
+
+  async deliverNotification(id: string, accountIds: string[], at: number) {
+    if (accountIds.length === 0) return;
+    await this.db.query(
+      `INSERT INTO baarali.notification_deliveries (notification_id, account_id, delivered_at)
+       SELECT $1, a, $3 FROM unnest($2::text[]) AS a ON CONFLICT DO NOTHING`,
+      [id, [...new Set(accountIds)], new Date(at)],
+    );
+  }
+
+  async markEmailed(id: string, accountIds: string[], at: number) {
+    if (accountIds.length === 0) return;
+    await this.db.query(
+      `UPDATE baarali.notification_deliveries SET emailed_at = $3
+        WHERE notification_id = $1 AND account_id = ANY($2::text[]) AND emailed_at IS NULL`,
+      [id, accountIds, new Date(at)],
+    );
+  }
+
+  async inbox(accountId: string, limit: number) {
+    const { rows } = await this.db.query<NoticeRow & { delivered_at: Date | string; emailed_at: Date | string | null; read_at: Date | string | null; clicked_at: Date | string | null }>(
+      `SELECT ${NOTICE_COLUMNS}, d.delivered_at, d.emailed_at, d.read_at, d.clicked_at
+         FROM baarali.notification_deliveries d JOIN baarali.notifications n ON n.id = d.notification_id
+        WHERE d.account_id = $1 AND n.app
+        ORDER BY d.delivered_at DESC, n.created_at DESC LIMIT $2`,
+      [accountId, limit],
+    );
+    return rows.map((r) => ({
+      notice: toNotice(r),
+      delivery: { noticeId: r.id, accountId, deliveredAt: t(r.delivered_at), emailedAt: tn(r.emailed_at), readAt: tn(r.read_at), clickedAt: tn(r.clicked_at) } satisfies Delivery,
+    }));
+  }
+
+  async recordNotificationEvent(id: string, accountId: string, kind: NoticeEvent, at: number) {
+    // A click is a read too; true only when this kind is counted for the first time.
+    const { rows } = await this.db.query<{ first: boolean }>(
+      kind === 'read'
+        ? `UPDATE baarali.notification_deliveries SET read_at = COALESCE(read_at, $3)
+            WHERE notification_id = $1 AND account_id = $2
+            RETURNING (read_at = $3) AS first`
+        : `UPDATE baarali.notification_deliveries SET read_at = COALESCE(read_at, $3), clicked_at = COALESCE(clicked_at, $3)
+            WHERE notification_id = $1 AND account_id = $2
+            RETURNING (clicked_at = $3) AS first`,
+      [id, accountId, new Date(at)],
+    );
+    return rows.length > 0 && rows[0].first === true;
+  }
+
+  async notificationStats(ids: string[]): Promise<Record<string, NoticeStats>> {
+    const stats: Record<string, NoticeStats> = Object.fromEntries(ids.map((id) => [id, { delivered: 0, emailed: 0, read: 0, clicked: 0 }]));
+    if (ids.length === 0) return stats;
+    const { rows } = await this.db.query<{ notification_id: string; delivered: unknown; emailed: unknown; read: unknown; clicked: unknown }>(
+      `SELECT notification_id, count(*) AS delivered, count(emailed_at) AS emailed, count(read_at) AS read, count(clicked_at) AS clicked
+         FROM baarali.notification_deliveries WHERE notification_id = ANY($1::text[]) GROUP BY notification_id`,
+      [ids],
+    );
+    for (const r of rows) stats[r.notification_id] = { delivered: num(r.delivered), emailed: num(r.emailed), read: num(r.read), clicked: num(r.clicked) };
     return stats;
   }
 }

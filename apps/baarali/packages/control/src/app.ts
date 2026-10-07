@@ -7,6 +7,7 @@ import { ModelCatalog, UpstreamModels } from './model-catalog.js';
 import { isAdmin, topUpMedia, type SoldPack } from './admin.js';
 import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner, reaches } from './announcements.js';
 import { mountAdminConsole } from './admin-console.js';
+import { emailTarget, NOTICE_EVENTS, NoticeDispatcher, publicNotice, type Mailer, type NoticeLinks } from './notifications.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
 import { homePage, type HomeData } from './home-page.js';
@@ -47,6 +48,12 @@ export type ControlDeps = ProxyDeps & {
    * the sign-in server: Harbor trusts the tokens it signs, no others.
    */
   spacesUrl?: string;
+  /** Unset: the console's notifications are read in the app only. */
+  mailer?: Mailer;
+  /** Signs the links of the emails (click, open, opt-out); unset with the mailer. */
+  noticeLinks?: NoticeLinks;
+  /** Sends the due notifications; main.ts also runs it every minute. */
+  notices?: NoticeDispatcher;
 };
 
 type Env = { Variables: { account: Account } };
@@ -88,8 +95,16 @@ export function createApp(deps: ControlDeps) {
       deps.now,
     );
   const app = new Hono<Env>();
+  const notices = deps.notices ?? new NoticeDispatcher({ store: deps.store, now: deps.now, mailer: deps.mailer, links: deps.noticeLinks });
 
   app.get('/health', (c) => c.json({ ok: true }));
+
+  // The machine sleeps when idle (fly.toml): the first requests after waking
+  // send what came due meanwhile. Never awaited: nobody waits for it.
+  app.use('*', async (_c, next) => {
+    void notices.run();
+    await next();
+  });
 
   if (deps.home) {
     const home = deps.home;
@@ -142,6 +157,8 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/voice/*', authed);
   app.use('/v1/announcement', authed);
   app.use('/v1/announcement/*', authed);
+  app.use('/v1/notifications', authed);
+  app.use('/v1/notifications/*', authed);
 
   // A cloud instance trades its token for a Spaces one (core
   // auth/spaces-exchange.ts): Spaces verify only our signed JWTs.
@@ -230,6 +247,74 @@ export function createApp(deps: ControlDeps) {
     return c.json({ counted });
   });
 
+  // The console's messages for this person (07/10/2026): the bell on the
+  // Mac, the inbox on the phone. Newest first, with how many are unread.
+  app.get('/v1/notifications', async (c) => {
+    // Just woken: what came due while asleep is sent before the inbox is read.
+    await notices.run();
+    const list = await deps.store.inbox(c.get('account').id, 30);
+    return c.json({ data: list.map(({ notice, delivery }) => publicNotice(notice, delivery)), unread: list.filter((x) => x.delivery.readAt === null).length });
+  });
+
+  app.post('/v1/notifications/read-all', async (c) => {
+    const account = c.get('account');
+    const now = deps.now();
+    let changed = 0;
+    for (const { delivery } of await deps.store.inbox(account.id, 30)) {
+      if (delivery.readAt === null && (await deps.store.recordNotificationEvent(delivery.noticeId, account.id, 'read', now))) changed++;
+    }
+    return c.json({ changed });
+  });
+
+  // Read or followed: only the person's own copy, counted the first time.
+  app.post('/v1/notifications/:id/events', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { kind?: unknown } | null;
+    const kind = body?.kind;
+    if (typeof kind !== 'string' || !(NOTICE_EVENTS as readonly string[]).includes(kind)) {
+      return c.json({ error: { code: 'invalid_request', message: `kind: one of ${NOTICE_EVENTS.join(', ')}` } }, 400);
+    }
+    const account = c.get('account');
+    const mine = (await deps.store.inbox(account.id, 100)).some((x) => x.notice.id === c.req.param('id'));
+    if (!mine) return c.json({ error: { code: 'not_found' } }, 404);
+    const counted = await deps.store.recordNotificationEvent(c.req.param('id'), account.id, kind as (typeof NOTICE_EVENTS)[number], deps.now());
+    return c.json({ counted });
+  });
+
+  // The links of the emails, signed for one person (notifications.ts NoticeLinks).
+  if (deps.noticeLinks) {
+    const links = deps.noticeLinks;
+    const copyOf = async (token: string) => {
+      const who = links.read(token);
+      if (!who) return null;
+      const notice = (await deps.store.notifications(200)).find((n) => n.id === who.noticeId);
+      return notice ? { ...who, notice } : null;
+    };
+    // The button: counted, then on to where it leads.
+    app.get('/n/c/:token', async (c) => {
+      const copy = await copyOf(c.req.param('token'));
+      if (!copy) return c.redirect(deps.publicUrl, 302);
+      await deps.store.recordNotificationEvent(copy.noticeId, copy.accountId, 'click', deps.now());
+      return c.redirect(emailTarget(copy.notice, deps.publicUrl, PRICING_PATH), 302);
+    });
+    // Opened: a one-pixel image, the same for everyone.
+    app.get('/n/o/:token', async (c) => {
+      const copy = await copyOf(c.req.param('token'));
+      if (copy) await deps.store.recordNotificationEvent(copy.noticeId, copy.accountId, 'read', deps.now());
+      return c.body(PIXEL, 200, { 'content-type': 'image/gif', 'cache-control': 'no-store' });
+    });
+    // Opting out: a page with a button (a link checker opening the URL must
+    // not unsubscribe anyone), and the mail apps' one-click POST (RFC 8058).
+    app.get('/n/u/:token', async (c) => {
+      const copy = await copyOf(c.req.param('token'));
+      return html((nonce) => optOutPage({ nonce, ok: Boolean(copy), done: false }));
+    });
+    app.post('/n/u/:token', async (c) => {
+      const copy = await copyOf(c.req.param('token'));
+      if (copy) await deps.store.setEmailOptOut(copy.accountId, deps.now());
+      return html((nonce) => optOutPage({ nonce, ok: Boolean(copy), done: Boolean(copy) }));
+    });
+  }
+
   app.get('/v1/media/models', (c) => listMediaModels({ ...deps, models }, c.get('account')));
   app.get('/v1/media/balance', (c) => mediaBalance(deps, c.get('account')));
   app.get('/v1/media/history', (c) => mediaHistory(deps, c.get('account')));
@@ -311,6 +396,7 @@ export function createApp(deps: ControlDeps) {
     models,
     upstreamModels,
     now: deps.now,
+    notices: { store: deps.store, now: deps.now, mailer: deps.mailer, links: deps.noticeLinks },
   });
 
   app.post('/v1/admin/media-credits', async (c) => {
@@ -321,4 +407,22 @@ export function createApp(deps: ControlDeps) {
   });
 
   return app;
+}
+
+/** A transparent 1×1 GIF. */
+const PIXEL = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+
+/** « Ne plus recevoir ces emails »: one button, then the answer. */
+function optOutPage({ nonce, ok, done }: { nonce: string; ok: boolean; done: boolean }): string {
+  const body = !ok
+    ? '<h1>Lien inconnu</h1><p>Ce lien ne fonctionne pas. Répondez à l’email et nous vous retirerons de la liste.</p>'
+    : done
+      ? '<h1>C’est fait</h1><p>Vous ne recevrez plus nos emails d’information. Les codes de connexion et les messages dans l’app continuent.</p>'
+      : '<h1>Ne plus recevoir ces emails ?</h1><p>Les codes de connexion et les messages dans l’app continuent.</p><form method="post"><button type="submit">Me désinscrire</button></form>';
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Baarali</title>
+<style nonce="${nonce}">body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f4f6f9;color:#111827;display:grid;place-items:center;min-height:100svh;padding:0 16px}
+main{max-width:420px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:26px 28px}h1{font-size:19px;margin:0 0 10px}p{font-size:15px;line-height:1.5;color:#374151;margin:0 0 16px}
+button{font:inherit;font-weight:600;background:#0062C4;color:#fff;border:0;border-radius:8px;padding:10px 18px;cursor:pointer}
+@media (prefers-color-scheme:dark){body{background:#171717;color:#f3f4f6}main{background:#1f1f1f;border-color:#2e2e2e}p{color:#d1d5db}}</style></head>
+<body><main>${body}</main></body></html>`;
 }

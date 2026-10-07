@@ -27,7 +27,7 @@ import { AutoRouteDecision, AutoRouteRequest } from './auto-route.js';
 import { FindRequest, FindResult } from './find.js';
 import { AppSummarySchema, RegistryRecordSchema, RowboatAppManifestSchema } from './rowboat-app.js';
 import { BrowserStateSchema, DisplayMediaRequestSchema, HttpAuthRequestSchema } from './browser-control.js';
-import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, PlanOffersSchema } from './billing.js';
+import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, NoticeEventKindSchema, NoticeInboxSchema, PlanOffersSchema } from './billing.js';
 import { CreditActivatedEventSchema, CreditsStateSchema, ReferralClaimResultSchema } from './credits.js';
 import { GmailThreadSchema } from './blocks.js';
 import { PermissionDecision, ApprovalPolicy, CodingAgent, type CodeRunFeedEvent } from './code-mode.js';
@@ -3736,6 +3736,22 @@ export const ipcSchemas = {
     req: z.object({ id: z.string(), kind: AnnouncementEventKindSchema }),
     // Whether it was counted: a person counts once per kind.
     res: z.boolean(),
+  },
+  // The admin console's messages for this person (Baarali, 07/10/2026): the
+  // bell's list and its unread count; null when the API serves none.
+  'billing:getNotifications': {
+    req: z.null(),
+    res: NoticeInboxSchema.nullable(),
+  },
+  'billing:notificationEvent': {
+    req: z.object({ id: z.string(), kind: NoticeEventKindSchema }),
+    // Whether it was counted: the first read, the first click.
+    res: z.boolean(),
+  },
+  'billing:readAllNotifications': {
+    req: z.null(),
+    // How many were marked read.
+    res: z.number(),
   },
   // First-time-action credit rewards (see shared/src/credits.ts)
   'credits:getState': {

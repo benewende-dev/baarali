@@ -99,6 +99,7 @@ import { ServiceEvent } from "@x/shared/src/service-events.js"
 import z from "zod"
 import { openPlans } from '@/lib/plans-window'
 import { OPEN_USAGE_EVENT } from '@/lib/announcement'
+import { NotificationBell } from '@/components/notification-bell'
 import { UsagePopover } from '@/components/sidebar-session-gauge'
 
 interface TreeNode {
@@ -837,8 +838,16 @@ export function SidebarContentPanel({
             compose live up there now); nav starts right below. */}
         <div className="h-8" />
         {/* The brand, as on the site, then the chat a row lower (03/10/2026). */}
-        <div className="px-2 pb-4 pt-1">
+        <div className="flex items-center px-2 pb-4 pt-1">
           <BaaraliLogo />
+          {/* BAARALI(07/10/2026): the admin console's messages. */}
+          <NotificationBell
+            className="ml-auto"
+            onOpenChat={() => {
+              if (onOpenAssistant) onOpenAssistant()
+              else onNewChat?.()
+            }}
+          />
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-0">

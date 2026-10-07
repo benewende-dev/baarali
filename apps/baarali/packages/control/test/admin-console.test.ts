@@ -7,6 +7,7 @@ import type { FlyApi, MachineConfig } from '../src/fly.js';
 import { createGateway } from '../src/gateway.js';
 import { Instances } from '../src/instances.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
+import { MemoryMailer, NoticeLinks } from '../src/notifications.js';
 
 // The admin console (/admin, decided 03/10/2026): who opens it, what each
 // action changes, and the journal that keeps every one of them.
@@ -41,8 +42,10 @@ const auth: BaaraliAuth = {
   userIdForSession: async () => null,
 };
 
-function setup(opts: { adminEmails?: string[]; noAuth?: boolean } = {}) {
+function setup(opts: { adminEmails?: string[]; noAuth?: boolean; noMail?: boolean } = {}) {
   const calls: string[] = [];
+  const mailer = new MemoryMailer();
+  const links = new NoticeLinks('test-auth-secret', 'https://app.baarali.test');
   const fly: FlyApi = {
     createVolume: async () => ({ id: 'vol_1' }),
     createMachine: async (_app, { config }: { region: string; config: MachineConfig }) => ({ id: 'm_1', state: 'started', config }),
@@ -79,6 +82,8 @@ function setup(opts: { adminEmails?: string[]; noAuth?: boolean } = {}) {
     auth: opts.noAuth ? undefined : auth,
     instances,
     gateway: createGateway({ store, instances, now: () => clock, fetch: globalThis.fetch }),
+    mailer: opts.noMail ? undefined : mailer,
+    noticeLinks: opts.noMail ? undefined : links,
     now: () => clock,
     // OpenRouter, played here: its model list, priced per token.
     fetch: (async (url: string) => {
@@ -98,7 +103,7 @@ function setup(opts: { adminEmails?: string[]; noAuth?: boolean } = {}) {
       },
     });
   const post = (who: string | null, path: string, body: unknown = {}) => as(who, path, { method: 'POST', body: JSON.stringify(body) });
-  return { app, store, as, post, calls, tick: (ms: number) => { clock += ms; } };
+  return { app, store, as, post, calls, mailer, links, tick: (ms: number) => { clock += ms; } };
 }
 
 describe('who opens the console', () => {
@@ -445,5 +450,121 @@ describe('announcements', () => {
   it('asks the apps for their own token', async () => {
     const { app } = setup();
     expect((await app.request('/v1/announcement')).status).toBe(401);
+  });
+});
+
+describe('notifications', () => {
+  const draft = { title: 'Baarali code pour toi', body: 'Demande au Chat de te fabriquer un petit outil.', button: 'Essayer', target: 'chat', audience: 'all', app: true, email: true };
+  const asApp = (app: { request: (p: string, i?: RequestInit) => Response | Promise<Response> }, token: string, path: string, body?: unknown) =>
+    app.request(path, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+
+  it('counts who it would reach before sending', async () => {
+    const { post, store } = setup();
+    await store.setEmailOptOut(AWA.id, T0);
+    const count = async (b: unknown) => (await (await post('boss', '/admin/api/notifications/audience', b)).json()) as { count: number; emailable: number; found: boolean };
+    expect(await count({ audience: 'all' })).toEqual({ count: 2, emailable: 1, found: true });
+    expect(await count({ audience: 'paid' })).toMatchObject({ count: 0 });
+    expect(await count({ audience: 'account', accountEmail: 'AWA@example.test' })).toEqual({ count: 1, emailable: 0, found: true });
+    expect(await count({ audience: 'account', accountEmail: 'nobody@x.test' })).toMatchObject({ count: 0, found: false });
+  });
+
+  it('sends now to the app and by email, writes it down, and the apps read it', async () => {
+    const { post, as, app, mailer } = setup();
+    const res = await post('boss', '/admin/api/notifications', draft);
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ scheduled: false, delivered: 2, emailed: 2 });
+    expect(mailer.outbox.map((m) => m.to).sort()).toEqual(['awa@example.test', 'boss@example.test']);
+    expect(mailer.outbox[0].headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+
+    const inbox = (await (await asApp(app, 'tok-awa', '/v1/notifications')).json()) as { data: Array<{ id: string; title: string; read: boolean; target: string }>; unread: number };
+    expect(inbox.unread).toBe(1);
+    expect(inbox.data[0]).toMatchObject({ title: draft.title, target: 'chat', read: false });
+
+    const id = inbox.data[0].id;
+    expect(((await (await asApp(app, 'tok-awa', `/v1/notifications/${id}/events`, { kind: 'click' })).json()) as { counted: boolean }).counted).toBe(true);
+    expect((await asApp(app, 'tok-awa', `/v1/notifications/${id}/events`, { kind: 'nope' })).status).toBe(400);
+    expect(((await (await asApp(app, 'tok-awa', '/v1/notifications')).json()) as { unread: number }).unread).toBe(0);
+
+    const list = (await (await as('boss', '/admin/api/notifications')).json()) as { email: boolean; data: Array<{ status: string; stats: unknown; audienceLabel: string }> };
+    expect(list.email).toBe(true);
+    expect(list.data[0]).toMatchObject({ status: 'sent', audienceLabel: 'Tous', stats: { delivered: 2, emailed: 2, read: 1, clicked: 1 } });
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ action: string }> };
+    expect(journal.data.filter((e) => e.action === 'notification')).toHaveLength(1);
+  });
+
+  it('marks all read, and counts nothing on a message that is not the person’s', async () => {
+    const { post, app } = setup();
+    const { id } = (await (await post('boss', '/admin/api/notifications', { ...draft, audience: 'account', accountEmail: 'boss@example.test' })).json()) as { id: string };
+    expect((await asApp(app, 'tok-awa', `/v1/notifications/${id}/events`, { kind: 'read' })).status).toBe(404);
+    expect(((await (await asApp(app, 'tok-awa', '/v1/notifications')).json()) as { data: unknown[] }).data).toEqual([]);
+    expect(((await (await asApp(app, 'tok-owner', '/v1/notifications/read-all', {})).json()) as { changed: number }).changed).toBe(1);
+    expect(((await (await asApp(app, 'tok-owner', '/v1/notifications')).json()) as { unread: number }).unread).toBe(0);
+    expect((await app.request('/v1/notifications')).status).toBe(401);
+  });
+
+  it('holds a scheduled one until its time, and cancels one not yet sent', async () => {
+    const { post, as, app, tick } = setup();
+    const later = (await (await post('boss', '/admin/api/notifications', { ...draft, email: false, sendAt: T0 + 60_000 + 3_600_000 })).json()) as { id: string; scheduled: boolean };
+    expect(later.scheduled).toBe(true);
+    const other = (await (await post('boss', '/admin/api/notifications', { ...draft, title: 'Autre', email: false, sendAt: T0 + 60_000 + 3_600_000 })).json()) as { id: string };
+    expect(((await (await post('boss', `/admin/api/notifications/${other.id}/cancel`)).json()) as { changed: boolean }).changed).toBe(true);
+    const unread = async () => ((await (await asApp(app, 'tok-awa', '/v1/notifications')).json()) as { unread: number }).unread;
+    expect(await unread()).toBe(0);
+    tick(3_600_000 + 61_000);
+    // The machine may have slept past the time: reading the inbox sends what is due first.
+    expect(await unread()).toBe(1);
+    const list = (await (await as('boss', '/admin/api/notifications')).json()) as { data: Array<{ id: string; status: string }> };
+    expect(list.data.map((n) => [n.id, n.status])).toEqual([[other.id, 'cancelled'], [later.id, 'sent']]);
+    expect(((await (await post('boss', `/admin/api/notifications/${later.id}/cancel`)).json()) as { changed: boolean }).changed).toBe(false);
+  });
+
+  it('sends a test to the admin alone, kept out of the journal', async () => {
+    const { post, as, app, mailer } = setup();
+    const res = await post('boss', '/admin/api/notifications', { ...draft, test: true });
+    expect(await res.json()).toMatchObject({ delivered: 1, emailed: 1 });
+    expect(mailer.outbox.map((m) => m.to)).toEqual(['boss@example.test']);
+    expect(((await (await asApp(app, 'tok-awa', '/v1/notifications')).json()) as { data: unknown[] }).data).toEqual([]);
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ action: string }> };
+    expect(journal.data.filter((e) => e.action === 'notification')).toHaveLength(0);
+  });
+
+  it('refuses email without a mailer, and a bad draft, with words the console shows', async () => {
+    const { post } = setup({ noMail: true });
+    const res = await post('boss', '/admin/api/notifications', draft);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/email/i);
+    const bad = await post('boss', '/admin/api/notifications', { ...draft, email: false, target: 'link', link: 'javascript:alert(1)' });
+    expect(((await bad.json()) as { error: { message: string } }).error.message).toMatch(/https/);
+  });
+
+  it('is sent by an admin only, and never by a cookie alone', async () => {
+    const { post, as } = setup();
+    expect((await post('awa', '/admin/api/notifications', draft)).status).toBe(404);
+    expect((await as('boss', '/admin/api/notifications', { method: 'POST', body: JSON.stringify(draft), write: false })).status).toBe(403);
+  });
+
+  it('counts an email click and open, and opts out only by the button', async () => {
+    const { post, app, links, store } = setup();
+    const { id } = (await (await post('boss', '/admin/api/notifications', { ...draft, target: 'plans' })).json()) as { id: string };
+    const token = links.token(id, AWA.id);
+    const click = await app.request(`/n/c/${token}`, { redirect: 'manual' });
+    expect(click.status).toBe(302);
+    expect(click.headers.get('location')).toBe('https://app.baarali.test/tarifs');
+    expect((await app.request(`/n/o/${token}`)).headers.get('content-type')).toBe('image/gif');
+    expect((await store.notificationStats([id]))[id]).toMatchObject({ read: 1, clicked: 1 });
+
+    // A forged token is no one.
+    expect((await app.request(`/n/c/${token.slice(0, -2)}xx`, { redirect: 'manual' })).headers.get('location')).toBe('https://app.baarali.test');
+
+    const page = await app.request(`/n/u/${token}`);
+    expect(await page.text()).toContain('Me désinscrire');
+    const optedOut = async () => (await store.listAccounts(T0)).find((s) => s.account.id === AWA.id)?.account.emailOptOutAt;
+    expect(await optedOut()).toBeUndefined();
+    await app.request(`/n/u/${token}`, { method: 'POST' });
+    expect(await optedOut()).toBeTypeOf('number');
   });
 });

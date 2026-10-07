@@ -1,5 +1,6 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import type { ModelSetting } from './model-access.js';
+import type { Delivery, Notice, NoticeEvent, NoticeStats } from './notifications.js';
 import { createHash } from 'node:crypto';
 import type { ModelPolicy } from './models.js';
 import type { Money } from './pricing.js';
@@ -17,6 +18,8 @@ export interface Account {
   createdAt: number;
   /** Set while the account is suspended from the admin console: its tokens open nothing. */
   suspendedAt?: number;
+  /** Set when the person clicked « Ne plus recevoir ces emails »: the console's emails skip them. */
+  emailOptOutAt?: number;
 }
 
 export interface Plan {
@@ -201,6 +204,24 @@ export interface ControlStore {
   /** The kinds this account already sent for this announcement. */
   announcementEventsOf(id: string, accountId: string): Promise<AnnouncementEvent[]>;
   announcementStats(ids: string[]): Promise<Record<string, AnnouncementStats>>;
+  /** Newest first, by creation. */
+  notifications(limit: number): Promise<Notice[]>;
+  /** Creates or replaces it; `sentAt` and `cancelledAt` only move through claim and cancel. */
+  saveNotification(notice: Notice): Promise<void>;
+  /** Marks it sent; false when it was sent or cancelled already, so it leaves once. */
+  claimNotification(id: string, at: number): Promise<boolean>;
+  /** Only one not sent yet: false when it left or was cancelled already. */
+  cancelNotification(id: string, at: number): Promise<boolean>;
+  /** Each person's copy; one already there is kept. */
+  deliverNotification(id: string, accountIds: string[], at: number): Promise<void>;
+  markEmailed(id: string, accountIds: string[], at: number): Promise<void>;
+  /** The account's messages read in the app, newest first. */
+  inbox(accountId: string, limit: number): Promise<Array<{ notice: Notice; delivery: Delivery }>>;
+  /** The first read or click counts; false when there is no such copy or it was counted. A click is a read too. */
+  recordNotificationEvent(id: string, accountId: string, kind: NoticeEvent, at: number): Promise<boolean>;
+  notificationStats(ids: string[]): Promise<Record<string, NoticeStats>>;
+  /** `at` stops the console's emails, null lets them again; false when there is no such account. */
+  setEmailOptOut(accountId: string, at: number | null): Promise<boolean>;
 }
 
 export class MemoryStore implements ControlStore {
@@ -209,6 +230,8 @@ export class MemoryStore implements ControlStore {
   readonly log: AdminLogEntry[] = [];
   private readonly banners = new Map<string, Announcement>();
   private readonly bannerEvents: Array<{ id: string; accountId: string; kind: AnnouncementEvent; at: number }> = [];
+  private readonly notices = new Map<string, Notice>();
+  private readonly deliveries: Delivery[] = [];
   private readonly models = new Map<string, ModelSetting>();
   private readonly states = new Map<string, QuotaState>();
   private readonly jobs = new Map<string, MediaJob>();
@@ -366,6 +389,12 @@ export class MemoryStore implements ControlStore {
       else a.suspendedAt = at;
     });
   }
+  async setEmailOptOut(accountId: string, at: number | null) {
+    return this.update(accountId, (a) => {
+      if (at === null) delete a.emailOptOutAt;
+      else a.emailOptOutAt = at;
+    });
+  }
   async modelSettings() {
     return [...this.models.values()].map((s) => ({ ...s }));
   }
@@ -407,6 +436,63 @@ export class MemoryStore implements ControlStore {
     for (const id of ids) {
       const of = (kind: AnnouncementEvent) => this.bannerEvents.filter((e) => e.id === id && e.kind === kind).length;
       stats[id] = { view: of('view'), click: of('click'), dismiss: of('dismiss') };
+    }
+    return stats;
+  }
+  async notifications(limit: number) {
+    return [...this.notices.values()].reverse().sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((n) => ({ ...n }));
+  }
+  async saveNotification(notice: Notice) {
+    const before = this.notices.get(notice.id);
+    this.notices.set(notice.id, { ...notice, sentAt: before?.sentAt ?? null, cancelledAt: before?.cancelledAt ?? notice.cancelledAt });
+  }
+  async claimNotification(id: string, at: number) {
+    const n = this.notices.get(id);
+    if (!n || n.sentAt !== null || n.cancelledAt !== null) return false;
+    n.sentAt = at;
+    return true;
+  }
+  async cancelNotification(id: string, at: number) {
+    const n = this.notices.get(id);
+    if (!n || n.sentAt !== null || n.cancelledAt !== null) return false;
+    n.cancelledAt = at;
+    return true;
+  }
+  async deliverNotification(id: string, accountIds: string[], at: number) {
+    for (const accountId of new Set(accountIds)) {
+      if (this.deliveries.some((d) => d.noticeId === id && d.accountId === accountId)) continue;
+      this.deliveries.push({ noticeId: id, accountId, deliveredAt: at, emailedAt: null, readAt: null, clickedAt: null });
+    }
+  }
+  async markEmailed(id: string, accountIds: string[], at: number) {
+    for (const d of this.deliveries) if (d.noticeId === id && accountIds.includes(d.accountId) && d.emailedAt === null) d.emailedAt = at;
+  }
+  async inbox(accountId: string, limit: number) {
+    return this.deliveries
+      .map((delivery, i) => ({ delivery, i, notice: this.notices.get(delivery.noticeId)! }))
+      .filter(({ delivery, notice }) => delivery.accountId === accountId && notice.app)
+      .sort((a, b) => b.delivery.deliveredAt - a.delivery.deliveredAt || b.i - a.i)
+      .slice(0, limit)
+      .map(({ notice, delivery }) => ({ notice: { ...notice }, delivery: { ...delivery } }));
+  }
+  async recordNotificationEvent(id: string, accountId: string, kind: NoticeEvent, at: number) {
+    const d = this.deliveries.find((x) => x.noticeId === id && x.accountId === accountId);
+    if (!d) return false;
+    const first = kind === 'read' ? d.readAt === null : d.clickedAt === null;
+    if (d.readAt === null) d.readAt = at;
+    if (kind === 'click' && d.clickedAt === null) d.clickedAt = at;
+    return first;
+  }
+  async notificationStats(ids: string[]) {
+    const stats: Record<string, NoticeStats> = {};
+    for (const id of ids) {
+      const of = this.deliveries.filter((d) => d.noticeId === id);
+      stats[id] = {
+        delivered: of.length,
+        emailed: of.filter((d) => d.emailedAt !== null).length,
+        read: of.filter((d) => d.readAt !== null).length,
+        clicked: of.filter((d) => d.clickedAt !== null).length,
+      };
     }
     return stats;
   }

@@ -6,7 +6,9 @@ import { FlatList, Pressable, RefreshControl, ScrollView, Text, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { baarasseurs as shared, sessions as sessionsShared } from '@x/shared';
 
+import { AnnouncementBanner } from '@/components/announcement-banner';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
+import { useConsoleMessages } from '@/lib/console-messages';
 import { useConnection } from '@/lib/connection';
 import { useColors } from '@/theme/colors';
 
@@ -32,6 +34,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { pairing, sessions, events } = useConnection();
   const { team, reload } = useBaarasseurs();
+  const { unread } = useConsoleMessages();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -94,6 +97,21 @@ export default function HomeScreen() {
     <View style={{ gap: 14, paddingBottom: 6 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 }}>
         <Text style={{ flex: 1, fontSize: 32, fontWeight: '700', color: colors.label }}>Rowboat</Text>
+        {/* BAARALI(07/10/2026): the admin console's messages. */}
+        <Pressable
+          onPress={() => { tap(); router.push('/inbox'); }}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          hitSlop={6}
+          style={{ width: 44, height: 44, marginRight: 8, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondaryBackground }}
+        >
+          <Image source="sf:bell" style={{ width: 18, height: 18 }} contentFit="contain" tintColor={colors.label} />
+          {unread > 0 ? (
+            <View style={{ position: 'absolute', top: 4, right: 4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.destructive }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#ffffff' }}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          ) : null}
+        </Pressable>
         <Pressable
           onPress={() => openChat({})}
           accessibilityRole="button"
@@ -104,6 +122,8 @@ export default function HomeScreen() {
           <Image source="sf:plus" style={{ width: 18, height: 18 }} contentFit="contain" tintColor={colors.label} />
         </Pressable>
       </View>
+
+      <AnnouncementBanner />
 
       {/* Ask in words, or tap the wave and talk. */}
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16 }}>
