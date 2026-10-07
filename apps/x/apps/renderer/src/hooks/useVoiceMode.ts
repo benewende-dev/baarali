@@ -4,6 +4,7 @@ import { finalizeDeepgramStream } from '@/lib/deepgram-finalize';
 import { useRowboatAccount } from '@/hooks/useRowboatAccount';
 import { fetchRowboatConfig } from '@/hooks/use-rowboat-config';
 import posthog from 'posthog-js';
+import { toast } from 'sonner';
 import * as analytics from '@/lib/analytics';
 
 export type VoiceState = 'idle' | 'connecting' | 'listening' | 'submitting';
@@ -95,7 +96,12 @@ export function useVoiceMode() {
         if (!cachedAuth) {
             await refreshAuth();
         }
-        if (!cachedAuth) return;
+        if (!cachedAuth) {
+            // Said aloud rather than a mic that listens and writes nothing.
+            console.warn('[voice] no voice service: signed out, or the account serves no voice URL');
+            toast.error('Voice input is unavailable right now. Try again in a few minutes.');
+            return;
+        }
 
         const params = DEEPGRAM_PARAMS;
         let ws: WebSocket;
