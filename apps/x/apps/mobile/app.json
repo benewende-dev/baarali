@@ -48,7 +48,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "The microphone is used to talk to your Rowboat agents with voice."
+          "microphonePermission": "The microphone is used to talk to your agents with voice."
         }
       ],
       "expo-font",
