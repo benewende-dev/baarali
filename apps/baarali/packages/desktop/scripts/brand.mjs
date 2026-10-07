@@ -524,7 +524,7 @@ export function mobilePlan() {
       // read black by day and white by night.
       edit(`${mobile}/src/app/onboarding.tsx`, "    icon: 'sf:sailboat',", "    icon: require('../../assets/images/baarali-tile.png'),"),
       edit(`${mobile}/src/app/onboarding.tsx`, '<Image source={slide.icon} style={{ width: 64, height: 64, marginBottom: 8 }} tintColor={colors.label} />', "<Image source={slide.icon} style={{ width: 64, height: 64, marginBottom: 8 }} tintColor={typeof slide.icon === 'string' ? colors.label : undefined} />"),
-      edit(`${mobile}/src/app/spaces/index.tsx`, '<Image source="sf:sailboat" style={{ width: 48, height: 48 }} tintColor={colors.label} />', "<Image source={require('../../../assets/images/baarali-tile.png')} style={{ width: 48, height: 48 }} />"),
+      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, '<Image source="sf:sailboat" style={{ width: 48, height: 48 }} tintColor={colors.label} />', "<Image source={require('../../../../assets/images/baarali-tile.png')} style={{ width: 48, height: 48 }} />"),
       // Never the upstream's Spaces fleet: ours (decided 02/10/2026,
       // packages/spaces). A build with EXPO_PUBLIC_SPACES_APEX empty opens on
       // « Connect your Mac » and Spaces says it is coming.

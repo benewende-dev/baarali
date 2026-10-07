@@ -1,9 +1,7 @@
 import { Stack } from 'expo-router';
-import { DrawerActions } from 'expo-router/react-navigation';
-import { Pressable, useColorScheme } from 'react-native';
-import { Image } from 'expo-image';
+import { useColorScheme } from 'react-native';
 
-// Spaces is a stack inside the drawer: the org/space list → a space's chat
+// Spaces is a stack inside its tab: the org/space list → a space's chat
 // pushes with a native back button (same shape as the notes section).
 export default function SpacesLayout() {
   const colorScheme = useColorScheme();
@@ -15,17 +13,7 @@ export default function SpacesLayout() {
         headerTintColor: tint,
       }}
     >
-      <Stack.Screen
-        name="index"
-        options={({ navigation }) => ({
-          title: 'Spaces',
-          headerLeft: () => (
-            <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} hitSlop={10}>
-              <Image source="sf:line.3.horizontal" style={{ width: 22, height: 22 }} tintColor={tint} />
-            </Pressable>
-          ),
-        })}
-      />
+      <Stack.Screen name="index" options={{ title: 'Spaces' }} />
       {/* Title set by the screen from its params; native back chevron, no label. */}
       <Stack.Screen name="chat" options={{ title: '', headerBackButtonDisplayMode: 'minimal' }} />
       <Stack.Screen name="thread" options={{ title: 'Thread', headerBackButtonDisplayMode: 'minimal' }} />

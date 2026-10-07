@@ -1,4 +1,4 @@
-import { Redirect, router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { sessions as sessionsShared } from '@x/shared';
-import type { DrawerNavigationProp } from 'expo-router/drawer';
 
 import * as analytics from '@/lib/analytics';
 import { ModelPill } from '@/components/model-picker';
@@ -100,17 +99,17 @@ function Turn({ turnId, isLatest, onStreaming, onFinished }: {
   );
 }
 
-// Mac chat — reachable once a Mac is paired (Spaces is the app's home).
+// A conversation, pushed over the tabs. `talk`: open straight into a spoken
+// conversation (the voice button of the home tab).
 export default function ChatScreen() {
-  const params = useLocalSearchParams<{ id?: string; agent?: string; draft?: string }>();
-  const navigation = useNavigation<DrawerNavigationProp<Record<string, undefined>>>();
+  const params = useLocalSearchParams<{ id?: string; agent?: string; draft?: string; talk?: string }>();
   return (
     <ChatView
       id={params.id || null}
       agent={params.agent || null}
       initialDraft={params.draft}
+      talk={params.talk === '1'}
       onCreated={(sessionId) => router.setParams({ id: sessionId })}
-      onEmptyPress={() => navigation.openDrawer()}
     />
   );
 }
@@ -121,12 +120,13 @@ export default function ChatScreen() {
  * opened). `agent`: a new chat goes to that baarasseur. `embedded`: no
  * floating header above it.
  */
-export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false, initialDraft }: {
+export function ChatView({ id, agent, onCreated, embedded = false, initialDraft, talk = false }: {
   id: string | null;
   agent: string | null;
   onCreated: (sessionId: string) => void;
-  onEmptyPress?: () => void;
   embedded?: boolean;
+  /** Start listening at once, as a conversation. */
+  talk?: boolean;
   /** Text put in the composer, e.g. « New routine: » from the Routines screen. */
   initialDraft?: string;
 }) {
@@ -331,6 +331,14 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
     if (conversationOn.current) endConversation();
   }, [endConversation]);
 
+  // Opened by the voice button of the home tab: listening at once, once.
+  const talked = useRef(false);
+  useEffect(() => {
+    if (!talk || talked.current || !rpc) return;
+    talked.current = true;
+    void startConversation();
+  }, [talk, rpc, startConversation]);
+
   if (pairing === undefined) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
@@ -386,10 +394,10 @@ export function ChatView({ id, agent, onCreated, onEmptyPress, embedded = false,
             {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}
           </View>
         ) : (
-          <Pressable style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }} onPress={onEmptyPress}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <Text style={{ fontSize: 22, fontWeight: '600', color: colors.label }}>Rowboat</Text>
             <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>
-          </Pressable>
+          </View>
         )}
 
         {/* Composer — Claude-style card: input on top, model pill + send below */}

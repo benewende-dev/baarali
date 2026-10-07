@@ -1,14 +1,11 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import Drawer from 'expo-router/drawer';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Pressable, useColorScheme, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { useColorScheme } from 'react-native';
 
-import { GlassHamburger } from '@/components/glass-hamburger';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { DrawerContent } from '@/components/drawer-content';
+import { BackButton } from '@/components/back-button';
 import { registerWithMac } from '@/lib/push';
 import { useConnection } from '@/lib/connection';
 import { ConnectionProvider } from '@/lib/connection';
@@ -16,12 +13,12 @@ import { SpacesAccountProvider } from '@/lib/spaces/account';
 
 SplashScreen.preventAutoHideAsync();
 
-// Chat-first shell (Claude/ChatGPT pattern): the home route IS a chat; the
-// left drawer holds history, New chat, Brain, and settings. Everything else
-// (pairing, note view) stacks on top.
+// BAARALI(07/10/2026): tabs at the foot instead of the drawer (the founder's
+// call, mockup claude.ai/artifact/5hiVQMibobFRRitE7ictcw, artboards 15 and
+// 16): the everyday places in (tabs), everything else pushed over them with
+// a native back button.
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { width } = useWindowDimensions();
   // Nothing else hides the native splash — without this the release build
   // sits on the logo forever (Expo Go masks it).
   useEffect(() => {
@@ -33,66 +30,38 @@ export default function RootLayout() {
         <ConnectionProvider>
           <SpacesAccountProvider>
           <PushRegistrar />
-          <Drawer
-            drawerContent={(props) => <DrawerContent {...props} />}
+          <Stack
             screenOptions={{
-              drawerType: 'slide',
-              drawerStyle: { width: 300 },
-              // A generous swipe zone (~30% of the screen) opens the drawer;
-              // pushed screens keep their own edge back-gesture.
-              swipeEdgeWidth: width * 0.3,
               headerShadowVisible: false,
               headerTintColor: colorScheme === 'dark' ? '#ffffff' : '#000000',
+              headerBackButtonDisplayMode: 'minimal',
             }}
           >
-            {/* Home just redirects into Spaces (or first-launch onboarding). */}
-            <Drawer.Screen name="index" options={{ headerShown: false }} />
-            <Drawer.Screen name="onboarding" options={{ headerShown: false, swipeEnabled: false }} />
-            {/* Floating hamburger in a glass circle: transparent header, no divider. */}
-            <Drawer.Screen
+            {/* Home just redirects into the tabs (or first-launch onboarding). */}
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false, title: '' }} />
+            {/* Floating way back: transparent header, no divider (iOS draws the glass). */}
+            <Stack.Screen
               name="chat"
-              options={({ navigation }) => ({
-                title: 'Mac chat',
-                headerTitle: '',
+              options={{
                 headerTransparent: true,
-                headerLeft: () => <GlassHamburger onPress={() => navigation.openDrawer()} />,
-              })}
-            />
-            <Drawer.Screen name="spaces" options={{ title: 'Spaces', headerShown: false }} />
-            {/* BAARALI(06/10/2026): the baarasseurs, as contacts. */}
-            <Drawer.Screen name="baarasseurs" options={{ title: 'Baarasseurs', headerShown: false }} />
-            {/* BAARALI(06/10/2026): step 2 of the mobile mockup. */}
-            <Drawer.Screen name="email" options={{ title: 'Email', headerShown: false }} />
-            <Drawer.Screen name="tasks" options={{ title: 'Tasks', headerShown: true }} />
-            <Drawer.Screen name="routines" options={{ title: 'Routines', headerShown: true }} />
-            {/* BAARALI(06/10/2026): step 3 of the mobile mockup. */}
-            <Drawer.Screen name="meetings" options={{ title: 'Meetings', headerShown: true }} />
-            <Drawer.Screen name="projects" options={{ title: 'Projects', headerShown: true }} />
-            <Drawer.Screen name="apps" options={{ title: 'Apps and prompts', headerShown: true }} />
-            <Drawer.Screen name="settings" options={{ title: 'Settings', headerShown: true }} />
-            <Drawer.Screen
-              name="pairing"
-              options={({ navigation }) => ({
-                title: 'Connect your Mac',
                 headerTitle: '',
-                swipeEnabled: false,
-                headerShown: true,
-                // Same plain hamburger as the Spaces header.
-                headerLeft: () => (
-                  <Pressable onPress={() => navigation.openDrawer()} hitSlop={10} style={{ marginLeft: 16 }}>
-                    <Image
-                      source="sf:line.3.horizontal"
-                      style={{ width: 22, height: 22 }}
-                      tintColor={colorScheme === 'dark' ? '#ffffff' : '#000000'}
-                    />
-                  </Pressable>
-                ),
-              })}
+                headerBackVisible: false,
+                headerLeft: () => <BackButton />,
+              }}
             />
-            <Drawer.Screen name="notes" options={{ title: 'Library', headerShown: false }} />
-            <Drawer.Screen name="pair-dev" options={{ title: 'Dev pairing', headerShown: false }} />
-            <Drawer.Screen name="notifications" options={{ title: 'Notifications', headerShown: true }} />
-          </Drawer>
+            <Stack.Screen name="baarasseurs" options={{ headerShown: false }} />
+            <Stack.Screen name="notes" options={{ headerShown: false }} />
+            <Stack.Screen name="tasks" options={{ title: 'Tasks' }} />
+            <Stack.Screen name="routines" options={{ title: 'Routines' }} />
+            <Stack.Screen name="projects" options={{ title: 'Projects' }} />
+            <Stack.Screen name="apps" options={{ title: 'Apps and prompts' }} />
+            <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+            <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+            <Stack.Screen name="pairing" options={{ title: '' }} />
+            <Stack.Screen name="pair-dev" options={{ headerShown: false }} />
+          </Stack>
           </SpacesAccountProvider>
         </ConnectionProvider>
       </ThemeProvider>

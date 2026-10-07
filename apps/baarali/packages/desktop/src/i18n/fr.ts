@@ -3601,8 +3601,20 @@ export const FR: Dictionary = {
     "Sending the file to your Baarali space…": "Envoi du fichier vers votre espace Baarali…",
     "Sending the folder to your Baarali space…": "Envoi du dossier vers votre espace Baarali…",
     "This file is too big to send to your Baarali space (25 MB at most).": "Ce fichier est trop lourd pour votre espace Baarali (25 Mo au maximum).",
-    "This folder is too big to send to your Baarali space: more than 3000 files or 100 MB. Choose a smaller folder.": "Ce dossier est trop lourd pour votre espace Baarali : plus de 3 000 fichiers ou 100 Mo. Choisissez un dossier plus petit."
-
+    "This folder is too big to send to your Baarali space: more than 3000 files or 100 MB. Choose a smaller folder.": "Ce dossier est trop lourd pour votre espace Baarali : plus de 3 000 fichiers ou 100 Mo. Choisissez un dossier plus petit.",
+    // The mobile tabs (07/10/2026): the home tab and More.
+    "Ask, Baarali takes care of it…": "Demandez, Baarali s’en occupe…",
+    "Connect your computer": "Reliez votre ordinateur",
+    "Your chats and your baarasseurs show up here once the phone is linked to your Baarali.": "Vos discussions et vos baarasseurs apparaissent ici une fois le téléphone relié à votre Baarali.",
+    "No chats yet. Ask anything above, or tap the wave and talk.": "Aucune discussion pour l’instant. Demandez ce que vous voulez ci-dessus, ou touchez l’onde et parlez.",
+    "Create, change, see what they do": "Créer, modifier, voir ce qu’ils font",
+    "What you and your agents have to do": "Ce que vous et vos agents avez à faire",
+    "What Baarali does on its own, on time": "Ce que Baarali fait tout seul, à heure fixe",
+    "Your notes and files": "Vos notes et vos fichiers",
+    "Chats and files kept together": "Discussions et fichiers rangés ensemble",
+    "The mini-apps Baarali made for you": "Les mini-apps que Baarali vous a faites",
+    "Voice, model, notifications": "Voix, modèle, notifications",
+    "Your computer": "Votre ordinateur",
   },
   // Lines about people (apps/x renderer lib/spaces-membership.ts): the names
   // stay as written. Neutral wording, a name says nothing of a gender.

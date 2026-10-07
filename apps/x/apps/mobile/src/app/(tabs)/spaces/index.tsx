@@ -76,7 +76,7 @@ function SignIn() {
         const server = await connectInstance(session, Device.deviceName ?? 'iPhone');
         await pair({ url: server.url, token: server.key, name: 'Baarali' });
         if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/chat');
+        router.replace('/home');
       } catch (err) {
         // Signed in to Spaces all the same; the chats wait for the instance.
         say(err);
