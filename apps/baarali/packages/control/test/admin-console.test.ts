@@ -375,3 +375,67 @@ describe('Pixazo\'s models from the console', () => {
     expect((await post('boss', '/admin/api/media-models', { ids: ['veo'], set: { minPlan: 'platine' } })).status).toBe(400);
   });
 });
+
+describe('announcements', () => {
+  const draft = { text: 'Parle à Baarali, il te répond à voix haute.', button: 'Essayer', target: 'voice', audience: 'all', tone: 'info', endsAt: T0 + 14 * 86_400_000 };
+
+  it('publishes one banner at a time, shows it to the apps, and writes it down', async () => {
+    const { as, post, app, tick } = setup();
+    expect((await post('boss', '/admin/api/announcements', draft)).status).toBe(201);
+    tick(1000);
+    const second = await post('boss', '/admin/api/announcements', { ...draft, text: 'Les baarasseurs arrivent', target: 'none' });
+    expect(second.status).toBe(201);
+    const { data } = (await (await as('boss', '/admin/api/announcements')).json()) as { data: Array<{ text: string; status: string }> };
+    expect(data.map((a) => [a.text, a.status])).toEqual([['Les baarasseurs arrivent', 'live'], [draft.text, 'removed']]);
+
+    const seen = (await (await app.request('/v1/announcement', { headers: { authorization: 'Bearer tok-awa' } })).json()) as { announcement: { text: string; button: string | null } };
+    expect(seen.announcement).toMatchObject({ text: 'Les baarasseurs arrivent', button: null });
+
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ action: string }> };
+    expect(journal.data.filter((e) => e.action === 'announcement')).toHaveLength(2);
+  });
+
+  it('refuses a bad banner with words the console shows', async () => {
+    const { post } = setup();
+    const res = await post('boss', '/admin/api/announcements', { ...draft, target: 'link', link: 'http://x.test' });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/https/);
+  });
+
+  it('is published by an admin only, and never by a cookie alone', async () => {
+    const { post, as } = setup();
+    expect((await post('awa', '/admin/api/announcements', draft)).status).toBe(404);
+    const forged = await as('boss', '/admin/api/announcements', { method: 'POST', body: JSON.stringify(draft), write: false });
+    expect(forged.status).toBe(403);
+  });
+
+  it('withdraws, and counts views, clicks and closes once per person', async () => {
+    const { as, post, app } = setup();
+    const { id } = (await (await post('boss', '/admin/api/announcements', draft)).json()) as { id: string };
+    const send = (token: string, kind: string) =>
+      app.request(`/v1/announcement/${id}/events`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ kind }) });
+    expect(((await (await send('tok-awa', 'view')).json()) as { counted: boolean }).counted).toBe(true);
+    expect(((await (await send('tok-awa', 'view')).json()) as { counted: boolean }).counted).toBe(false);
+    await send('tok-owner', 'view');
+    await send('tok-awa', 'click');
+    expect((await send('tok-awa', 'nope')).status).toBe(400);
+    // Closed: that person no longer gets it; the others still do.
+    await send('tok-awa', 'dismiss');
+    const read = async (token: string) =>
+      ((await (await app.request('/v1/announcement', { headers: { authorization: `Bearer ${token}` } })).json()) as { announcement: unknown }).announcement;
+    expect(await read('tok-awa')).toBeNull();
+    expect(await read('tok-owner')).not.toBeNull();
+
+    const { data } = (await (await as('boss', '/admin/api/announcements')).json()) as { data: Array<{ stats: unknown }> };
+    expect(data[0].stats).toEqual({ view: 2, click: 1, dismiss: 1 });
+
+    expect((await post('boss', `/admin/api/announcements/${id}/remove`)).status).toBe(200);
+    expect(await read('tok-owner')).toBeNull();
+    expect((await post('boss', '/admin/api/announcements/ann_none/remove')).status).toBe(404);
+  });
+
+  it('asks the apps for their own token', async () => {
+    const { app } = setup();
+    expect((await app.request('/v1/announcement')).status).toBe(401);
+  });
+});

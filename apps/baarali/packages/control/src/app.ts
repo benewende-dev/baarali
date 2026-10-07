@@ -5,6 +5,7 @@ import { buildApiConfig } from './config.js';
 import { OPENROUTER_BASE, proxyLlm, type ProxyDeps } from './llm-proxy.js';
 import { ModelCatalog, UpstreamModels } from './model-catalog.js';
 import { isAdmin, topUpMedia, type SoldPack } from './admin.js';
+import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner } from './announcements.js';
 import { mountAdminConsole } from './admin-console.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -139,6 +140,8 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/media/*', authed);
   app.use('/v1/spaces/*', authed);
   app.use('/v1/voice/*', authed);
+  app.use('/v1/announcement', authed);
+  app.use('/v1/announcement/*', authed);
 
   // A cloud instance trades its token for a Spaces one (core
   // auth/spaces-exchange.ts): Spaces verify only our signed JWTs.
@@ -200,6 +203,28 @@ export function createApp(deps: ControlDeps) {
       ? speak({ ...deps, deepgramKey: deps.deepgramKey }, c.get('account'), c.req.param('voiceId'), c.req.raw)
       : c.json({ error: { code: 'voice_unavailable', message: 'Voice is not configured' } }, 503),
   );
+  // The banner at the top of the Chat (07/10/2026): the newest one meant
+  // for the account's plan, unless the person closed it.
+  app.get('/v1/announcement', async (c) => {
+    const account = c.get('account');
+    const plan = await deps.store.plan(account.planId);
+    const now = deps.now();
+    const top = bannerFor(await deps.store.announcements(20), plan, () => false, now);
+    if (!top || (await deps.store.announcementEventsOf(top.id, account.id)).includes('dismiss')) return c.json({ announcement: null });
+    return c.json({ announcement: publicBanner(top) });
+  });
+
+  // Seen, followed or closed: counted once per person and kind.
+  app.post('/v1/announcement/:id/events', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { kind?: unknown } | null;
+    const kind = body?.kind;
+    if (typeof kind !== 'string' || !(ANNOUNCEMENT_EVENTS as readonly string[]).includes(kind)) {
+      return c.json({ error: { code: 'invalid_request', message: `kind: one of ${ANNOUNCEMENT_EVENTS.join(', ')}` } }, 400);
+    }
+    const counted = await deps.store.recordAnnouncementEvent(c.req.param('id'), c.get('account').id, kind as (typeof ANNOUNCEMENT_EVENTS)[number], deps.now());
+    return c.json({ counted });
+  });
+
   app.get('/v1/media/models', (c) => listMediaModels({ ...deps, models }, c.get('account')));
   app.get('/v1/media/balance', (c) => mediaBalance(deps, c.get('account')));
   app.get('/v1/media/history', (c) => mediaHistory(deps, c.get('account')));

@@ -1,3 +1,4 @@
+import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import { isStrength, type ModelSetting } from './model-access.js';
 import type { Db, Queryable } from './db.js';
 import type { QuotaState } from './quota.js';
@@ -375,5 +376,64 @@ export class PgStore implements ControlStore {
       [limit, accountId ?? null],
     );
     return rows.map((r) => ({ at: new Date(r.at).getTime(), actor: r.actor, action: r.action, accountId: r.account_id, detail: r.detail }));
+  }
+
+  async announcements(limit: number): Promise<Announcement[]> {
+    const { rows } = await this.db.query<{
+      id: string; text: string; button: string | null; target: Announcement['target']; link: string | null;
+      audience: Announcement['audience']; tone: Announcement['tone']; starts_at: Date | string; ends_at: Date | string;
+      created_at: Date | string; created_by: string; removed_at: Date | string | null;
+    }>(
+      `SELECT id, text, button, target, link, audience, tone, starts_at, ends_at, created_at, created_by, removed_at
+         FROM baarali.announcements ORDER BY created_at DESC, id DESC LIMIT $1`,
+      [limit],
+    );
+    const t = (d: Date | string) => new Date(d).getTime();
+    return rows.map((r) => ({
+      id: r.id, text: r.text, button: r.button, target: r.target, link: r.link, audience: r.audience, tone: r.tone,
+      startsAt: t(r.starts_at), endsAt: t(r.ends_at), createdAt: t(r.created_at), createdBy: r.created_by,
+      removedAt: r.removed_at === null ? null : t(r.removed_at),
+    }));
+  }
+
+  async saveAnnouncement(a: Announcement) {
+    await this.db.query(
+      `INSERT INTO baarali.announcements (id, text, button, target, link, audience, tone, starts_at, ends_at, created_at, created_by, removed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, button = EXCLUDED.button, target = EXCLUDED.target, link = EXCLUDED.link,
+         audience = EXCLUDED.audience, tone = EXCLUDED.tone, starts_at = EXCLUDED.starts_at, ends_at = EXCLUDED.ends_at,
+         removed_at = EXCLUDED.removed_at`,
+      [a.id, a.text, a.button, a.target, a.link, a.audience, a.tone, new Date(a.startsAt), new Date(a.endsAt), new Date(a.createdAt), a.createdBy, date(a.removedAt)],
+    );
+  }
+
+  async recordAnnouncementEvent(id: string, accountId: string, kind: AnnouncementEvent, at: number) {
+    const { rows } = await this.db.query(
+      `INSERT INTO baarali.announcement_events (announcement_id, account_id, kind, at)
+       SELECT $1, $2, $3, $4 WHERE EXISTS (SELECT 1 FROM baarali.announcements WHERE id = $1)
+       ON CONFLICT DO NOTHING RETURNING announcement_id`,
+      [id, accountId, kind, new Date(at)],
+    );
+    return rows.length > 0;
+  }
+
+  async announcementEventsOf(id: string, accountId: string): Promise<AnnouncementEvent[]> {
+    const { rows } = await this.db.query<{ kind: AnnouncementEvent }>(
+      'SELECT kind FROM baarali.announcement_events WHERE announcement_id = $1 AND account_id = $2',
+      [id, accountId],
+    );
+    return rows.map((r) => r.kind);
+  }
+
+  async announcementStats(ids: string[]): Promise<Record<string, AnnouncementStats>> {
+    const stats: Record<string, AnnouncementStats> = Object.fromEntries(ids.map((id) => [id, { view: 0, click: 0, dismiss: 0 }]));
+    if (ids.length === 0) return stats;
+    const { rows } = await this.db.query<{ announcement_id: string; kind: AnnouncementEvent; n: unknown }>(
+      `SELECT announcement_id, kind, count(*) AS n FROM baarali.announcement_events
+        WHERE announcement_id = ANY($1::text[]) GROUP BY announcement_id, kind`,
+      [ids],
+    );
+    for (const r of rows) stats[r.announcement_id][r.kind] = num(r.n);
+    return stats;
   }
 }

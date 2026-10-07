@@ -216,6 +216,27 @@ describe.each([
     await store.saveInstance(record);
     expect(await store.allInstances()).toEqual([record]);
   });
+
+  it('keeps announcements, newest first, and counts each person once per kind', async () => {
+    const store = await make();
+    const base = { button: null, target: 'none' as const, link: null, audience: 'all' as const, tone: 'info' as const, startsAt: T0, endsAt: T0 + 86_400_000, createdBy: 'a@x', removedAt: null };
+    await store.saveAnnouncement({ ...base, id: 'ann_1', text: 'Un', createdAt: T0 });
+    await store.saveAnnouncement({ ...base, id: 'ann_2', text: 'Deux', createdAt: T0 + 1 });
+    await store.saveAnnouncement({ ...base, id: 'ann_1', text: 'Un', createdAt: T0, removedAt: T0 + 5 });
+    expect((await store.announcements(10)).map((a) => [a.id, a.removedAt])).toEqual([['ann_2', null], ['ann_1', T0 + 5]]);
+
+    expect(await store.recordAnnouncementEvent('ann_2', ME.id, 'view', T0)).toBe(true);
+    expect(await store.recordAnnouncementEvent('ann_2', ME.id, 'view', T0 + 9)).toBe(false);
+    expect(await store.recordAnnouncementEvent('ann_2', OTHER.id, 'view', T0)).toBe(true);
+    expect(await store.recordAnnouncementEvent('ann_2', ME.id, 'dismiss', T0)).toBe(true);
+    // An announcement that does not exist counts nothing.
+    expect(await store.recordAnnouncementEvent('ann_x', ME.id, 'view', T0)).toBe(false);
+    expect((await store.announcementEventsOf('ann_2', ME.id)).sort()).toEqual(['dismiss', 'view']);
+    expect(await store.announcementStats(['ann_1', 'ann_2'])).toEqual({
+      ann_1: { view: 0, click: 0, dismiss: 0 },
+      ann_2: { view: 2, click: 0, dismiss: 1 },
+    });
+  });
 });
 
 describe('linking an account to a sign-in', () => {

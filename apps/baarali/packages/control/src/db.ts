@@ -196,6 +196,33 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE baarali.instances ADD COLUMN keys integer NOT NULL DEFAULT 1;
   `,
+  // 7 — announcements (decided 07/10/2026): the banner at the top of the
+  // Chat, written in the admin console. Events count each person once per
+  // kind; a dismiss keeps the banner closed for that account.
+  `
+  CREATE TABLE baarali.announcements (
+    id text PRIMARY KEY,
+    text text NOT NULL,
+    button text,
+    target text NOT NULL CHECK (target IN ('none', 'plans', 'usage', 'voice', 'link')),
+    link text,
+    audience text NOT NULL CHECK (audience IN ('all', 'free', 'paid')),
+    tone text NOT NULL CHECK (tone IN ('info', 'important')),
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL,
+    created_by text NOT NULL,
+    removed_at timestamptz
+  );
+
+  CREATE TABLE baarali.announcement_events (
+    announcement_id text NOT NULL REFERENCES baarali.announcements(id),
+    account_id text NOT NULL REFERENCES baarali.accounts(id),
+    kind text NOT NULL CHECK (kind IN ('view', 'click', 'dismiss')),
+    at timestamptz NOT NULL,
+    PRIMARY KEY (announcement_id, account_id, kind)
+  );
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

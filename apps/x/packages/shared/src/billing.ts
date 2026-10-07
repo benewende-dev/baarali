@@ -139,3 +139,21 @@ export const MediaCreditsSchema = z.object({
   costs: z.array(z.object({ kind: z.string(), name: z.string(), credits: z.number() })),
 });
 export type MediaCredits = z.infer<typeof MediaCreditsSchema>;
+
+// The banner at the top of the Chat (Baarali, 07/10/2026), written in the
+// admin console; control GET /v1/announcement. Null: none for this account.
+export const AnnouncementSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  /** The button's words; null: no button. */
+  button: z.string().nullable(),
+  target: z.enum(['none', 'plans', 'usage', 'voice', 'link']),
+  /** An https address, with `target: 'link'` only. */
+  link: z.string().nullable(),
+  tone: z.enum(['info', 'important']),
+  endsAt: z.string(),
+});
+export type Announcement = z.infer<typeof AnnouncementSchema>;
+
+export const AnnouncementEventKindSchema = z.enum(['view', 'click', 'dismiss']);
+export type AnnouncementEventKind = z.infer<typeof AnnouncementEventKindSchema>;

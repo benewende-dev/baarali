@@ -98,6 +98,7 @@ import { getBillingPlanData } from "@x/shared/dist/billing.js"
 import { ServiceEvent } from "@x/shared/src/service-events.js"
 import z from "zod"
 import { openPlans } from '@/lib/plans-window'
+import { OPEN_USAGE_EVENT } from '@/lib/announcement'
 import { UsagePopover } from '@/components/sidebar-session-gauge'
 
 interface TreeNode {
@@ -495,6 +496,12 @@ export function SidebarContentPanel({
   const [showOauthAlert, setShowOauthAlert] = useState(true)
   const [connectionsSettingsOpen, setConnectionsSettingsOpen] = useState(false)
   const [usageSettingsOpen, setUsageSettingsOpen] = useState(false)
+  // The Chat's banner may lead to the usage page (Baarali, 07/10/2026).
+  useEffect(() => {
+    const open = () => setUsageSettingsOpen(true)
+    window.addEventListener(OPEN_USAGE_EVENT, open)
+    return () => window.removeEventListener(OPEN_USAGE_EVENT, open)
+  }, [])
   const [openConnectionsAfterClose, setOpenConnectionsAfterClose] = useState(false)
   const connectorsButtonRef = useRef<HTMLButtonElement | null>(null)
   const [isRowboatConnected, setIsRowboatConnected] = useState(false)
