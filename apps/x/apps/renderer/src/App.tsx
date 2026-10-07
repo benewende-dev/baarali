@@ -131,6 +131,7 @@ import { baarasseurIdOf } from '@x/shared/dist/baarasseur.js'
 import { toast } from "sonner"
 import { useVoiceMode } from '@/hooks/useVoiceMode'
 import { isReadAloud, onReadAloudChange, speakableOpening } from '@/lib/read-aloud'
+import { registerConversationToggle, setConversationStatus, type ConversationOrigin } from '@/lib/voice-conversation'
 import { CALL_VOICE_HOLDER, acquireVoice, releaseVoice, useVoiceOwner, voiceOwnerId } from '@/lib/voice-ownership'
 import { useVideoMode } from '@/hooks/useVideoMode'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
@@ -1271,8 +1272,10 @@ function App() {
   ttsRef.current = tts
   // The composer's speaker switched off mid-reply: silence now, unless a call speaks.
   useEffect(() => onReadAloudChange(() => {
-    if (!isReadAloud() && !ttsEnabledRef.current) ttsRef.current.cancel()
+    if (!isReadAloud() && !ttsEnabledRef.current && !conversationRef.current) ttsRef.current.cancel()
   }), [])
+  // Conversation mode is on (see the engine below): every reply is read, like the speaker on.
+  const conversationRef = useRef(false)
 
   // Latest assistant line handed to TTS — shown as the caption in the
   // full-screen call view while the assistant is speaking.
@@ -1417,7 +1420,7 @@ function App() {
     while (readSpokenRef.current.count < chatVoiceSegments.length) {
       const segment = chatVoiceSegments[readSpokenRef.current.count]
       readSpokenRef.current.count += 1
-      if (isReadAloud() && !inCallRef.current) {
+      if ((isReadAloud() || conversationRef.current) && !inCallRef.current) {
         readTurnRef.current.spoke = true
         ttsRef.current.speak(segment)
       }
@@ -1427,7 +1430,7 @@ function App() {
     if (chatIsProcessing) return
     const turn = readTurnRef.current
     if (!turn.pending) return
-    if (!isReadAloud() || inCallRef.current || turn.spoke) {
+    if (!(isReadAloud() || conversationRef.current) || inCallRef.current || turn.spoke) {
       turn.pending = false
       return
     }
@@ -1730,6 +1733,102 @@ function App() {
     const holder = voiceOwnerId()
     if (holder && holder !== CALL_VOICE_HOLDER) releaseVoice(holder)
   }, [voice])
+
+  // Conversation mode (Baarali, 07/10/2026; lib/voice-conversation.ts): the
+  // composer's voice button. The mic stays open in the app window, each pause
+  // sends what was said to the open chat, the reply is read aloud by the
+  // reader above, then the mic listens again. Deaf while the assistant works
+  // and speaks, so it never hears itself. Another mic owner (dictation, a
+  // call) hangs it up.
+  const CONVERSATION_VOICE_HOLDER = 'conversation'
+  const [conversationOn, setConversationOn] = useState(false)
+  const conversationOriginRef = useRef<ConversationOrigin>('chat')
+  // Sent and not answered yet: the mic stays shut until the turn has run.
+  const conversationTurnRef = useRef<{ waiting: boolean; sawProcessing: boolean; sentAt: number }>({ waiting: false, sawProcessing: false, sentAt: 0 })
+  const stopConversation = useCallback(() => {
+    if (!conversationRef.current) return
+    conversationRef.current = false
+    conversationTurnRef.current.waiting = false
+    setConversationOn(false)
+    setConversationStatus('off')
+    voiceRef.current.cancel()
+    ttsRef.current.cancel()
+    readTurnRef.current.pending = false
+    if (voiceOwnerId() === CONVERSATION_VOICE_HOLDER) releaseVoice(CONVERSATION_VOICE_HOLDER)
+  }, [])
+  const startConversation = useCallback(async (origin: ConversationOrigin) => {
+    if (conversationRef.current || inCallRef.current) return
+    if (!(voiceAvailableRef.current && ttsAvailableRef.current)) {
+      notifyVoiceUnavailableRef.current?.('voice')
+      return
+    }
+    if (isRecordingRef.current) handleCancelRecording()
+    acquireVoice(CONVERSATION_VOICE_HOLDER, stopConversation)
+    conversationRef.current = true
+    conversationOriginRef.current = origin
+    conversationTurnRef.current = { waiting: false, sawProcessing: false, sentAt: 0 }
+    setConversationOn(true)
+    setConversationStatus('listening')
+    const result = await voiceRef.current.startHandsFree((text) => {
+      if (!conversationRef.current) return
+      voiceRef.current.listen(false)
+      conversationTurnRef.current = { waiting: true, sawProcessing: false, sentAt: Date.now() }
+      setConversationStatus('thinking')
+      playAckCue()
+      pendingVoiceInputRef.current = true
+      if (conversationOriginRef.current === 'home') {
+        // The first sentence opens a chat; the next ones go on in it.
+        conversationOriginRef.current = 'chat'
+        handleHomeComposerSubmitRef.current?.({ text, files: [] })
+      } else {
+        handlePromptSubmitRef.current?.({ text, files: [] })
+      }
+    })
+    if (result !== 'ok') {
+      stopConversation()
+      if (result === 'mic-denied') setPermissionDialog('microphone')
+    }
+  }, [handleCancelRecording, stopConversation])
+  useEffect(() => registerConversationToggle((origin) => {
+    if (conversationRef.current) stopConversation()
+    else void startConversation(origin)
+  }), [startConversation, stopConversation])
+  // Who has the floor: the assistant while it works or speaks, then the user again.
+  useEffect(() => {
+    if (!conversationOn) return
+    const turn = conversationTurnRef.current
+    if (turn.waiting) {
+      if (chatIsProcessing) turn.sawProcessing = true
+      else if (turn.sawProcessing) turn.waiting = false
+    }
+    if (tts.state !== 'idle') {
+      voiceRef.current.listen(false)
+      setConversationStatus('speaking')
+      return
+    }
+    if (turn.waiting || chatIsProcessing || readTurnRef.current.pending) {
+      voiceRef.current.listen(false)
+      setConversationStatus('thinking')
+      // A turn that never shows up, or a reply with nothing to read (an
+      // error), must not leave the mic shut for good.
+      const timer = setTimeout(() => {
+        if (!conversationRef.current || ttsRef.current.state !== 'idle') return
+        const stuck = turn.waiting
+          ? !turn.sawProcessing && Date.now() - turn.sentAt > 15_000
+          : !chatIsProcessing
+        if (!stuck) return
+        turn.waiting = false
+        readTurnRef.current.pending = false
+        voiceRef.current.listen(true)
+        setConversationStatus('listening')
+      }, turn.waiting ? 16_000 : 2_500)
+      return () => clearTimeout(timer)
+    }
+    voiceRef.current.listen(true)
+    setConversationStatus('listening')
+  }, [conversationOn, chatIsProcessing, chatConversation, tts.state])
+  // Leaving the app's window state behind (unmount) hangs up.
+  useEffect(() => () => stopConversation(), [stopConversation])
 
   // Start a call. Presets only differ in device defaults — the engine
   // (continuous listening, auto-submitted utterances, forced read-aloud TTS,
@@ -4383,7 +4482,7 @@ function App() {
     suppressSpeechTurnRef.current = submitInCall && !pendingVoiceInputRef.current
 
     // The composer's speaker: this reply gets read aloud (see the reader above).
-    if (!submitInCall && isReadAloud()) {
+    if (!submitInCall && (isReadAloud() || conversationRef.current)) {
       ttsRef.current.cancel()
       readTurnRef.current = { pending: true, submitAt: Date.now(), spoke: false }
     }
@@ -4510,7 +4609,7 @@ function App() {
               ...(pendingVoiceInputRef.current ? { voiceInput: true } : {}),
               // A call speaks in full; a typed chat with the speaker on, a summary.
               ...((submitInCall && ttsEnabledRef.current) ? { voiceOutput: ttsModeRef.current } : {}),
-              ...(!submitInCall && isReadAloud() ? { voiceOutput: 'summary' as const } : {}),
+              ...(!submitInCall && (isReadAloud() || conversationRef.current) ? { voiceOutput: 'summary' as const } : {}),
               ...(searchEnabled ? { searchEnabled: true } : {}),
               // Code-session pins: a bound chat always carries the session's
               // agent + cwd, so voice/quick-ask submits (which don't thread
@@ -4645,7 +4744,7 @@ function App() {
         })
         analytics.chatMessageSent({
           voiceInput: pendingVoiceInputRef.current || undefined,
-          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : !submitInCall && isReadAloud() ? 'summary' : undefined,
+          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : !submitInCall && (isReadAloud() || conversationRef.current) ? 'summary' : undefined,
           searchEnabled: searchEnabled || undefined,
         })
       } else {
@@ -4661,7 +4760,7 @@ function App() {
         })
         analytics.chatMessageSent({
           voiceInput: pendingVoiceInputRef.current || undefined,
-          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : !submitInCall && isReadAloud() ? 'summary' : undefined,
+          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : !submitInCall && (isReadAloud() || conversationRef.current) ? 'summary' : undefined,
           searchEnabled: searchEnabled || undefined,
         })
       }

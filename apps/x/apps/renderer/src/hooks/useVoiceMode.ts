@@ -20,6 +20,9 @@ const DEEPGRAM_PARAMS = new URLSearchParams({
     language: 'multi',
     endpointing: '100',
     no_delay: 'true',
+    // Conversation mode's turn end: an UtteranceEnd message after this much
+    // silence. The other modes ignore it.
+    utterance_end_ms: '1200',
 });
 // While the mic is paused (PTT gate closed), keep the idle Deepgram socket
 // alive — it closes after ~10s without audio otherwise.
@@ -60,6 +63,8 @@ export function useVoiceMode() {
     // Push-to-talk call mode: invoked with the utterance captured between
     // pttBegin() and pttEnd().
     const pttCbRef = useRef<((text: string) => void) | null>(null);
+    // Conversation mode: invoked with each utterance once the speaker pauses.
+    const handsFreeCbRef = useRef<((text: string) => void) | null>(null);
     // While true (PTT gate closed), mic audio is dropped instead of streamed.
     const pausedRef = useRef(false);
     const keepAliveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -126,6 +131,20 @@ export function useVoiceMode() {
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
 
+            // Conversation mode: the speaker paused, so the turn is over.
+            if (data.type === 'UtteranceEnd') {
+                const cb = handsFreeCbRef.current;
+                if (!cb || pausedRef.current) return;
+                let text = transcriptBufferRef.current;
+                if (interimRef.current) text += (text ? ' ' : '') + interimRef.current;
+                text = text.trim();
+                transcriptBufferRef.current = '';
+                interimRef.current = '';
+                setInterimText('');
+                if (text) cb(text);
+                return;
+            }
+
             if (!data.channel?.alternatives?.[0]) return;
             const transcript = data.channel.alternatives[0].transcript;
 
@@ -152,9 +171,9 @@ export function useVoiceMode() {
             wsRef.current = null;
             // A PTT call is long-lived — if the socket drops while the call
             // is still on, reconnect instead of silently going deaf.
-            if (pttCbRef.current) {
+            if (pttCbRef.current || handsFreeCbRef.current) {
                 setTimeout(() => {
-                    if (pttCbRef.current && !wsRef.current) {
+                    if ((pttCbRef.current || handsFreeCbRef.current) && !wsRef.current) {
                         void connectWs();
                     }
                 }, 1000);
@@ -224,6 +243,7 @@ export function useVoiceMode() {
             wsRef.current = null;
         }
         pttCbRef.current = null;
+        handsFreeCbRef.current = null;
         pausedRef.current = false;
         if (keepAliveTimerRef.current) {
             clearInterval(keepAliveTimerRef.current);
@@ -441,10 +461,32 @@ export function useVoiceMode() {
         setPaused(true);
     }, [setPaused]);
 
+    /**
+     * Conversation mode: the mic stays open and each utterance is handed to
+     * `onUtterance` when the speaker pauses (Deepgram's UtteranceEnd), with
+     * no key to hold. `listen(false)` deafens it while the assistant answers.
+     */
+    const startHandsFree = useCallback(async (onUtterance: (text: string) => void) => {
+        handsFreeCbRef.current = onUtterance;
+        const result = await start();
+        if (result !== 'ok') handsFreeCbRef.current = null;
+        return result;
+    }, [start]);
+
+    const listen = useCallback((on: boolean) => {
+        if (!handsFreeCbRef.current) return;
+        if (on && pausedRef.current) {
+            transcriptBufferRef.current = '';
+            interimRef.current = '';
+            setInterimText('');
+        }
+        setPaused(!on);
+    }, [setPaused]);
+
     /** Pre-cache auth details so mic click skips IPC round-trips */
     const warmup = useCallback(() => {
         refreshAuth().catch(() => {});
     }, [refreshAuth]);
 
-    return { state, interimText, audioLevelsRef, start, submit, cancel, warmup, startPtt, pttBegin, pttEnd, pttCancel };
+    return { state, interimText, audioLevelsRef, start, submit, cancel, warmup, startPtt, pttBegin, pttEnd, pttCancel, startHandsFree, listen };
 }
