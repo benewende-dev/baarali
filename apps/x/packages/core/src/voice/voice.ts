@@ -166,7 +166,7 @@ export async function transcribeAudio(audio: Buffer, opts?: { mimeType?: string 
     console.log('[voice] transcribing audio, bytes:', audio.length);
 
     if (await isSignedIn()) {
-        return transcribeViaProxy(audio);
+        return transcribeViaAccount(audio, opts?.mimeType);
     }
 
     const config = await getVoiceConfig();
@@ -195,7 +195,31 @@ export async function transcribeAudio(audio: Buffer, opts?: { mimeType?: string 
 }
 
 /**
- * Signed-in path: the account WS proxy only exposes Deepgram's live API, so
+ * Signed-in path (Baarali, 07/10/2026): the whole recording to the account's
+ * pre-recorded route, which reads any container (an iPhone's m4a included);
+ * an api without it (404) falls back to streaming through the live socket.
+ */
+async function transcribeViaAccount(audio: Buffer, mimeType?: string): Promise<{ transcript: string }> {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/voice/transcribe`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': mimeType || 'application/octet-stream',
+        },
+        body: new Uint8Array(audio),
+    });
+    if (response.status === 404) return transcribeViaProxy(audio);
+    if (!response.ok) {
+        const errText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`ASR API error ${response.status}: ${errText}`);
+    }
+    const result = await response.json() as { transcript?: string };
+    return { transcript: (result.transcript ?? '').trim() };
+}
+
+/**
+ * Fallback signed-in path: the account WS proxy only exposes Deepgram's live API, so
  * the buffer is streamed through it in chunks and the final transcripts are
  * collected until the server closes after CloseStream.
  */
