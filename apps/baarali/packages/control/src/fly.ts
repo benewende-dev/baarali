@@ -24,7 +24,8 @@ export interface Machine {
   id: string;
   /** created, started, stopped, suspended, … : https://fly.io/docs/machines/machine-states/ */
   state: string;
-  config: { image: string };
+  /** What the control plane reads back: the image, and the disks it mounts. */
+  config: { image: string; mounts?: Array<{ volume: string; path: string }> };
 }
 
 /** https://fly.io/docs/machines/api/volumes-resource/ ; the block counts only while attached. */
