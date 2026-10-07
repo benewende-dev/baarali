@@ -130,6 +130,7 @@ import { AgentScheduleState } from '@x/shared/dist/agent-schedule-state.js'
 import { baarasseurIdOf } from '@x/shared/dist/baarasseur.js'
 import { toast } from "sonner"
 import { useVoiceMode } from '@/hooks/useVoiceMode'
+import { isReadAloud, onReadAloudChange } from '@/lib/read-aloud'
 import { CALL_VOICE_HOLDER, acquireVoice, releaseVoice, useVoiceOwner, voiceOwnerId } from '@/lib/voice-ownership'
 import { useVideoMode } from '@/hooks/useVideoMode'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
@@ -1268,6 +1269,10 @@ function App() {
   const tts = useVoiceTTS()
   const ttsRef = useRef(tts)
   ttsRef.current = tts
+  // The composer's speaker switched off mid-reply: silence now, unless a call speaks.
+  useEffect(() => onReadAloudChange(() => {
+    if (!isReadAloud() && !ttsEnabledRef.current) ttsRef.current.cancel()
+  }), [])
 
   // Latest assistant line handed to TTS — shown as the caption in the
   // full-screen call view while the assistant is speaking.
@@ -3902,7 +3907,7 @@ function App() {
             while ((voiceMatch = voiceRegex.exec(remaining)) !== null) {
               const voiceContent = voiceMatch[1].trim()
               console.log('[voice] extracted voice tag:', voiceContent)
-              if (voiceContent && ttsEnabledRef.current) {
+              if (voiceContent && (ttsEnabledRef.current || isReadAloud())) {
                 ttsRef.current.speak(voiceContent)
                 setAssistantCaption(voiceContent)
               }
@@ -4451,7 +4456,9 @@ function App() {
             composition: {
               workDirId: currentRunId,
               ...(pendingVoiceInputRef.current ? { voiceInput: true } : {}),
+              // A call speaks in full; a typed chat with the speaker on, a summary.
               ...((submitInCall && ttsEnabledRef.current) ? { voiceOutput: ttsModeRef.current } : {}),
+              ...(!submitInCall && isReadAloud() ? { voiceOutput: 'summary' as const } : {}),
               ...(searchEnabled ? { searchEnabled: true } : {}),
               // Code-session pins: a bound chat always carries the session's
               // agent + cwd, so voice/quick-ask submits (which don't thread
@@ -4586,7 +4593,7 @@ function App() {
         })
         analytics.chatMessageSent({
           voiceInput: pendingVoiceInputRef.current || undefined,
-          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : undefined,
+          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : !submitInCall && isReadAloud() ? 'summary' : undefined,
           searchEnabled: searchEnabled || undefined,
         })
       } else {
@@ -4602,7 +4609,7 @@ function App() {
         })
         analytics.chatMessageSent({
           voiceInput: pendingVoiceInputRef.current || undefined,
-          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : undefined,
+          voiceOutput: (submitInCall && ttsEnabledRef.current) ? ttsModeRef.current : !submitInCall && isReadAloud() ? 'summary' : undefined,
           searchEnabled: searchEnabled || undefined,
         })
       }

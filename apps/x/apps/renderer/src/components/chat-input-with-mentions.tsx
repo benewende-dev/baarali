@@ -29,6 +29,8 @@ import {
   Plus,
   ShieldCheck,
   Square,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react'
 
@@ -67,6 +69,7 @@ import { toInstance } from '@/lib/to-instance'
 import * as quickAskShortcut from '@x/shared/src/quick-ask-shortcut.js'
 import { useQuickAskShortcut } from '@/hooks/use-quick-ask-shortcut'
 import { isMac } from '@/lib/shortcut'
+import { setReadAloud, useReadAloud } from '@/lib/read-aloud'
 // Loaded when first opened: the settings bring the whole app's state with them.
 const SettingsDialog = lazy(() => import('@/components/settings-dialog').then((m) => ({ default: m.SettingsDialog })))
 
@@ -315,6 +318,7 @@ function ChatInputInner({
   placeholder,
   focusSignal,
 }: ChatInputInnerProps) {
+  const readAloud = useReadAloud()
   const controller = usePromptInputController()
   const message = controller.textInput.value
   // The summon chord is user-configurable and platform-formatted — never
@@ -1171,6 +1175,27 @@ function ChatInputInner({
               {inCall || callAvailable
                 ? `Open hover mode (${summonShortcutLabel})`
                 : 'Hover mode needs voice input and output configured'}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {voiceAvailable && onStartRecording && (
+          <Tooltip delayDuration={CHAT_INPUT_TOOLTIP_DELAY_MS}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setReadAloud(!readAloud)}
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted',
+                  readAloud ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                )}
+                aria-label="Read replies aloud"
+                aria-pressed={readAloud}
+              >
+                {readAloud ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {readAloud ? 'Read replies aloud: on' : 'Read replies aloud: off'}
             </TooltipContent>
           </Tooltip>
         )}

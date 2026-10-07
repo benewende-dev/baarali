@@ -3152,6 +3152,10 @@ export const FR: Dictionary = {
     "Waiting": "En attente",
     "WebSocket failed to connect": "La connexion WebSocket a échoué",
     "Voice input is unavailable right now. Try again in a few minutes.": "La dictée est indisponible pour le moment. Réessayez dans quelques minutes.",
+    // The composer's speaker (07/10/2026): replies of a typed chat read aloud.
+    "Read replies aloud": "Lire les réponses à voix haute",
+    "Read replies aloud: on": "Lecture à voix haute : activée",
+    "Read replies aloud: off": "Lecture à voix haute : désactivée",
     "Weekdays at 5 PM": "En semaine à 17 h",
     "Weekdays at 9 AM": "En semaine à 9 h",
     "Went back in the active tab.": "Retour en arrière dans l’onglet actif.",
