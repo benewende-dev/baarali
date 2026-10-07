@@ -64,10 +64,8 @@ import {
 import { useSpacesMentionTargets } from '@/hooks/use-spaces-mention-targets'
 import { toast } from 'sonner'
 import { toInstance } from '@/lib/to-instance'
-import * as quickAskShortcut from '@x/shared/src/quick-ask-shortcut.js'
-import { useQuickAskShortcut } from '@/hooks/use-quick-ask-shortcut'
-import { isMac } from '@/lib/shortcut'
 import { setReadAloud, useReadAloud } from '@/lib/read-aloud'
+import { canToggleConversation, toggleConversation, useConversationStatus } from '@/lib/voice-conversation'
 // Loaded when first opened: the settings bring the whole app's state with them.
 const SettingsDialog = lazy(() => import('@/components/settings-dialog').then((m) => ({ default: m.SettingsDialog })))
 
@@ -317,13 +315,11 @@ function ChatInputInner({
   focusSignal,
 }: ChatInputInnerProps) {
   const readAloud = useReadAloud()
+  const conversation = useConversationStatus()
+  // Only the composer offering the voice button shows the conversation.
+  const inConversation = conversation !== 'off' && !!onStartCall
   const controller = usePromptInputController()
   const message = controller.textInput.value
-  // The summon chord is user-configurable and platform-formatted — never
-  // spell it out inline (the tooltip used to read "⌥⇧Space" on every OS,
-  // and stayed wrong after a rebind).
-  const summonShortcut = useQuickAskShortcut()
-  const summonShortcutLabel = quickAskShortcut.formatShortcut(summonShortcut.accelerator, isMac)
   const [attachments, setAttachments] = useState<StagedAttachment[]>(() => draftKey ? attachmentsByDraft.get(draftKey) ?? [] : [])
   useEffect(() => {
     if (!draftKey) return
@@ -815,6 +811,30 @@ function ChatInputInner({
             )}
           </Button>
         </div>
+      ) : inConversation ? (
+        /* ── Conversation bar ── */
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden">
+            {conversation === 'listening' && <VoiceWaveform audioLevelsRef={audioLevelsRef} />}
+            <div className="flex min-h-5 items-center gap-2 truncate text-sm leading-5 text-muted-foreground">
+              {conversation !== 'listening' && <LoaderIcon className="h-3.5 w-3.5 shrink-0 animate-spin" />}
+              {conversation === 'listening'
+                ? 'Listening… just talk, I answer when you pause.'
+                : conversation === 'thinking'
+                  ? 'Rowboat is working on it…'
+                  : 'Rowboat is answering…'}
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => toggleConversation(draftKey ? 'chat' : 'home')}
+            className="h-8 shrink-0 rounded-full px-3"
+          >
+            <X className="mr-1 h-3.5 w-3.5" />
+            End
+          </Button>
+        </div>
       ) : (
         /* ── Normal input ── */
         <>
@@ -1154,11 +1174,15 @@ function ChatInputInner({
               <button
                 type="button"
                 onClick={() => {
-                  if (inCall || callAvailable) onStartCall('voice')
+                  if (!inCall && canToggleConversation()) {
+                    if (callAvailable || inConversation) toggleConversation(draftKey ? 'chat' : 'home')
+                  } else if (inCall || callAvailable) onStartCall('voice')
                 }}
                 className={cn(
                   'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
-                  inCall && callOnThisChat
+                  inConversation
+                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    : inCall && callOnThisChat
                     ? 'bg-muted text-foreground hover:bg-muted/80'
                     : inCall || callAvailable
                       ? 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -1171,7 +1195,7 @@ function ChatInputInner({
             </TooltipTrigger>
             <TooltipContent side="top">
               {inCall || callAvailable
-                ? `Talk with Rowboat: speak, it answers aloud (${summonShortcutLabel})`
+                ? 'Talk with Rowboat: tap, speak naturally, it answers aloud'
                 : 'Talking with Rowboat needs voice input and output configured'}
             </TooltipContent>
           </Tooltip>
