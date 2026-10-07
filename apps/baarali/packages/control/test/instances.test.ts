@@ -249,6 +249,19 @@ describe('Instances keys and reach', () => {
     expect(fly.machines.get(record.machineId!)!.config.env.BAARALI_SERVER_KEY).toBe(instances.serverKey(ME.id));
   });
 
+  it('follows the disk the machine really mounts when the record lags (a disk replaced by hand)', async () => {
+    const { store, fly, instances } = setup();
+    const record = await instances.ensure(ME);
+    // The record still names the old disk; the machine mounts another one.
+    const machine = fly.machines.get(record.machineId!)!;
+    fly.machines.set(record.machineId!, { ...machine, state: 'suspended', config: { ...machine.config, mounts: [{ volume: 'vol_new', path: '/data' }] } });
+    await store.saveInstance({ ...record, image: 'registry.fly.io/baarali-instances:v1' });
+    await instances.wake(record);
+    expect(fly.machines.get(record.machineId!)!.config.mounts).toEqual([{ volume: 'vol_new', path: '/data' }]);
+    expect(fly.machines.get(record.machineId!)!.config.image).toBe(CONFIG.image);
+    expect((await store.instance(ME.id))!.volumeId).toBe('vol_new');
+  });
+
   it('starts a sleeping machine as it is when Fly refuses the image update, and tries again next time', async () => {
     const { store, fly, instances } = setup();
     const record = await instances.ensure(ME);

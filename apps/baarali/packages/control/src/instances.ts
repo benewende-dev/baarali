@@ -239,6 +239,7 @@ export class Instances {
     const app = record.app;
     try {
       const machine = await fly.machine(app, id);
+      await this.adoptMountedDisk(record, machine.config.mounts);
       if (machine.state !== 'started') {
         if (machine.state !== 'starting') {
           // Asleep on an old image (02/10/2026), or on a disk just grown
@@ -274,6 +275,21 @@ export class Instances {
       return;
     }
     this.awakeUntil.set(id, this.deps.now() + AWAKE_MS);
+  }
+
+  /**
+   * Fly's word on the disk wins (07/10/2026): a disk replaced by hand left the
+   * record on one Fly no longer knows, and every image update failed with
+   * « volume not found ». The machine says which one it mounts; the record
+   * follows, so the update and the disk's settings reach the right one.
+   */
+  private async adoptMountedDisk(record: InstanceRecord, mounts: MachineConfig['mounts'] | undefined): Promise<void> {
+    const mounted = mounts?.find((m) => m.path === '/data')?.volume ?? mounts?.[0]?.volume;
+    if (!mounted) return;
+    const current = await this.deps.store.instance(record.accountId);
+    if (!current?.managed || !current.volumeId || current.volumeId === mounted) return;
+    console.warn(`[instances] ${current.machineId} mounts ${mounted}, not ${current.volumeId}: record updated`);
+    await this.deps.store.saveInstance({ ...current, volumeId: mounted });
   }
 
   /** The stored record, not the caller's copy: another wake may have moved it already. */
@@ -366,6 +382,8 @@ export class Instances {
   /** From the admin console: onto the current image now, even if someone is using it. */
   async updateNow(record: InstanceRecord): Promise<boolean> {
     if (!(await this.outdated(record))) return false;
+    const { fly } = this.deps;
+    if (fly && record.machineId) await this.adoptMountedDisk(record, (await fly.machine(record.app, record.machineId)).config.mounts);
     await this.moveToImage(record);
     return true;
   }
