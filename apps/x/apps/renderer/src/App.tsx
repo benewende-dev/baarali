@@ -130,7 +130,7 @@ import { AgentScheduleState } from '@x/shared/dist/agent-schedule-state.js'
 import { baarasseurIdOf } from '@x/shared/dist/baarasseur.js'
 import { toast } from "sonner"
 import { useVoiceMode } from '@/hooks/useVoiceMode'
-import { isReadAloud, onReadAloudChange } from '@/lib/read-aloud'
+import { isReadAloud, onReadAloudChange, speakableOpening } from '@/lib/read-aloud'
 import { CALL_VOICE_HOLDER, acquireVoice, releaseVoice, useVoiceOwner, voiceOwnerId } from '@/lib/voice-ownership'
 import { useVideoMode } from '@/hooks/useVideoMode'
 import { useVoiceTTS } from '@/hooks/useVoiceTTS'
@@ -1245,6 +1245,8 @@ function App() {
   // TTS plays only during calls now (the standing read-aloud toggle was
   // retired; a per-message "read aloud" action may replace it later).
   const ttsEnabledRef = useRef(false)
+  // Whether the active reply was read through a <voice> summary (read-aloud fallback).
+  const spokeReplyRef = useRef(false)
   // Voice-to-voice latency marks for the current call turn (performance.now):
   // t0 = utterance accepted, submit = message sent, speak = first TTS
   // speak(). Emitted as call_turn_latency when audio actually starts.
@@ -3844,6 +3846,7 @@ function App() {
         // Reset voice buffer for new response
         voiceTextBufferRef.current = ''
         spokenIndexRef.current = 0
+        spokeReplyRef.current = false
         break
 
       case 'run-processing-end':
@@ -3855,6 +3858,12 @@ function App() {
         void loadRuns()
         clearStreamingBuffer(event.runId)
         if (!isActiveRun) return
+        // The speaker is on but the model gave no <voice> summary: read the
+        // reply's opening instead of staying silent (calls have their own net).
+        if (isReadAloud() && !ttsEnabledRef.current && !spokeReplyRef.current) {
+          const opening = speakableOpening(voiceTextBufferRef.current)
+          if (opening) ttsRef.current.speak(opening)
+        }
         setIsProcessing(false)
         setIsStopping(false)
         setStopClickedAt(null)
@@ -3908,6 +3917,7 @@ function App() {
               const voiceContent = voiceMatch[1].trim()
               console.log('[voice] extracted voice tag:', voiceContent)
               if (voiceContent && (ttsEnabledRef.current || isReadAloud())) {
+                spokeReplyRef.current = true
                 ttsRef.current.speak(voiceContent)
                 setAssistantCaption(voiceContent)
               }

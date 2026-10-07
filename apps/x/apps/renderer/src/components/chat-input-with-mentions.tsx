@@ -30,7 +30,6 @@ import {
   ShieldCheck,
   Square,
   Volume2,
-  VolumeX,
   X,
 } from 'lucide-react'
 
@@ -1183,15 +1182,21 @@ function ChatInputInner({
             <TooltipTrigger asChild>
               <button
                 type="button"
-                onClick={() => setReadAloud(!readAloud)}
+                onClick={() => {
+                  setReadAloud(!readAloud)
+                  // Nothing is heard until the next reply: say what changed.
+                  toast(readAloud ? 'Replies will no longer be read aloud.' : 'The next replies will be read aloud.')
+                }}
                 className={cn(
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted',
-                  readAloud ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors',
+                  readAloud
+                    ? 'bg-secondary text-foreground hover:bg-secondary/80'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
                 aria-label="Read replies aloud"
                 aria-pressed={readAloud}
               >
-                {readAloud ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                <Volume2 className="h-4 w-4" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="top">

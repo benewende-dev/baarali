@@ -3156,6 +3156,8 @@ export const FR: Dictionary = {
     "Read replies aloud": "Lire les réponses à voix haute",
     "Read replies aloud: on": "Lecture à voix haute : activée",
     "Read replies aloud: off": "Lecture à voix haute : désactivée",
+    "The next replies will be read aloud.": "Les prochaines réponses seront lues à voix haute.",
+    "Replies will no longer be read aloud.": "Les réponses ne seront plus lues à voix haute.",
     "Weekdays at 5 PM": "En semaine à 17 h",
     "Weekdays at 9 AM": "En semaine à 9 h",
     "Went back in the active tab.": "Retour en arrière dans l’onglet actif.",
