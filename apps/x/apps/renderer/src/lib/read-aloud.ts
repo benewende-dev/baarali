@@ -45,3 +45,25 @@ export function onReadAloudChange(listener: () => void): () => void {
 export function useReadAloud(): boolean {
   return useSyncExternalStore(onReadAloudChange, isReadAloud)
 }
+
+/**
+ * What to say of a reply that came without a <voice> summary: its opening,
+ * as plain text, cut after a sentence near 400 characters. Code, links and
+ * markup are not read; an empty string when nothing is left.
+ */
+export function speakableOpening(reply: string, max = 400): string {
+  const text = reply
+    .replace(/<voice>[\s\S]*?<\/voice>/g, ' ')
+    .replace(/```[\s\S]*?(```|$)/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/^\s{0,3}(#{1,6}|[-*+]|\d+\.|>)\s+/gm, '')
+    .replace(/[*_~|]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text.length <= max) return text
+  const window = text.slice(0, max)
+  const cut = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '))
+  return cut > max / 3 ? window.slice(0, cut + 1) : `${window.slice(0, window.lastIndexOf(' '))}…`
+}
