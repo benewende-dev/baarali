@@ -8,7 +8,8 @@ import { Pressable, useColorScheme } from 'react-native';
 export function BackButton() {
   const tint = useColorScheme() === 'dark' ? '#ffffff' : '#000000';
   return (
-    <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+    // Opened straight from a notification, there is nothing behind: home.
+    <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
       <Image source="sf:chevron.left" style={{ width: 20, height: 20 }} contentFit="contain" tintColor={tint} />
     </Pressable>
   );

@@ -26,7 +26,8 @@ export default function NotesLayout() {
         options={({ navigation }) => ({
           title: 'Note',
           headerBackButtonDisplayMode: 'minimal',
-          ...(navigation.canGoBack() ? {} : { headerLeft: () => <BackButton /> }),
+          // This stack's own history: canGoBack() would also count the tabs under it.
+          ...(navigation.getState().index > 0 ? {} : { headerLeft: () => <BackButton /> }),
         })}
       />
     </Stack>
