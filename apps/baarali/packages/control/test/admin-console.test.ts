@@ -38,6 +38,7 @@ const auth: BaaraliAuth = {
   userIdForAccessToken: async (t) => ({ 'at-awa': AWA.id })[t] ?? null,
   spacesTokenFor: async () => null,
   sessionUser: async (headers) => SESSIONS[headers.get('cookie')?.match(/session=(\w+)/)?.[1] ?? ''] ?? null,
+  userIdForSession: async () => null,
 };
 
 function setup(opts: { adminEmails?: string[]; noAuth?: boolean } = {}) {

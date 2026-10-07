@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { danceForTokens, discoverIssuer, refreshTokens, type SpacesTokens } from './oauth';
+import { spacesTokenForSession } from '@/lib/baarali-sign-in';
 import { registerWithHarbor } from '@/lib/push';
 
 // Spaces account state: ONE sign-in against the deployment's AS (discovered
@@ -30,6 +31,11 @@ interface StoredAccount {
   issuer: string;
   clientId: string;
   tokens: SpacesTokens;
+  /**
+   * Signed in with the app's own screens (Baarali, 07/10/2026): the
+   * session token renews the Spaces token, in place of an OAuth refresh.
+   */
+  session?: string;
 }
 
 export type SpacesAccountStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -40,6 +46,8 @@ interface SpacesAccount {
   orgs: SpacesOrg[] | null;
   orgsError: string | null;
   signIn: () => Promise<void>;
+  /** After the app's own sign-in screens: Spaces through that session. */
+  signInWithSession: (session: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshOrgs: () => Promise<void>;
   /** Fresh bearer for Harbor calls (auto-refreshes near expiry). */
@@ -89,7 +97,9 @@ export function SpacesAccountProvider({ children }: { children: ReactNode }) {
     if (!refreshing.current) {
       refreshing.current = (async () => {
         try {
-          const tokens = await refreshTokens(account.issuer, account.clientId, account.tokens.refresh);
+          const tokens = account.session
+            ? { ...(await spacesTokenForSession(account.session)), refresh: '' }
+            : await refreshTokens(account.issuer, account.clientId, account.tokens.refresh);
           // Persisted before anyone uses it: the old refresh token just died.
           await persist({ ...account, tokens });
           return tokens;
@@ -143,6 +153,12 @@ export function SpacesAccountProvider({ children }: { children: ReactNode }) {
     setStatus('signedIn');
   }, [persist]);
 
+  const signInWithSession = useCallback(async (session: string) => {
+    const tokens = { ...(await spacesTokenForSession(session)), refresh: '' };
+    await persist({ issuer: '', clientId: '', tokens, session });
+    setStatus('signedIn');
+  }, [persist]);
+
   const signOut = useCallback(async () => {
     await persist(null);
     void AsyncStorage.removeItem(ORGS_CACHE_KEY).catch(() => {});
@@ -152,8 +168,8 @@ export function SpacesAccountProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const value = useMemo(
-    () => ({ status, orgs, orgsError, signIn, signOut, refreshOrgs, getAccessToken }),
-    [status, orgs, orgsError, signIn, signOut, refreshOrgs, getAccessToken],
+    () => ({ status, orgs, orgsError, signIn, signInWithSession, signOut, refreshOrgs, getAccessToken }),
+    [status, orgs, orgsError, signIn, signInWithSession, signOut, refreshOrgs, getAccessToken],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

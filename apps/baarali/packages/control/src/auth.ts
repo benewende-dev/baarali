@@ -2,7 +2,7 @@ import { oauthProvider } from '@better-auth/oauth-provider';
 import { betterAuth, type BetterAuthOptions, type BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint, sessionMiddleware } from 'better-auth/api';
 import { getMigrations } from 'better-auth/db/migration';
-import { emailOTP, jwt, phoneNumber } from 'better-auth/plugins';
+import { bearer, emailOTP, jwt, phoneNumber } from 'better-auth/plugins';
 import { z } from 'zod';
 import { checkPhoneCode, newCode, smsAllowed, storePhoneCode, takeSend, type CodeSender } from './codes.js';
 import type { Queryable } from './db.js';
@@ -164,6 +164,12 @@ function authOptions(deps: AuthDeps) {
       // Spaces: Harbor accepts ES256 or RS256, not the EdDSA of the main key
       // (auth-oidc.ts, decided 02/10/2026).
       jwt({ jwks: { keyPairConfigs: [{ alg: 'ES256' }] } }),
+      // The phone app signs in with its own screens (07/10/2026): no browser,
+      // so no cookie jar. Each sign-in answers with the session's signed
+      // token in `set-auth-token`, and the app sends it back as a bearer.
+      // Signed tokens only: a device key or an OAuth token is never taken
+      // for a session.
+      bearer({ requireSignature: true }),
       passwordChoice(),
       emailOTP({
         otpLength: 6,
@@ -292,6 +298,8 @@ export interface BaaraliAuth {
   spacesTokenFor(accountId: string): Promise<{ token: string; expiresIn: number } | null>;
   /** Who this browser is signed in as (its session cookie), for the admin console; null when nobody. */
   sessionUser(headers: Headers): Promise<SessionUser | null>;
+  /** The user of the phone app's session (the signed token of a sign-in), or null. */
+  userIdForSession(token: string): Promise<string | null>;
 }
 
 export interface SessionUser {
@@ -364,6 +372,13 @@ export function createAuth(deps: AuthDeps): BaaraliAuth {
       const session = await auth.api.getSession({ headers }).catch(() => null);
       if (!session) return null;
       return { id: session.user.id, email: realEmail(session.user.email), emailVerified: Boolean(session.user.emailVerified) };
+    },
+
+    async userIdForSession(token: string): Promise<string | null> {
+      // Only the signed form (token.signature) can be a session here.
+      if (!token.includes('.')) return null;
+      const session = await auth.api.getSession({ headers: new Headers({ authorization: `Bearer ${token}` }) }).catch(() => null);
+      return session?.user.id ?? null;
     },
 
     async userIdForAccessToken(token: string): Promise<string | null> {

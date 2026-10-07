@@ -214,7 +214,8 @@ export function createApp(deps: ControlDeps) {
     const instances = deps.instances;
     const person = createMiddleware<Env>(async (c, next) => {
       const token = bearer(c.req.header('authorization'));
-      const userId = token ? await auth.userIdForAccessToken(token) : null;
+      // The desktop's OAuth access token, or the phone app's session.
+      const userId = token ? (await auth.userIdForAccessToken(token)) ?? (await auth.userIdForSession(token)) : null;
       const account = userId ? await deps.store.accountForUser(userId) : null;
       if (!account) return c.json({ error: { code: 'unauthorized' } }, 401);
       if (account.suspendedAt) return c.json({ error: { code: 'account_suspended' } }, 403);
@@ -223,6 +224,15 @@ export function createApp(deps: ControlDeps) {
     });
     app.use('/v1/devices', person);
     app.use('/v1/devices/*', person);
+    app.use('/v1/session/*', person);
+
+    // The phone app's Spaces token, renewed with its session (it has no
+    // OAuth refresh token: it signed in with its own screens).
+    app.post('/v1/session/spaces-token', async (c) => {
+      const traded = deps.spacesUrl ? await auth.spacesTokenFor(c.get('account').id) : null;
+      if (!traded) return c.json({ error: { code: 'not_found' } }, 404);
+      return c.json({ access_token: traded.token, token_type: 'Bearer', expires_in: traded.expiresIn });
+    });
 
     // The app calls this once signed in: the instance is created the first
     // time, and the device gets the key it will show the gateway.

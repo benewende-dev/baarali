@@ -16,8 +16,10 @@ const auth: BaaraliAuth = {
   methods: { email: true, phone: false, social: [] },
   handle: async () => new Response(null, { status: 404 }),
   userIdForAccessToken: async (t) => ({ 'at-me': ME.id, 'at-other': OTHER.id })[t] ?? null,
-  spacesTokenFor: async () => null,
+  spacesTokenFor: async (accountId) => (accountId === ME.id ? { token: 'spaces-jwt-me', expiresIn: 900 } : null),
   sessionUser: async () => null,
+  // The phone app's signed session token.
+  userIdForSession: async (t) => ({ 'session.me': ME.id })[t] ?? null,
 };
 
 const fly: FlyApi = {
@@ -47,6 +49,7 @@ function setup(maxInstances = 5) {
     store,
     openRouterKey: 'k',
     publicUrl: 'https://app.baarali.test',
+    spacesUrl: 'https://spaces.baarali.test',
     appName: 'Baarali',
     mediaPacks: [],
     auth,
@@ -92,6 +95,23 @@ describe('/v1/devices', () => {
     expect((await call('/instance/rpc/x', server.key)).status).not.toBe(401);
     expect((await call(`/v1/devices/${device.id}`, 'at-me', { method: 'DELETE' })).status).toBe(204);
     expect((await call('/instance/rpc/x', server.key)).status).toBe(401);
+  });
+
+  // 07/10/2026: the phone app signs in with its own screens and has a
+  // session, not an OAuth token. Same instance as the person's Mac.
+  it('takes the phone app\'s session, and renews its Spaces token with it', async () => {
+    const { store, call } = setup();
+    const res = await call('/v1/devices', 'session.me', { method: 'POST', body: JSON.stringify({ name: 'iPhone de Awa' }) });
+    expect(res.status).toBe(201);
+    const { server } = (await res.json()) as { server: { url: string; key: string } };
+    expect(server.url).toBe('https://app.baarali.test/instance');
+    expect((await store.deviceByKey(server.key))?.accountId).toBe(ME.id);
+
+    const spaces = await call('/v1/session/spaces-token', 'session.me', { method: 'POST' });
+    expect(await spaces.json()).toEqual({ access_token: 'spaces-jwt-me', token_type: 'Bearer', expires_in: 900 });
+    // Not with a device key, nor an unknown session.
+    expect((await call('/v1/session/spaces-token', server.key, { method: 'POST' })).status).toBe(401);
+    expect((await call('/v1/session/spaces-token', 'session.nobody', { method: 'POST' })).status).toBe(401);
   });
 
   it('caps the devices of one person', async () => {
