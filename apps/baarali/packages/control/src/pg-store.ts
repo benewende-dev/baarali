@@ -1,6 +1,7 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import { isStrength, type ModelSetting } from './model-access.js';
-import type { Delivery, Notice, NoticeEvent, NoticeStats } from './notifications.js';
+import type { AutoKind } from './auto-messages.js';
+import { AUTO_AUTHOR, type Delivery, type Notice, type NoticeEvent, type NoticeStats } from './notifications.js';
 import type { Db, Queryable } from './db.js';
 import type { QuotaState } from './quota.js';
 import {
@@ -350,6 +351,32 @@ export class PgStore implements ControlStore {
     return rows.length > 0;
   }
 
+  async autoMessageSettings() {
+    const { rows } = await this.db.query<{ kind: AutoKind; enabled: boolean }>('SELECT kind, enabled FROM baarali.auto_message_settings');
+    return Object.fromEntries(rows.map((r) => [r.kind, r.enabled]));
+  }
+
+  async setAutoMessage(kind: AutoKind, enabled: boolean, at: number) {
+    await this.db.query(
+      `INSERT INTO baarali.auto_message_settings (kind, enabled, updated_at) VALUES ($1, $2, $3)
+       ON CONFLICT (kind) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = EXCLUDED.updated_at`,
+      [kind, enabled, new Date(at)],
+    );
+  }
+
+  async claimAutoMessage(kind: AutoKind, accountId: string, period: string, at: number) {
+    const { rows } = await this.db.query(
+      'INSERT INTO baarali.auto_message_sends (kind, account_id, period, at) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING kind',
+      [kind, accountId, period, new Date(at)],
+    );
+    return rows.length > 0;
+  }
+
+  async autoMessageCounts() {
+    const { rows } = await this.db.query<{ kind: AutoKind; n: number }>('SELECT kind, count(*)::int AS n FROM baarali.auto_message_sends GROUP BY kind');
+    return Object.fromEntries(rows.map((r) => [r.kind, r.n]));
+  }
+
   async allInstances(): Promise<InstanceRecord[]> {
     const { rows } = await this.db.query<{ account_id: string; app: string; machine_id: string | null; volume_id: string | null; image: string | null; managed: boolean; keys: number }>(
       'SELECT account_id, app, machine_id, volume_id, image, managed, keys FROM baarali.instances ORDER BY created_at',
@@ -463,7 +490,10 @@ export class PgStore implements ControlStore {
   }
 
   async notifications(limit: number): Promise<Notice[]> {
-    const { rows } = await this.db.query<NoticeRow>(`SELECT ${NOTICE_COLUMNS} FROM baarali.notifications n ORDER BY n.created_at DESC, n.id DESC LIMIT $1`, [limit]);
+    const { rows } = await this.db.query<NoticeRow>(
+      `SELECT ${NOTICE_COLUMNS} FROM baarali.notifications n WHERE n.created_by NOT LIKE $2 ORDER BY n.created_at DESC, n.id DESC LIMIT $1`,
+      [limit, `${AUTO_AUTHOR}%`],
+    );
     return rows.map(toNotice);
   }
 

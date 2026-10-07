@@ -1,5 +1,6 @@
 import { fitCall, planLabeler, presentFor } from './model-access.js';
 import { ModelCatalog, type UpstreamModels } from './model-catalog.js';
+import type { AutoMessages } from './auto-messages.js';
 import type { Account, ControlStore } from './store.js';
 import {
   admit,
@@ -32,6 +33,8 @@ export interface ProxyDeps {
   models?: ModelCatalog;
   /** OpenRouter's list, to send a withdrawn model to the default; unset: every model passes. */
   upstreamModels?: UpstreamModels;
+  /** Tells the person their limit is reached, once per session or week; unset: nothing is sent. */
+  auto?: AutoMessages;
 }
 
 async function currentState(store: ControlStore, account: Account): Promise<QuotaState> {
@@ -155,6 +158,7 @@ export async function proxyLlm(deps: ProxyDeps, account: Account, req: Request):
   const before = await currentState(deps.store, account);
   const admission = admit(before, budgets, started);
   if (!admission.ok) {
+    deps.auto?.limitReached(account, admission.window, admission.resetsAt).catch((err) => console.error('[auto-messages] limit', err));
     return errorResponse(429, {
       code: 'quota_reached',
       window: admission.window,

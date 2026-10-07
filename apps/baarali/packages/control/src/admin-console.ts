@@ -4,6 +4,7 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { isAdmin, type SoldPack } from './admin.js';
 import { adminPage, deniedPage } from './admin-page.js';
 import { isLive, parseDraft, type Announcement } from './announcements.js';
+import { AUTO_KINDS, type AutoKind, type AutoMessages } from './auto-messages.js';
 import { audienceOf, emailable, parseNoticeDraft, sendNotice, type DispatchDeps, type Notice } from './notifications.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
 import { ASSUMPTIONS, OFFERS } from './catalog.js';
@@ -54,6 +55,7 @@ export interface ConsoleDeps {
   now: () => number;
   /** Notifications: the store, the clock and, when email is on, the mailer. */
   notices: DispatchDeps;
+  auto: AutoMessages;
 }
 
 /** One write touches this many models at most: a whole vendor fits, a slip does not empty the catalog. */
@@ -669,6 +671,25 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     return c.json({ changed: true });
   });
 
+  app.get('/admin/api/auto-messages', async (c) => {
+    const actor = await api(c, false);
+    if (actor instanceof Response) return actor;
+    const [on, counts] = await Promise.all([deps.auto.settings(), store.autoMessageCounts()]);
+    return c.json({ email: Boolean(deps.notices.mailer), data: AUTO_KINDS.map((kind) => ({ kind, enabled: on[kind], sent: counts[kind] ?? 0 })) });
+  });
+
+  app.post('/admin/api/auto-messages/:kind', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const kind = c.req.param('kind') as AutoKind;
+    if (!AUTO_KINDS.includes(kind)) return c.json({ error: { code: 'not_found' } }, 404);
+    const b = await body(c);
+    if (typeof b.enabled !== 'boolean') return c.json({ error: { code: 'invalid_request', message: 'enabled attendu.' } }, 400);
+    await deps.auto.set(kind, b.enabled);
+    await log(actor, 'auto-message', null, `Message automatique « ${AUTO_WORDS[kind]} » ${b.enabled ? 'activé' : 'coupé'}`);
+    return c.json({ kind, enabled: b.enabled });
+  });
+
   app.get('/admin/api/journal', async (c) => {
     const actor = await api(c, false);
     if (actor instanceof Response) return actor;
@@ -677,6 +698,13 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     return c.json({ data: entries.map((e) => ({ ...e, account: emailOf(e.accountId) })) });
   });
 }
+
+const AUTO_WORDS: Record<AutoKind, string> = {
+  limit: 'Limite atteinte',
+  media_low: 'Crédits médias presque épuisés',
+  inactive: 'Client inactif depuis 14 jours',
+  welcome: 'Bienvenue',
+};
 
 const INSTANCE_WORDS = { wake: 'Instance réveillée', update: 'Instance mise à jour', restart: 'Instance redémarrée' } as const;
 

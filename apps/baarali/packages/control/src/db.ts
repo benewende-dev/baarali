@@ -258,6 +258,23 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX notification_deliveries_account ON baarali.notification_deliveries (account_id, delivered_at DESC);
   `,
+  // 9 — automatic messages (07/10/2026): a switch per kind set from the
+  // console, and one row per message sent, so each leaves once per period.
+  `
+  CREATE TABLE baarali.auto_message_settings (
+    kind text PRIMARY KEY,
+    enabled boolean NOT NULL,
+    updated_at timestamptz NOT NULL
+  );
+
+  CREATE TABLE baarali.auto_message_sends (
+    kind text NOT NULL,
+    account_id text NOT NULL REFERENCES baarali.accounts(id),
+    period text NOT NULL,
+    at timestamptz NOT NULL,
+    PRIMARY KEY (kind, account_id, period)
+  );
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

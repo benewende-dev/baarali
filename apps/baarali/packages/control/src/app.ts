@@ -7,6 +7,7 @@ import { ModelCatalog, UpstreamModels } from './model-catalog.js';
 import { isAdmin, topUpMedia, type SoldPack } from './admin.js';
 import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner, reaches } from './announcements.js';
 import { mountAdminConsole } from './admin-console.js';
+import { AutoMessages } from './auto-messages.js';
 import { emailTarget, NOTICE_EVENTS, NoticeDispatcher, publicNotice, type Mailer, type NoticeLinks } from './notifications.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -54,6 +55,8 @@ export type ControlDeps = ProxyDeps & {
   noticeLinks?: NoticeLinks;
   /** Sends the due notifications; main.ts also runs it every minute. */
   notices?: NoticeDispatcher;
+  /** The automatic messages (limit reached, welcome…); main.ts shares it with the dispatcher. */
+  auto?: AutoMessages;
 };
 
 type Env = { Variables: { account: Account } };
@@ -95,7 +98,9 @@ export function createApp(deps: ControlDeps) {
       deps.now,
     );
   const app = new Hono<Env>();
-  const notices = deps.notices ?? new NoticeDispatcher({ store: deps.store, now: deps.now, mailer: deps.mailer, links: deps.noticeLinks });
+  const dispatch = { store: deps.store, now: deps.now, mailer: deps.mailer, links: deps.noticeLinks };
+  const auto = deps.auto ?? new AutoMessages(dispatch);
+  const notices = deps.notices ?? new NoticeDispatcher(dispatch, auto);
 
   app.get('/health', (c) => c.json({ ok: true }));
 
@@ -206,7 +211,7 @@ export function createApp(deps: ControlDeps) {
     });
   });
 
-  app.all('/v1/llm/*', (c) => proxyLlm({ ...deps, models, upstreamModels }, c.get('account'), c.req.raw));
+  app.all('/v1/llm/*', (c) => proxyLlm({ ...deps, models, upstreamModels, auto }, c.get('account'), c.req.raw));
 
   // A whole recording to text (voice.ts): the phone's push-to-talk, the apps' file transcription.
   app.post('/v1/voice/transcribe', (c) =>
@@ -319,7 +324,7 @@ export function createApp(deps: ControlDeps) {
   app.get('/v1/media/balance', (c) => mediaBalance(deps, c.get('account')));
   app.get('/v1/media/history', (c) => mediaHistory(deps, c.get('account')));
   app.get('/v1/media/packs', (c) => c.json({ data: deps.mediaPacks }));
-  app.post('/v1/media/generations', (c) => createGeneration({ ...deps, models }, c.get('account'), c.req.raw));
+  app.post('/v1/media/generations', (c) => createGeneration({ ...deps, models, auto }, c.get('account'), c.req.raw));
   app.get('/v1/media/generations/:id', (c) => getGeneration(deps, c.get('account'), c.req.param('id')));
 
   // Devices (security §2): only a signed-in person adds one, with the
@@ -396,7 +401,8 @@ export function createApp(deps: ControlDeps) {
     models,
     upstreamModels,
     now: deps.now,
-    notices: { store: deps.store, now: deps.now, mailer: deps.mailer, links: deps.noticeLinks },
+    notices: dispatch,
+    auto,
   });
 
   app.post('/v1/admin/media-credits', async (c) => {

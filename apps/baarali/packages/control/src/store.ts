@@ -1,6 +1,7 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import type { ModelSetting } from './model-access.js';
-import type { Delivery, Notice, NoticeEvent, NoticeStats } from './notifications.js';
+import type { AutoKind } from './auto-messages.js';
+import { AUTO_AUTHOR, type Delivery, type Notice, type NoticeEvent, type NoticeStats } from './notifications.js';
 import { createHash } from 'node:crypto';
 import type { ModelPolicy } from './models.js';
 import type { Money } from './pricing.js';
@@ -222,6 +223,13 @@ export interface ControlStore {
   notificationStats(ids: string[]): Promise<Record<string, NoticeStats>>;
   /** `at` stops the console's emails, null lets them again; false when there is no such account. */
   setEmailOptOut(accountId: string, at: number | null): Promise<boolean>;
+  /** The switches the owner touched in the console; a missing kind keeps its default. */
+  autoMessageSettings(): Promise<Partial<Record<AutoKind, boolean>>>;
+  setAutoMessage(kind: AutoKind, enabled: boolean, at: number): Promise<void>;
+  /** True the first time for this kind, account and period: an automatic message leaves once. */
+  claimAutoMessage(kind: AutoKind, accountId: string, period: string, at: number): Promise<boolean>;
+  /** How many of each kind left, for the console. */
+  autoMessageCounts(): Promise<Partial<Record<AutoKind, number>>>;
 }
 
 export class MemoryStore implements ControlStore {
@@ -232,6 +240,8 @@ export class MemoryStore implements ControlStore {
   private readonly bannerEvents: Array<{ id: string; accountId: string; kind: AnnouncementEvent; at: number }> = [];
   private readonly notices = new Map<string, Notice>();
   private readonly deliveries: Delivery[] = [];
+  private readonly autoSwitches = new Map<AutoKind, boolean>();
+  private readonly autoSends = new Set<string>();
   private readonly models = new Map<string, ModelSetting>();
   private readonly states = new Map<string, QuotaState>();
   private readonly jobs = new Map<string, MediaJob>();
@@ -439,8 +449,33 @@ export class MemoryStore implements ControlStore {
     }
     return stats;
   }
+  async autoMessageSettings() {
+    return Object.fromEntries(this.autoSwitches);
+  }
+  async setAutoMessage(kind: AutoKind, enabled: boolean, _at: number) {
+    this.autoSwitches.set(kind, enabled);
+  }
+  async claimAutoMessage(kind: AutoKind, accountId: string, period: string) {
+    const key = JSON.stringify([kind, accountId, period]);
+    if (this.autoSends.has(key)) return false;
+    this.autoSends.add(key);
+    return true;
+  }
+  async autoMessageCounts() {
+    const counts: Partial<Record<AutoKind, number>> = {};
+    for (const key of this.autoSends) {
+      const kind = (JSON.parse(key) as [AutoKind])[0];
+      counts[kind] = (counts[kind] ?? 0) + 1;
+    }
+    return counts;
+  }
   async notifications(limit: number) {
-    return [...this.notices.values()].reverse().sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((n) => ({ ...n }));
+    return [...this.notices.values()]
+      .filter((n) => !n.createdBy.startsWith(AUTO_AUTHOR))
+      .reverse()
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit)
+      .map((n) => ({ ...n }));
   }
   async saveNotification(notice: Notice) {
     const before = this.notices.get(notice.id);

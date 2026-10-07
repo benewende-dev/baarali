@@ -296,6 +296,33 @@ describe.each([
     expect((await store.listAccounts(T0)).find((s) => s.account.id === ME.id)?.account.emailOptOutAt).toBeUndefined();
     expect(await store.setEmailOptOut('acc_none', T0)).toBe(false);
   });
+
+  it('sends an automatic message once per period, keeps its switches, and leaves it out of the console list', async () => {
+    const store = await make();
+    expect(await store.autoMessageSettings()).toEqual({});
+    await store.setAutoMessage('inactive', true, T0);
+    await store.setAutoMessage('welcome', false, T0);
+    await store.setAutoMessage('inactive', false, T0 + 1);
+    expect(await store.autoMessageSettings()).toEqual({ inactive: false, welcome: false });
+
+    expect(await store.claimAutoMessage('limit', ME.id, 'session:1', T0)).toBe(true);
+    expect(await store.claimAutoMessage('limit', ME.id, 'session:1', T0 + 1)).toBe(false);
+    expect(await store.claimAutoMessage('limit', ME.id, 'session:2', T0 + 2)).toBe(true);
+    expect(await store.claimAutoMessage('limit', OTHER.id, 'session:1', T0 + 3)).toBe(true);
+    expect(await store.claimAutoMessage('welcome', ME.id, 'once', T0 + 4)).toBe(true);
+    expect(await store.autoMessageCounts()).toEqual({ limit: 3, welcome: 1 });
+
+    const base = {
+      title: 'Auto', body: 'Corps', button: null, target: 'none' as const, link: null, audience: 'account' as const, accountId: ME.id,
+      app: true, email: false, sendAt: T0, createdAt: T0, sentAt: null, cancelledAt: null, test: false,
+    };
+    await store.saveNotification({ ...base, id: 'ntf_auto', createdBy: 'auto:limit' });
+    await store.saveNotification({ ...base, id: 'ntf_admin', createdBy: 'a@x' });
+    expect((await store.notifications(10)).map((n) => n.id)).toEqual(['ntf_admin']);
+    await store.claimNotification('ntf_auto', T0);
+    await store.deliverNotification('ntf_auto', [ME.id], T0);
+    expect((await store.inbox(ME.id, 10)).map((x) => x.notice.id)).toEqual(['ntf_auto']);
+  });
 });
 
 describe('linking an account to a sign-in', () => {
