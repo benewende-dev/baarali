@@ -27,8 +27,13 @@ export interface MotionToolsDeps {
 export const EXPORT_FORMATS = ['mp4', 'mp4-light', 'gif', 'webm'] as const;
 type ExportFormat = (typeof EXPORT_FORMATS)[number];
 const EXPORT_EXTENSIONS: Record<ExportFormat, string> = { mp4: 'mp4', 'mp4-light': 'mp4', gif: 'gif', webm: 'webm' };
-/** How long `render` and `render_status` wait in one call; a 10 s video takes about 30 s. */
-export const RENDER_WAIT_MS = 75_000;
+/**
+ * How long `render` and `render_status` wait in one call. Under the core's
+ * MCP client, which gives up on a tool after 60 s: at 75 s (until
+ * 08/10/2026) a long render came back to the agent as an error, and it
+ * started the export again.
+ */
+export const RENDER_WAIT_MS = 45_000;
 const RENDER_POLL_MS = 4_000;
 /** As the render service. */
 const MAX_EXPORT_BYTES = 150 * 1024 * 1024;
@@ -105,7 +110,7 @@ export const MOTION_TOOLS: ToolDef[] = [
   {
     name: 'render',
     description:
-      'Export a motion project as a video file the user can post: mp4 (1080p, the default), mp4-light (720p, small, for WhatsApp), gif (no sound, for a message), webm (keeps the transparent background of an overlay such as bas-de-titre). Runs `check` first. Uses the minutes of export included in the plan, then a few media credits. Waits up to 75 s, then saves the file in the project’s exports/ folder and returns its path; if it is still rendering, call render_status.',
+      'Export a motion project as a video file the user can post: mp4 (1080p, the default), mp4-light (720p, small, for WhatsApp), gif (no sound, for a message), webm (keeps the transparent background of an overlay such as bas-de-titre). Runs `check` first. Uses the minutes of export included in the plan, then a few media credits. Waits up to 45 s, then saves the file in the project’s exports/ folder and returns its path; if it is still rendering, call render_status, never render again.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -118,7 +123,7 @@ export const MOTION_TOOLS: ToolDef[] = [
   },
   {
     name: 'render_status',
-    description: 'Follow an export started by `render` (waits up to 75 s). When ready, saves the file in the project’s exports/ folder and returns its path.',
+    description: 'Follow an export started by `render` (waits up to 45 s; call it again while it is still rendering). When ready, saves the file in the project’s exports/ folder and returns its path.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -441,7 +446,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
           }
           if (deps.now() >= until) {
             const pct = Math.round((Number(data.progress) || 0) * 100);
-            return text(`${intro}Still rendering (${data.queued ? 'waiting for a free machine' : `${pct} %`}). Call render_status with id ${id} and project ${rel(dir)}${format === 'mp4' ? '' : ` and format ${format}`}.`);
+            return text(`${intro}Still rendering (${data.queued ? 'waiting for a free machine' : `${pct} %`}). Do not call render again: it would export twice. Call render_status with id ${id} and project ${rel(dir)}${format === 'mp4' ? '' : ` and format ${format}`}.`);
           }
           await control.sleep(RENDER_POLL_MS);
         }

@@ -162,7 +162,7 @@ describe('motion tools', () => {
     answer = Response.json({ id: 'mr_2', included_seconds: 6, credits: 0, allowance: { period: 'week', used_seconds: 66, total_seconds: 180 } }, { status: 202 });
     const waiting = textOf(await tools.run('render', { project: 'motion/intro', format: 'gif' }));
     expect(waiting).toContain('1.1 min of 3 min used this week');
-    expect(waiting).toContain('Still rendering (25 %). Call render_status with id mr_2 and project motion/intro and format gif.');
+    expect(waiting).toContain('Still rendering (25 %). Do not call render again: it would export twice. Call render_status with id mr_2 and project motion/intro and format gif.');
     status = { status: 'failed', error: 'GSAP is not allowed' };
     const failed = await tools.run('render_status', { id: 'mr_2', project: 'motion/intro', format: 'gif' });
     expect(failed.isError).toBe(true);
