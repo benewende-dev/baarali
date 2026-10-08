@@ -87,8 +87,14 @@ export interface MotionRender {
   error: string | null;
 }
 
-/** How a new export is paid, from the seconds of the month already used. */
-export type MotionSplit = (usedSeconds: number) => { included: number; credits: number };
+/** What a period's exports already used: seconds from the plan, and seconds paid in credits. */
+export interface MotionUsage {
+  included: number;
+  extra: number;
+}
+
+/** How a new export is paid, from what the period already used. */
+export type MotionSplit = (used: MotionUsage) => { included: number; credits: number };
 
 /** One change to an account's media credits; the balance is their sum (decided 01/10/2026). */
 export interface MediaLedgerEntry {
@@ -203,7 +209,7 @@ export interface ControlStore {
   /** Updates its status, machine, error and refund. */
   saveMotionRender(render: MotionRender): Promise<void>;
   /** Plan seconds used since `since`, refunded exports left out. */
-  motionUsedSeconds(accountId: string, since: number): Promise<number>;
+  motionUsage(accountId: string, since: number): Promise<MotionUsage>;
   /** Lets `token` act as the account. Kept hashed only. */
   grantToken(token: string, accountId: string): Promise<void>;
   /** `token` no longer acts as anyone; nothing happens when it never did. */
@@ -388,8 +394,7 @@ export class MemoryStore implements ControlStore {
   }
   // No await between the reading and the writes: atomic on Node's single thread.
   async reserveMotionRender(r: Omit<MotionRender, 'included' | 'credits'>, since: number, split: MotionSplit) {
-    const used = this.usedSeconds(r.accountId, since);
-    const { included, credits } = split(used);
+    const { included, credits } = split(this.motionUsageOf(r.accountId, since));
     if (credits > 0) {
       const balance = this.ledger.filter((e) => e.accountId === r.accountId).reduce((sum, e) => sum + e.credits, 0);
       if (balance < credits) return { ok: false as const, credits };
@@ -399,8 +404,9 @@ export class MemoryStore implements ControlStore {
     this.renders.set(render.id, render);
     return { ok: true as const, render: { ...render } };
   }
-  private usedSeconds(accountId: string, since: number) {
-    return [...this.renders.values()].filter((x) => x.accountId === accountId && x.at >= since && !x.refunded).reduce((sum, x) => sum + x.included, 0);
+  private motionUsageOf(accountId: string, since: number): MotionUsage {
+    const live = [...this.renders.values()].filter((x) => x.accountId === accountId && x.at >= since && !x.refunded);
+    return { included: live.reduce((sum, x) => sum + x.included, 0), extra: live.reduce((sum, x) => sum + x.seconds - x.included, 0) };
   }
   async motionRender(id: string) {
     const r = this.renders.get(id);
@@ -410,8 +416,8 @@ export class MemoryStore implements ControlStore {
     const old = this.renders.get(r.id);
     if (old) this.renders.set(r.id, { ...old, status: r.status, machine: r.machine, refunded: r.refunded, error: r.error });
   }
-  async motionUsedSeconds(accountId: string, since: number) {
-    return this.usedSeconds(accountId, since);
+  async motionUsage(accountId: string, since: number) {
+    return this.motionUsageOf(accountId, since);
   }
   async grantToken(token: string, accountId: string) {
     const account = await this.account(accountId);

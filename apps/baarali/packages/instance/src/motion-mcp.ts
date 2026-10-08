@@ -131,7 +131,7 @@ export const MOTION_TOOLS: ToolDef[] = [
   },
   {
     name: 'export_minutes',
-    description: 'The minutes of export the plan includes this month, how many are used, when they come back, and the media credit balance for exports beyond them.',
+    description: 'The minutes of export the plan includes this month (this week on the Semaine plan), how many are used, when they come back, and the media credit balance for exports beyond them.',
     inputSchema: { type: 'object', properties: {} },
   },
   {
@@ -406,12 +406,14 @@ export function createMotionTools(deps: MotionToolsDeps) {
         control.fetch(`${control.url}/v1/motion${route}`, { ...init, headers: { authorization: `Bearer ${control.token}`, ...((init.headers as Record<string, string>) ?? {}) } });
       const readJson = async (res: Response) => (await res.json().catch(() => ({}))) as Record<string, any>;
       const minutes = (s: number) => `${Math.round((s / 60) * 10) / 10} min`;
+      // Monthly plans count the calendar month; Semaine counts each paid week.
+      const period = (a: Record<string, any> | undefined) => (a?.period === 'week' ? 'this week' : 'this month');
 
       if (name === 'export_minutes') {
         const res = await api('/allowance');
         const data = await readJson(res);
         if (!res.ok) return text(`Could not read the export minutes (${res.status}).`, true);
-        return text(`Export minutes this month: ${minutes(data.used_seconds)} used of ${minutes(data.total_seconds)}, back on ${String(data.resets_at).slice(0, 10)}. Beyond them: ${data.credits_per_minute} media credits a minute; balance ${data.balance} credits.`);
+        return text(`Export minutes ${period(data)}: ${minutes(data.used_seconds)} used of ${minutes(data.total_seconds)}, back on ${String(data.resets_at).slice(0, 10)}. Beyond them: ${data.credits_per_minute} media credits a minute, counted to the second; balance ${data.balance} credits.`);
       }
 
       const dir = projectDir(args.project);
@@ -500,7 +502,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       const paid = data.credits > 0
         ? `${minutes(data.included_seconds)} from the plan and ${data.credits} media credits`
         : `${minutes(data.included_seconds)} from the plan's export minutes`;
-      return follow(String(data.id), `Export ${data.id} started (${paid}; ${minutes(data.allowance?.used_seconds ?? 0)} of ${minutes(data.allowance?.total_seconds ?? 0)} used this month).\n`);
+      return follow(String(data.id), `Export ${data.id} started (${paid}; ${minutes(data.allowance?.used_seconds ?? 0)} of ${minutes(data.allowance?.total_seconds ?? 0)} used ${period(data.allowance)}).\n`);
     }
 
     return text(`Unknown tool: ${name}`, true);
