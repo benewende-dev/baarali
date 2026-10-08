@@ -117,6 +117,7 @@ export class RenderQueue {
     const job = this.jobs.get(id);
     if (!job) return;
     job.status = 'rendering';
+    let outcome: { bytes: number } | { error: string };
     try {
       await this.deps.renderer(
         { dir: path.join(this.dirOf(id), 'project'), out: this.fileOf(job), format: job.format, fps: job.fps },
@@ -124,18 +125,22 @@ export class RenderQueue {
           job.progress = Math.max(job.progress, Math.min(0.99, Math.max(0, share)));
         },
       );
-      job.bytes = (await fs.stat(this.fileOf(job))).size;
-      job.status = 'done';
-      job.progress = 1;
+      outcome = { bytes: (await fs.stat(this.fileOf(job))).size };
     } catch (err) {
-      job.status = 'failed';
       // Our own failures stay in our logs: the person is told it failed, not how.
-      job.error = err instanceof RefusedError ? err.message : 'The render failed';
+      outcome = { error: err instanceof RefusedError ? err.message : 'The render failed' };
       if (!(err instanceof RefusedError)) console.error(`[render] ${id}`, err);
-    } finally {
-      job.finishedAt = this.deps.now();
-      // The sources are no longer needed once the file is made.
-      await fs.rm(path.join(this.dirOf(id), 'project'), { recursive: true, force: true });
+    }
+    // The sources go before the job says it is finished: once it does, only its file is left.
+    await fs.rm(path.join(this.dirOf(id), 'project'), { recursive: true, force: true }).catch(() => {});
+    job.finishedAt = this.deps.now();
+    if ('bytes' in outcome) {
+      job.bytes = outcome.bytes;
+      job.progress = 1;
+      job.status = 'done';
+    } else {
+      job.error = outcome.error;
+      job.status = 'failed';
     }
   }
 
