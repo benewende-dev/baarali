@@ -205,6 +205,8 @@ type SidebarContentPanelProps = {
   onOpenPrompts?: () => void
   /** Baarali: the Baarasseurs page (06/10/2026). */
   onOpenBaarasseurs?: () => void
+  /** What the baarasseurs did since last opened (08/10/2026). */
+  baarasseursUnread?: number
   /** Open a specific app (pinned in the sidebar) inside the Apps view. */
   onOpenApp?: (folder: string) => void
   /** Open one space (org + space) in the Spaces view. */
@@ -469,6 +471,7 @@ export function SidebarContentPanel({
   onOpenApps,
   onOpenPrompts,
   onOpenBaarasseurs,
+  baarasseursUnread = 0,
   onOpenApp,
   onOpenSpace,
   activeSpace,
@@ -875,6 +878,11 @@ export function SidebarContentPanel({
                 <SidebarMenuButton isActive={activeNav === 'baarasseurs'} onClick={() => onOpenBaarasseurs?.()}>
                   <UsersRound className="size-4 shrink-0" />
                   <span className="flex-1 truncate font-medium" data-no-translate>Baarasseurs</span>
+                  {baarasseursUnread > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground" data-no-translate>
+                      {baarasseursUnread > 99 ? '99+' : baarasseursUnread}
+                    </span>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

@@ -3647,6 +3647,15 @@ export const FR: Dictionary = {
     "Code applied": "Code appliqué",
     "Got a partner code?": "Un code partenaire ?",
     "A partner code is typed within 7 days of signing up.": "Un code partenaire se saisit dans les 7 jours qui suivent l’inscription.",
+    // The Baarasseurs page brought back to its mockup (08/10/2026).
+    "A document could not be added. Try again.": "Un document n’a pas pu être ajouté. Réessayez.",
+    "Add documents": "Ajouter des documents",
+    "Drop its files here: price list, catalogue, procedures…": "Glissez ses fichiers ici : grille de prix, catalogue, procédures…",
+    "Drop other files here": "Glissez d’autres fichiers ici",
+    "Its documents": "Ses documents",
+    "Nothing is sent during the try-out": "Rien n’est envoyé pendant l’essai",
+    "Other hours…": "Autres horaires…",
+    "custom": "custom",
   },
   // Lines about people (apps/x renderer lib/spaces-membership.ts): the names
   // stay as written. Neutral wording, a name says nothing of a gender.
@@ -3658,6 +3667,15 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
+    // The Baarasseurs page brought back to its mockup (08/10/2026).
+    "Every $1 at $2": "Chaque $1 à $2",
+    "Every day at $1": "Chaque jour à $1",
+    "Weekdays at $1": "Du lundi au vendredi à $1",
+    "On day $1 of the month at $2": "Le $1 du mois à $2",
+    "Next run: $1": "Prochain passage : $1",
+    "Recruit $1": "Recruter $1",
+    "$1 documents at most.": "$1 documents au maximum.",
+    "$1 is too large (15 MB at most).": "$1 est trop lourd (15 Mo au maximum).",
     // A creator's partner code, Mac and phone (08/10/2026, mockup v2).
     "Did a creator recommend Baarali? Enter their code before $1.": "Un créateur vous a recommandé Baarali ? Saisissez son code avant le $1.",
     "Did a creator recommend Baarali? Their code gives you $1 for $2 days.": "Un créateur vous a recommandé Baarali ? Son code vous offre $1 pendant $2 jours.",

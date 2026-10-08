@@ -13,7 +13,7 @@ vi.mock('../runtime/assembly/copilot/agent.js', () => ({
 import { loadAgent } from '../runtime/assembly/registry.js';
 import { carriesSkillsForward, hasWorkspaceContext } from '../runtime/assembly/traits.js';
 import { rememberFor } from './repo.js';
-import { personaInstructions, scheduleCron, parseBaarasseurs, type Baarasseur } from '@x/shared/dist/baarasseur.js';
+import { nextRunAt, personaInstructions, scheduleCron, parseBaarasseurs, type Baarasseur } from '@x/shared/dist/baarasseur.js';
 
 const mariama: Baarasseur = {
     id: 'mariama', name: 'Mariama', role: 'Commerciale', mission: 'Relance mes prospects.', color: 'clay',
@@ -67,6 +67,24 @@ describe('the baarasseurs (06/10/2026)', () => {
         expect(scheduleCron({ every: 'month', day: 5, hour: 8 })).toBe('0 8 5 * *');
         expect(personaInstructions(mariama)).toContain('never send, publish, post, pay or delete');
         expect(personaInstructions({ ...mariama, schedule: null })).not.toContain('Your hours');
+    });
+
+    it('says when it next works on its own', () => {
+        // Wednesday 8 October 2026, 09:30 local time.
+        const wed = new Date(2026, 9, 8, 9, 30);
+        expect(nextRunAt({ every: 'week', day: 1, hour: 8 }, wed)).toEqual(new Date(2026, 9, 12, 8));
+        expect(nextRunAt({ every: 'day', hour: 18 }, wed)).toEqual(new Date(2026, 9, 8, 18));
+        expect(nextRunAt({ every: 'day', hour: 8 }, wed)).toEqual(new Date(2026, 9, 9, 8));
+        expect(nextRunAt({ every: 'weekday', hour: 8 }, new Date(2026, 9, 9, 9))).toEqual(new Date(2026, 9, 12, 8));
+        expect(nextRunAt({ every: 'month', day: 5, hour: 8 }, wed)).toEqual(new Date(2026, 10, 5, 8));
+    });
+
+    it('points it to its documents, and says nothing of them when it has none', () => {
+        const withDocs = personaInstructions({ ...mariama, documents: ['baarasseurs/mariama/Grille-prix-2026.xlsx'] });
+        expect(withDocs).toContain('## Your documents');
+        expect(withDocs).toContain('- baarasseurs/mariama/Grille-prix-2026.xlsx');
+        expect(personaInstructions(mariama)).not.toContain('Your documents');
+        expect(parseBaarasseurs(JSON.stringify({ baarasseurs: [mariama] }))[0].documents).toEqual([]);
     });
 
     it('drops a broken entry, not the whole team', () => {
