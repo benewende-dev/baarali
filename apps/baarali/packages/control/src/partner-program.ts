@@ -80,7 +80,9 @@ export class PartnerProgram {
     const partner = code ? await this.deps.store.partnerByCode(code) : null;
     if (!partner) return { ok: false, reason: 'unknown' };
     if (partner.status !== 'active') return { ok: false, reason: 'paused' };
-    if (partner.accountId === account.id) return { ok: false, reason: 'own' };
+    // Accepted by email before their account was linked: the same email is still them.
+    const ownEmail = partner.email !== null && account.email?.toLowerCase() === partner.email;
+    if (partner.accountId === account.id || ownEmail) return { ok: false, reason: 'own' };
     if (via === 'code' && now - account.createdAt > REDEEM_WINDOW_MS) return { ok: false, reason: 'late' };
     if (!(await this.deps.store.addReferral({ accountId: account.id, partnerId: partner.id, at: now, via }))) return { ok: false, reason: 'already' };
     return { ok: true, partner, gift: await this.offer(account, partner) };

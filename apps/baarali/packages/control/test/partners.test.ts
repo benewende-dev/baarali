@@ -114,6 +114,8 @@ describe('PartnerProgram', () => {
     expect(await program.attach((await store.account('acc_awa'))!, 'AWATECH', 'code')).toEqual({ ok: false, reason: 'own' });
     expect(await program.attach(account('acc_x'), 'NOPE', 'code')).toEqual({ ok: false, reason: 'unknown' });
     expect(await program.attach(account('acc_x', { createdAt: T0 - 8 * DAY }), 'AWATECH', 'code')).toEqual({ ok: false, reason: 'late' });
+    await store.savePartner({ ...AWA, accountId: null, email: 'awa@ex.bf' });
+    expect(await program.attach(account('acc_y', { email: 'Awa@ex.bf' }), 'AWATECH', 'link')).toEqual({ ok: false, reason: 'own' });
     await store.savePartner({ ...AWA, status: 'paused' });
     expect(await program.attach(account('acc_x'), 'AWATECH', 'link')).toEqual({ ok: false, reason: 'paused' });
   });
