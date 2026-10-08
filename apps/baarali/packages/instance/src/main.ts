@@ -30,6 +30,11 @@ await seedWorkdir({
     args: [fileURLToPath(new URL('./media-mcp-main.js', import.meta.url))],
     env: { ROWBOAT_WORKDIR: workDir, API_URL: required('API_URL') },
   },
+  motionServer: {
+    command: process.execPath,
+    args: [fileURLToPath(new URL('./motion-mcp-main.js', import.meta.url))],
+    env: { ROWBOAT_WORKDIR: workDir },
+  },
 });
 
 const child = spawn(process.execPath, [required('ROWBOAT_SERVER_ENTRY')], {

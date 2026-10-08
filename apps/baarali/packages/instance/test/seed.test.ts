@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BUILD_COMMANDS, CORE_ALLOWED_COMMANDS, IMAGE_MODEL, IMAGES_SKILL, MEDIA_SKILL, NEVER_EXPIRES, SERVER_LOCK, seedWorkdir } from '../src/seed.js';
+import { BUILD_COMMANDS, CORE_ALLOWED_COMMANDS, IMAGE_MODEL, IMAGES_SKILL, MEDIA_SKILL, MOTION_SKILL, NEVER_EXPIRES, SERVER_LOCK, seedWorkdir } from '../src/seed.js';
 
 async function tmp() { return fs.mkdtemp(path.join(os.tmpdir(), 'baarali-seed-')); }
 const read = async (dir: string, f: string) => JSON.parse(await fs.readFile(path.join(dir, 'config', f), 'utf8'));
@@ -140,4 +140,18 @@ describe('seedWorkdir', () => {
       process.env.HOME = before;
     }
   });
+
+  it('registers the motion design server beside the media one, with its skill', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'seed-motion-'));
+    const mediaServer = { command: 'node', args: ['media.js'], env: {} };
+    const motionServer = { command: 'node', args: ['motion.js'], env: { ROWBOAT_WORKDIR: dir } };
+    await seedWorkdir({ workDir: dir, instanceToken: 't', assistantModel: 'm', mediaServer, motionServer });
+    const mcp = JSON.parse(await fs.readFile(path.join(dir, 'config', 'mcp.json'), 'utf8'));
+    expect(Object.keys(mcp.mcpServers)).toEqual(['baarali-media', 'baarali-motion']);
+    expect(mcp.mcpServers['baarali-motion']).toEqual({ type: 'stdio', ...motionServer });
+    expect(await fs.readFile(path.join(dir, 'skills', 'baarali-motion', 'SKILL.md'), 'utf8')).toBe(MOTION_SKILL);
+    expect(MOTION_SKILL).toContain('Never GSAP');
+    expect(MEDIA_SKILL).toContain('nor for motion design');
+  });
+
 });
