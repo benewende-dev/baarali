@@ -45,7 +45,7 @@ import { BgTasksView } from '@/components/bg-tasks-view';
 import { AppsView } from '@/components/apps/apps-view';
 import { PromptsView } from '@/components/prompts-view';
 import { BaarasseursView } from '@/components/baarasseurs-view';
-import { noteChatAgent, noteRunAgents } from '@/lib/baarasseurs';
+import { noteChatAgent, noteRunAgents, useBaarasseurUnread } from '@/lib/baarasseurs';
 import { SpacesView, type SpaceSelection } from '@/components/spaces-view';
 import { KeepAliveSection } from '@/components/keep-alive-section';
 import { railKey, readRailSelection, type RailSelection } from '@/lib/spaces-selection';
@@ -3810,6 +3810,11 @@ function App() {
 
   // Baarali: which chats are a baarasseur's, for the chat pane's strip.
   useEffect(() => { noteRunAgents(runs) }, [runs])
+  // The Baarasseurs page (validated mockup, 08/10/2026): who is at work now
+  // (a green dot), and what moved since each was last opened (the badges).
+  const baarasseurUnread = useBaarasseurUnread(runs)
+  const baarasseursUnreadTotal = useMemo(() => [...baarasseurUnread.values()].reduce((s, n) => s + n, 0), [baarasseurUnread])
+  const workingAgents = useMemo(() => new Set(runs.filter((r) => processingRunIds.has(r.id)).map((r) => r.agentId)), [runs, processingRunIds])
 
   // Keep the runs list live: the session index publishes index-changed on
   // every write (session created, turn settled, title change, delete), so the
@@ -7559,6 +7564,7 @@ function App() {
 
   // Everything the left navigation needs, shared by its two forms: the
   // expanded panel sidebar and the collapsed floating dock.
+  const baarasseurFocus = isBaarasseursOpen && openBaarasseur !== null
   const sidebarNavProps = {
     tree,
     knowledgeActions,
@@ -7586,6 +7592,7 @@ function App() {
     onOpenApps: openAppsGrid,
     onOpenPrompts: openPromptsView,
     onOpenBaarasseurs: openBaarasseursView,
+    baarasseursUnread: baarasseursUnreadTotal,
     onOpenApp: (folder: string) => { setAppInitialId(folder); setAppIdVersion((v) => v + 1); openAppsView() },
     onOpenSpace: openSpace,
     onOpenActivity: openActivity,
@@ -7627,8 +7634,14 @@ function App() {
               top-left) swaps between them; the gutter padding clears the
               rail when it's showing. */}
           <SidebarProvider
-            open={sidebarOpen}
-            onOpenChange={handleSidebarOpenChange}
+            open={sidebarOpen && !baarasseurFocus}
+            onOpenChange={(open) => {
+              // A baarasseur's conversation puts its contacts in the sidebar's
+              // place (validated mockup, 08/10/2026); asking for the sidebar
+              // back returns to the cards, the person's choice untouched.
+              if (baarasseurFocus && open) { setOpenBaarasseur(null); return }
+              handleSidebarOpenChange(open)
+            }}
             style={{
               paddingLeft: sidebarOpen ? 0 : DOCK_GUTTER_PX,
               transition: 'padding-left 200ms linear',
@@ -7969,7 +7982,7 @@ function App() {
               {sectionMounted('baarasseurs') && (
                 <KeepAliveSection visible={activeMiddle === 'baarasseurs'}>
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                  <BaarasseursView runs={runs} openAgent={openBaarasseur} onOpen={showBaarasseurChat}
+                  <BaarasseursView runs={runs} workingAgents={workingAgents} openAgent={openBaarasseur} onOpen={showBaarasseurChat}
                     onClose={() => setOpenBaarasseur(null)} chatHost={setBaarasseurHost} hasChat={!!assistantLayout.baarasseur} />
                 </div>
                 </KeepAliveSection>

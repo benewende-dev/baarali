@@ -12,6 +12,9 @@ export const BAARASSEURS_PATH = "config/baarasseurs.json";
 export const BAARASSEUR_PREFIX = "baarasseur-";
 /** A rule it keeps is a line, and it keeps a few: the prompt stays short. */
 export const MEMORY_LIMIT = 30;
+export const DOCUMENTS_LIMIT = 20;
+/** Where its documents are kept, one folder each. */
+export const DOCUMENTS_DIR = "baarasseurs";
 
 export const BaarasseurScheduleSchema = z.object({
     every: z.enum(["day", "weekday", "week", "month"]),
@@ -33,6 +36,8 @@ export const BaarasseurSchema = z.object({
     provider: z.string().optional(),
     schedule: BaarasseurScheduleSchema.nullable().optional(),
     memory: z.array(z.string().max(300)).max(MEMORY_LIMIT).default([]),
+    /** Its documents (08/10/2026): workspace paths it reads when the mission needs them. */
+    documents: z.array(z.string().max(300)).max(DOCUMENTS_LIMIT).default([]),
     createdAt: z.string(),
 });
 
@@ -54,6 +59,7 @@ export interface Baarasseur {
     provider?: string;
     schedule?: BaarasseurSchedule | null;
     memory: string[];
+    documents?: string[];
     createdAt: string;
 }
 
@@ -92,6 +98,28 @@ export function scheduleCron(s: BaarasseurSchedule): string {
 }
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** When it next works on its own, on this machine's clock (the routine's cron runs on it). */
+export function nextRunAt(s: BaarasseurSchedule, from: Date): Date {
+    const at = new Date(from);
+    at.setMinutes(0, 0, 0);
+    at.setHours(s.hour);
+    const fits = (d: Date) => {
+        switch (s.every) {
+            case "day": return true;
+            case "weekday": return d.getDay() >= 1 && d.getDay() <= 5;
+            case "week": return d.getDay() === (s.day ?? 1);
+            case "month": return d.getDate() === Math.max(1, s.day ?? 1);
+        }
+    };
+    // A month at most ahead: every schedule here fits within one.
+    for (let i = 0; i < 32; i++) {
+        if (at > from && fits(at)) return at;
+        at.setDate(at.getDate() + 1);
+        at.setHours(s.hour, 0, 0, 0);
+    }
+    return at;
+}
 
 /** In English for the prompt; the app words it in the user's language. */
 export function scheduleWords(s: BaarasseurSchedule): string {
@@ -135,6 +163,15 @@ export function personaInstructions(b: Baarasseur): string {
         ...(b.memory.length > 0 ? b.memory.map((m) => `- ${m}`) : ["(Nothing yet.)"]),
         `When the user gives you a lasting rule or fact for your mission, call \`baarasseur-remember\` with id "${b.id}" and the rule in one short line, then confirm it in one sentence.`,
     );
+    const documents = b.documents ?? [];
+    if (documents.length > 0) {
+        lines.push(
+            "",
+            "## Your documents",
+            "The user gave you these files, in the workspace. Read the one the task needs (parseFile for PDF, Word or Excel; the workspace tools for text) before answering from memory, and quote what you rely on.",
+            ...documents.map((d) => `- ${d}`),
+        );
+    }
     if (b.schedule) {
         lines.push(
             "",
@@ -172,6 +209,8 @@ export interface Template {
     name: string;
     color: string;
     role: Words;
+    /** A few words on what it handles, under the role on the template's card. */
+    summary: Words;
     mission: Words;
     tools: string[];
     schedule: BaarasseurSchedule | null;
@@ -197,6 +236,10 @@ export const TEMPLATES: Template[] = [
             "fr": "Commerciale",
             "en": "Sales"
         },
+        "summary": {
+            "fr": "Relances, devis, prospects",
+            "en": "Follow-ups, quotes, prospects"
+        },
         "mission": {
             "fr": "Chaque lundi, relance les prospects qui n’ont pas répondu depuis une semaine, avec un message court et poli. Prépare les devis à partir de ma grille de prix. Ne promets jamais de remise sans mon accord.",
             "en": "Every Monday, follow up with prospects who have not answered for a week, with a short, polite message. Prepare quotes from my price list. Never promise a discount without my approval."
@@ -219,6 +262,10 @@ export const TEMPLATES: Template[] = [
             "fr": "Comptable SYSCOHADA",
             "en": "SYSCOHADA accountant"
         },
+        "summary": {
+            "fr": "Comptes, TVA, états financiers",
+            "en": "Books, VAT, statements"
+        },
         "mission": {
             "fr": "Tiens mes comptes selon le SYSCOHADA : classe les recettes et les dépenses, prépare la déclaration de TVA du mois et signale-moi tout écart.",
             "en": "Keep my books under SYSCOHADA: file income and expenses, prepare the month’s VAT return and point out anything that does not add up."
@@ -240,6 +287,10 @@ export const TEMPLATES: Template[] = [
             "fr": "Assistante personnelle",
             "en": "Personal assistant"
         },
+        "summary": {
+            "fr": "Agenda, emails, rappels",
+            "en": "Calendar, emails, reminders"
+        },
         "mission": {
             "fr": "Chaque matin, résume-moi mon agenda du jour et les emails importants. Propose des réponses courtes, et rappelle-moi ce qui ne doit pas attendre.",
             "en": "Every morning, sum up my day’s agenda and the important emails. Suggest short replies, and remind me of what cannot wait."
@@ -258,6 +309,10 @@ export const TEMPLATES: Template[] = [
             "fr": "Gestion de boutique",
             "en": "Shop manager"
         },
+        "summary": {
+            "fr": "Stocks et commandes WhatsApp",
+            "en": "Stock and WhatsApp orders"
+        },
         "mission": {
             "fr": "Suis mes stocks dans mon tableau et réponds aux commandes WhatsApp : prix, disponibilité, livraison. Préviens-moi quand un article passe sous 10 unités.",
             "en": "Keep track of my stock in my sheet and answer WhatsApp orders: price, availability, delivery. Tell me when an item drops below 10 units."
@@ -275,6 +330,10 @@ export const TEMPLATES: Template[] = [
         "role": {
             "fr": "RH et paie",
             "en": "HR and payroll"
+        },
+        "summary": {
+            "fr": "Bulletins, congés, contrats",
+            "en": "Payslips, leave, contracts"
         },
         "mission": {
             "fr": "Prépare les bulletins de paie, suis les congés et les contrats de l’équipe, et rappelle-moi les échéances (fins de contrat, déclarations sociales).",
@@ -296,6 +355,10 @@ export const TEMPLATES: Template[] = [
         "role": {
             "fr": "Logistique",
             "en": "Logistics"
+        },
+        "summary": {
+            "fr": "Livraisons, clients prévenus",
+            "en": "Deliveries, customers kept informed"
         },
         "mission": {
             "fr": "Planifie les livraisons du jour par quartier, prépare un message pour prévenir chaque client de l’heure de passage, et signale les retards.",
@@ -319,6 +382,10 @@ export const TEMPLATES: Template[] = [
             "fr": "Designer",
             "en": "Designer"
         },
+        "summary": {
+            "fr": "Visuels et posts de la semaine",
+            "en": "Visuals and the week’s posts"
+        },
         "mission": {
             "fr": "Chaque semaine, propose 3 publications pour mes réseaux : le texte et le visuel, dans mes couleurs. Rien n’est publié sans mon accord.",
             "en": "Every week, suggest 3 posts for my social media: the text and the visual, in my colours. Nothing is posted without my approval."
@@ -336,6 +403,10 @@ export const TEMPLATES: Template[] = [
         "role": {
             "fr": "Analyste data",
             "en": "Data analyst"
+        },
+        "summary": {
+            "fr": "Chiffres, tableaux, tendances",
+            "en": "Figures, tables, trends"
         },
         "mission": {
             "fr": "Lis mes ventes et dis-moi, en 5 points maximum, ce qui marche, ce qui baisse et quoi changer.",
