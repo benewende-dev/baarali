@@ -65,6 +65,23 @@ describe('motion tools', () => {
     await expect(fs.access(path.join(workDir, 'motion/intro/assets/logo.svg'))).resolves.toBeUndefined();
   });
 
+  it('keeps the other brand colours and warns about hard-to-read pairs', async () => {
+    const { tools, workDir } = await setup();
+    expect((await tools.run('brand_kit', { set: { palette: ['#123456', 'red'] } })).isError).toBe(true);
+    expect((await tools.run('brand_kit', { set: { palette: Array(7).fill('#123456') } })).isError).toBe(true);
+    const saved = textOf(await tools.run('brand_kit', { set: { colors: { background: '#ffffff', ink: '#dddddd', accent: '#ffd400' }, palette: ['#E4002B', '#0057B8'] } }));
+    expect(saved).toContain('under 4.5:1');
+    expect(saved).toContain('the highlight #ffbe3c on the background #ffffff');
+    await tools.run('new_project', { template: 'chiffres-cles', title: 'Chiffres', values: { items: 'A : 1\nB : 2\nC : 3' } });
+    const html = await fs.readFile(path.join(workDir, 'motion/chiffres/index.html'), 'utf8');
+    expect(html).toContain('--brand-1:#e4002b;--brand-2:#0057b8');
+    // Near-black on a yellow accent, and one colour per figure.
+    expect(html).toContain('--on-accent:#111111');
+    expect(html).toContain('background:#ffd400"');
+    expect(html).toContain('background:#e4002b"');
+    expect(html).toContain('background:#0057b8"');
+  });
+
   it('makes the other formats of a project as siblings', async () => {
     const { tools, workDir } = await setup();
     await tools.run('new_project', { template: 'infographie', title: 'Avis clients', values: { percent: '68' } });
