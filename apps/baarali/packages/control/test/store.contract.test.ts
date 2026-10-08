@@ -44,6 +44,31 @@ describe.each([
   ['memory', memoryStore],
   ['postgres', pgStore],
 ])('%s store', (_name, make) => {
+  it('reserves an export from the month minutes, then credits, and refunds it whole', async () => {
+    const store = await make();
+    await store.applyMediaEntry({ accountId: ME.id, at: T0, kind: 'topup', credits: 5, reference: 'pay-m' });
+    const base = { accountId: ME.id, at: T0, format: 'mp4', fps: 30, status: 'rendering' as const, machine: null, refunded: false, error: null };
+    const split = (seconds: number) => (used: number) => {
+      const included = Math.max(0, Math.min(seconds, 100 - used));
+      return { included, credits: Math.ceil((seconds - included) / 20) };
+    };
+    const a = await store.reserveMotionRender({ ...base, id: 'mr_a', seconds: 80, chargeRef: 'motion:mr_a' }, T0 - 1000, split(80));
+    expect(a).toEqual({ ok: true, render: { ...base, id: 'mr_a', seconds: 80, chargeRef: 'motion:mr_a', included: 80, credits: 0 } });
+    const b = await store.reserveMotionRender({ ...base, id: 'mr_b', seconds: 60, chargeRef: 'motion:mr_b' }, T0 - 1000, split(60));
+    expect(b).toMatchObject({ ok: true, render: { included: 20, credits: 2 } });
+    expect(await store.mediaBalance(ME.id)).toBe(3);
+    expect(await store.reserveMotionRender({ ...base, id: 'mr_c', seconds: 80, chargeRef: 'motion:mr_c' }, T0 - 1000, split(80))).toEqual({ ok: false, credits: 4 });
+    expect(await store.motionRender('mr_c')).toBeNull();
+    expect(await store.motionUsedSeconds(ME.id, T0 - 1000)).toBe(100);
+    // Another month, another account: nothing used.
+    expect(await store.motionUsedSeconds(ME.id, T0 + 1)).toBe(0);
+    expect(await store.motionUsedSeconds(OTHER.id, T0 - 1000)).toBe(0);
+    const failed = { ...(await store.motionRender('mr_b'))!, status: 'failed' as const, refunded: true, error: 'GSAP', machine: 'm1' };
+    await store.saveMotionRender(failed);
+    expect(await store.motionRender('mr_b')).toEqual(failed);
+    expect(await store.motionUsedSeconds(ME.id, T0 - 1000)).toBe(80);
+  });
+
   it('finds an account by its token, never by a wrong one', async () => {
     const store = await make();
     expect(await store.accountByToken('tok-me')).toEqual(ME);

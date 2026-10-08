@@ -103,8 +103,7 @@ The \`${MOTION_SERVER_NAME}\` MCP server, through \`executeMcpTool\`, makes moti
 5. **Footage, voice, music.** For a filmed background, a voice-over or a music bed, use the Video, voice and music skill's tools (\`${MEDIA_SERVER_NAME}\`): give the price in credits first, then copy the file into \`assets/\` and add it as a clip. For a still picture, the Images skill.
 6. **Check.** Call \`check\` and fix every error before showing it.
 7. **Show it.** Give the path to \`index.html\` in a \`\`\`filepath block, with one sentence on what it shows and what can change. Other formats: \`reformat\`.
-
-Exporting to MP4 is coming: until it is there, say the video plays in the app and the export arrives soon.
+8. **Export it** when the user wants the file (to post, to send) or asked for a video from the start: \`render\` with \`mp4\`; \`mp4-light\` for WhatsApp; \`gif\` for a message without sound; \`webm\` for an overlay with a transparent background. Several networks: \`reformat\`, then \`render\` each. Exports use the minutes the plan includes; when they are used up, each minute costs a few media credits — say so before exporting (\`export_minutes\` tells where the user stands). Give the exported file in a \`\`\`filepath block. If it is still rendering, call \`render_status\` until it is done.
 `;
 
 /** Far future: the control plane rotates the token, core must never try to refresh it. */

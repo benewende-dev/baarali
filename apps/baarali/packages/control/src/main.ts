@@ -183,6 +183,10 @@ const app = createApp({
   appName: process.env.BAARALI_APP_NAME ?? 'Baarali',
   // Optional: without it, media generation answers 503 and text still works.
   pixazoKey: process.env.PIXAZO_API_KEY || undefined,
+  // Optional: without it, Studio Motion exports answer 503 (motion.ts).
+  render: process.env.BAARALI_RENDER_SECRET
+    ? { url: (process.env.BAARALI_RENDER_URL ?? 'http://baarali-render.flycast').replace(/\/+$/, ''), secret: process.env.BAARALI_RENDER_SECRET }
+    : undefined,
   // Optional: without it, reading aloud answers 503 and listening is refused.
   deepgramKey,
   elevenLabs: process.env.ELEVENLABS_API_KEY

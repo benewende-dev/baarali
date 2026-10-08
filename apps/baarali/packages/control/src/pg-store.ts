@@ -17,6 +17,8 @@ import {
   type MediaJob,
   type MediaHistoryEntry,
   type MediaLedgerEntry,
+  type MotionRender,
+  type MotionSplit,
   type Plan,
   type UsageRecord,
 } from './store.js';
@@ -112,6 +114,14 @@ async function balanceOf(q: Queryable, accountId: string): Promise<number> {
     [accountId],
   );
   return num(rows[0].balance);
+}
+
+async function usedSecondsOf(db: Queryable, accountId: string, since: number): Promise<number> {
+  const { rows } = await db.query<{ used: unknown }>(
+    'SELECT COALESCE(SUM(included), 0) AS used FROM baarali.motion_renders WHERE account_id = $1 AND at >= $2 AND NOT refunded',
+    [accountId, new Date(since)],
+  );
+  return num(rows[0].used);
 }
 
 export class PgStore implements ControlStore {
@@ -330,6 +340,48 @@ export class PgStore implements ControlStore {
       );
       return 'applied';
     });
+  }
+
+  async reserveMotionRender(r: Omit<MotionRender, 'included' | 'credits'>, since: number, split: MotionSplit) {
+    return this.db.transaction(async (tx) => {
+      // The account's row serializes its exports with its media charges.
+      await tx.query('SELECT 1 FROM baarali.accounts WHERE id = $1 FOR UPDATE', [r.accountId]);
+      const { included, credits } = split(await usedSecondsOf(tx, r.accountId, since));
+      if (credits > 0) {
+        if ((await balanceOf(tx, r.accountId)) < credits) return { ok: false as const, credits };
+        await tx.query(
+          'INSERT INTO baarali.media_ledger (account_id, at, kind, credits, reference) VALUES ($1, $2, $3, $4, $5)',
+          [r.accountId, new Date(r.at), 'charge', -credits, r.chargeRef],
+        );
+      }
+      await tx.query(
+        `INSERT INTO baarali.motion_renders (id, account_id, at, format, fps, seconds, included, credits, charge_ref, status, machine, refunded, error)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        [r.id, r.accountId, new Date(r.at), r.format, r.fps, r.seconds, included, credits, r.chargeRef, r.status, r.machine, r.refunded, r.error],
+      );
+      return { ok: true as const, render: { ...r, included, credits } };
+    });
+  }
+
+  async motionRender(id: string): Promise<MotionRender | null> {
+    const { rows } = await this.db.query<{
+      id: string; account_id: string; at: Date | string; format: string; fps: number; seconds: number; included: number; credits: number;
+      charge_ref: string; status: MotionRender['status']; machine: string | null; refunded: boolean; error: string | null;
+    }>('SELECT * FROM baarali.motion_renders WHERE id = $1', [id]);
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      id: r.id, accountId: r.account_id, at: new Date(r.at).getTime(), format: r.format, fps: num(r.fps), seconds: num(r.seconds),
+      included: num(r.included), credits: num(r.credits), chargeRef: r.charge_ref, status: r.status, machine: r.machine, refunded: r.refunded, error: r.error,
+    };
+  }
+
+  async saveMotionRender(r: MotionRender) {
+    await this.db.query('UPDATE baarali.motion_renders SET status = $2, machine = $3, refunded = $4, error = $5 WHERE id = $1', [r.id, r.status, r.machine, r.refunded, r.error]);
+  }
+
+  async motionUsedSeconds(accountId: string, since: number) {
+    return usedSecondsOf(this.db, accountId, since);
   }
 
   async listAccounts(since: number): Promise<AccountSummary[]> {

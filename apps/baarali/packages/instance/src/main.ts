@@ -33,7 +33,7 @@ await seedWorkdir({
   motionServer: {
     command: process.execPath,
     args: [fileURLToPath(new URL('./motion-mcp-main.js', import.meta.url))],
-    env: { ROWBOAT_WORKDIR: workDir },
+    env: { ROWBOAT_WORKDIR: workDir, API_URL: required('API_URL') },
   },
 });
 
