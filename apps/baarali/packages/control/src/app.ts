@@ -8,6 +8,8 @@ import { isAdmin, topUpMedia, type SoldPack } from './admin.js';
 import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner, reaches } from './announcements.js';
 import { mountAdminConsole } from './admin-console.js';
 import { AutoMessages } from './auto-messages.js';
+import { PartnerProgram } from './partner-program.js';
+import { dayWords, refCookie } from './partners.js';
 import { emailTarget, NOTICE_EVENTS, NoticeDispatcher, publicNotice, type Mailer, type NoticeLinks } from './notifications.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -57,6 +59,8 @@ export type ControlDeps = ProxyDeps & {
   notices?: NoticeDispatcher;
   /** The automatic messages (limit reached, welcome…); main.ts shares it with the dispatcher. */
   auto?: AutoMessages;
+  /** The partner programme; main.ts shares it with the sign-in server. */
+  program?: PartnerProgram;
 };
 
 type Env = { Variables: { account: Account } };
@@ -87,6 +91,14 @@ export function accountResolver(store: ControlStore, auth?: BaaraliAuth) {
   };
 }
 
+const REDEEM_WORDS = {
+  unknown: 'Ce code n’existe pas. Vérifiez l’orthographe.',
+  paused: 'Ce code n’est plus actif.',
+  own: 'C’est votre propre code partenaire.',
+  already: 'Un code partenaire est déjà lié à votre compte.',
+  late: 'Un code partenaire se saisit dans les 7 jours qui suivent l’inscription.',
+} as const;
+
 export function createApp(deps: ControlDeps) {
   // One cache of the console's model settings, for the proxy and the console (model-catalog.ts).
   const models = deps.models ?? new ModelCatalog(deps.store, deps.now);
@@ -100,7 +112,13 @@ export function createApp(deps: ControlDeps) {
   const app = new Hono<Env>();
   const dispatch = { store: deps.store, now: deps.now, mailer: deps.mailer, links: deps.noticeLinks };
   const auto = deps.auto ?? new AutoMessages(dispatch);
-  const notices = deps.notices ?? new NoticeDispatcher(dispatch, auto);
+  const program = deps.program ?? new PartnerProgram({ store: deps.store, now: deps.now, auto });
+  auto.welcomeGift ??= async (accountId) => {
+    const gift = await program.openGiftOf(accountId);
+    const plan = gift ? await deps.store.plan(gift.planId) : null;
+    return gift ? `Le forfait ${plan?.displayName ?? gift.planId} vous est offert jusqu’au ${dayWords(gift.endsAt)}.` : null;
+  };
+  const notices = deps.notices ?? new NoticeDispatcher(dispatch, [auto, program]);
 
   app.get('/health', (c) => c.json({ ok: true }));
 
@@ -113,11 +131,15 @@ export function createApp(deps: ControlDeps) {
 
   if (deps.home) {
     const home = deps.home;
-    app.get('/', (c) => {
+    app.get('/', async (c) => {
       // The app's « Upgrade » buttons open `${appUrl}?intent=upgrade` (renderer
       // sidebar, billing dialog, settings): the plans are what they came for.
       if (c.req.query('intent') === 'upgrade') return c.redirect(PRICING_PATH, 302);
-      return html((nonce) => homePage(home, { lang: c.req.header('accept-language') ?? null, nonce }));
+      // A partner's link: counted, remembered for the sign-up (partners.ts).
+      const partner = c.req.query('p') ? await program.click(c.req.query('p')) : null;
+      const page = html((nonce) => homePage(home, { lang: c.req.header('accept-language') ?? null, nonce }));
+      if (partner) page.headers.set('set-cookie', refCookie(partner.code, await program.rules(), deps.publicUrl));
+      return page;
     });
     app.get(PRICING_PATH, (c) => html((nonce) => pricingPage(home, { lang: c.req.header('accept-language') ?? null, nonce })));
     // The same plans, for the app's own window (no browser: the account lives in the app).
@@ -164,6 +186,7 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/announcement/*', authed);
   app.use('/v1/notifications', authed);
   app.use('/v1/notifications/*', authed);
+  app.use('/v1/codes/*', authed);
 
   // A cloud instance trades its token for a Spaces one (core
   // auth/spaces-exchange.ts): Spaces verify only our signed JWTs.
@@ -250,6 +273,20 @@ export function createApp(deps: ControlDeps) {
     if (!found || !reaches(found, await deps.store.plan(account.planId))) return c.json({ error: { code: 'not_found' } }, 404);
     const counted = await deps.store.recordAnnouncementEvent(found.id, account.id, kind as (typeof ANNOUNCEMENT_EVENTS)[number], deps.now());
     return c.json({ counted });
+  });
+
+  // A partner's code typed in the app, soon after signing up (partners.ts):
+  // the phone app signs up without the site's cookie.
+  app.post('/v1/codes/redeem', async (c) => {
+    const body = (await c.req.json().catch(() => ({}))) as { code?: unknown };
+    const account = c.get('account');
+    const result = await program.attach(account, body.code, 'code');
+    if (!result.ok) return c.json({ error: { code: result.reason, message: REDEEM_WORDS[result.reason] } }, 400);
+    const plan = result.gift ? await deps.store.plan(result.gift.planId) : null;
+    return c.json({
+      partner: result.partner.name,
+      gift: result.gift ? { plan: plan?.displayName ?? result.gift.planId, ends_at: new Date(result.gift.endsAt).toISOString() } : null,
+    });
   });
 
   // The console's messages for this person (07/10/2026): the bell on the
@@ -403,6 +440,7 @@ export function createApp(deps: ControlDeps) {
     now: deps.now,
     notices: dispatch,
     auto,
+    program,
   });
 
   app.post('/v1/admin/media-credits', async (c) => {

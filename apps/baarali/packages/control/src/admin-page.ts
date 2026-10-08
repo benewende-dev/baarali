@@ -160,6 +160,13 @@ textarea { font:inherit; font-size:16px; color:var(--ink); background:var(--pape
 .switch[aria-checked="true"] { background:var(--blue); }
 .switch[aria-checked="true"]::after { left:18px; }
 .switch:disabled { opacity:.55; cursor:not-allowed; }
+.stack { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.who b { display:block; color:var(--ink); }
+.who small { color:var(--muted); }
+.code { font:500 12px ui-monospace, Menlo, monospace; color:var(--ink); background:var(--mist); padding:1px 6px; border-radius:5px; }
+.plink { display:flex; gap:8px; align-items:center; border:1px solid var(--line); background:var(--mist); border-radius:10px; padding:8px 12px; margin:12px 0; }
+.plink .code { background:transparent; padding:0; flex:1; overflow:hidden; text-overflow:ellipsis; }
+#p-edit:not(:empty) { margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
 #n-list .it p { flex:1; }
 .spaced { margin-top:16px; }
 .preview { border:1px dashed var(--line); border-radius:12px; padding:14px; background:var(--mist); }
@@ -236,6 +243,7 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
     <h6>Faire grandir</h6>
     <button data-v="notifs">Notifications <span class="count" id="n-notifs"></span></button>
     <button data-v="annonces">Annonces <span class="count" id="n-announce"></span></button>
+    <button data-v="partenaires">Partenaires <span class="count" id="n-partners"></span></button>
     <h6>Garder la trace</h6>
     <button data-v="journal">Journal</button>
   </nav>
@@ -422,6 +430,62 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
     <section class="card spaced"><h2>Annonces</h2><div class="list" id="a-list"></div></section>
   </div>
 
+  <div data-p="partenaires" hidden>
+    <div class="head"><div><h1>Partenaires</h1><p>Les influenceurs et créateurs qui amènent des clients. Ils touchent une part de chaque paiement de leurs clients, pendant <span id="p-months">12</span> mois.</p></div>
+      <div class="actions"><button class="btn primary" type="button" id="p-new-open">Ajouter un partenaire</button></div></div>
+    <section class="card" id="p-new" hidden>
+      <h2>Nouveau partenaire</h2>
+      <p class="hint">Son lien et son code marchent tout de suite. Liez son compte Baarali pour lui ouvrir son espace partenaire.</p>
+      <form class="form" id="p-form">
+        <label class="f">Nom<input id="p-name" maxlength="60" required placeholder="Awa Tech"></label>
+        <label class="f">Code<input id="p-code" maxlength="16" required placeholder="AWATECH" autocapitalize="characters"></label>
+        <label class="f">Réseau<input id="p-network" maxlength="40" placeholder="TikTok"></label>
+        <label class="f">Ville<input id="p-city" maxlength="40" placeholder="Ouagadougou"></label>
+        <label class="f wide">Son compte Baarali (facultatif)<input id="p-email" type="email" placeholder="awa@exemple.com"></label>
+        <div class="wide toolbar formbar"><span class="spacer"></span><button class="btn" type="button" id="p-new-cancel">Annuler</button><button class="btn primary" type="submit">Ajouter</button></div>
+      </form>
+    </section>
+    <div class="stats" id="p-stats"></div>
+    <div class="grid2">
+      <section class="card">
+        <h2>Les partenaires</h2>
+        <p class="hint">Triés par clients payants. Cliquez une ligne pour son lien et ses réglages. Une commission devient payable <span id="p-hold">30</span> jours après le paiement du client.</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Partenaire</th><th>Palier</th><th class="num">Clics</th><th class="num">Inscrits</th><th class="num">Payants</th><th class="num">Payable</th></tr></thead>
+          <tbody id="p-rows"></tbody>
+        </table></div>
+        <div id="p-edit"></div>
+      </section>
+      <div class="stack">
+        <section class="card">
+          <h2>Les règles du programme</h2>
+          <p class="hint">Valent pour les nouveaux paiements. Une commission déjà gagnée ne change pas.</p>
+          <form class="form" id="p-rules">
+            <label class="f">Commission de base (%)<input id="r-base" type="number" min="1" max="40" step="0.5" required></label>
+            <label class="f">Pendant (mois)<input id="r-months" type="number" min="1" max="36" required></label>
+            <label class="f">Argent (%)<input id="r-silver" type="number" min="1" max="40" step="0.5" required></label>
+            <label class="f">dès … clients payants<input id="r-silver-from" type="number" min="1" required></label>
+            <label class="f">Or (%)<input id="r-gold" type="number" min="1" max="40" step="0.5" required></label>
+            <label class="f">dès … clients payants<input id="r-gold-from" type="number" min="2" required></label>
+            <label class="f">Délai avant paiement (jours)<input id="r-hold" type="number" min="0" max="90" required></label>
+            <label class="f">Seuil de paiement (F CFA)<input id="r-min" type="number" min="0" step="500" required></label>
+            <label class="f">Le client amené reçoit<select id="r-gift"></select></label>
+            <label class="f">pendant (jours)<input id="r-gift-days" type="number" min="1" max="30" required></label>
+            <p class="hint wide">Comptent : forfaits et packs de crédits médias, hors taxes, remboursements déduits. Le lien garde le visiteur <span id="r-cookie">60</span> jours ; le premier partenaire garde le client. 40 % au plus.</p>
+            <div class="wide toolbar formbar"><span class="spacer"></span><button class="btn primary" type="submit">Enregistrer</button></div>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Paiements à faire</h2>
+          <p class="hint">Par mobile money, au numéro du partenaire. Le numéro de transaction est gardé au journal.</p>
+          <div class="list" id="p-due"></div>
+          <h2 class="spaced">Déjà payés</h2>
+          <div class="list" id="p-paid"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <div data-p="journal" hidden>
     <div class="head"><div><h1>Journal</h1><p>Tout ce qui est fait depuis la console. Rien ne s'efface.</p></div></div>
     <section class="card"><div class="list" id="journal"></div></section>
@@ -512,7 +576,7 @@ function bar(p) {
 }
 
 // Navigation, remembered in the address (#clients…).
-const views = ["apercu", "clients", "instances", "modeles", "notifs", "annonces", "journal"];
+const views = ["apercu", "clients", "instances", "modeles", "notifs", "annonces", "partenaires", "journal"];
 function show(v) {
   if (!views.includes(v)) v = "apercu";
   for (const s of document.querySelectorAll("[data-p]")) s.hidden = s.dataset.p !== v;
@@ -539,6 +603,7 @@ async function load(v) {
     if (v === "modeles") await loadModels();
     if (v === "notifs") await loadNotifications();
     if (v === "annonces") await loadAnnouncements();
+    if (v === "partenaires") await loadPartners();
   } catch (e) { if (e.message !== "signed out") toast("Chargement impossible. Réessaie."); }
 }
 
@@ -1031,13 +1096,14 @@ async function loadNotifications() {
 const AUTO = {
   limit: ["Limite atteinte", "Dans l'app, quand la session de 5 heures ou la semaine est épuisée, avec le temps avant la suivante"],
   media_low: ["Crédits médias presque épuisés", "Dans l'app, sous 20 crédits, une fois par semaine au plus"],
+  gift_ending: ["Forfait offert qui se termine", "3 jours avant, dans l'app et par email"],
   inactive: ["Client inactif depuis 14 jours", "Email « Nous avons gardé votre place », une seule fois"],
   welcome: ["Bienvenue", "Dans l'app et par email, le jour de l'inscription"],
 };
 async function loadAutoMessages() {
   const r = await get("/auto-messages");
   const row = (on, title, words, onclick) => el("div", { class: "auto" },
-    el("button", { class: "switch", type: "button", role: "switch", "aria-checked": String(on), "aria-label": title, ...(onclick ? { onclick } : { disabled: "" }) }),
+    el("button", { class: "switch", type: "button", role: "switch", "aria-checked": String(on), "aria-label": title, onclick }),
     el("p", {}, el("b", {}, title), el("br"), el("small", {}, words)));
   $("n-auto").replaceChildren(...r.data.map((a) => {
     const [title, words] = AUTO[a.kind];
@@ -1048,9 +1114,123 @@ async function loadAutoMessages() {
       try { const x = await send("/auto-messages/" + a.kind, { enabled: !a.enabled }); toast(title + (x.enabled ? " : activé" : " : coupé")); await loadAutoMessages(); }
       catch (err) { toast(err.message); b.disabled = false; }
     });
-  }), row(false, "Forfait offert qui se termine", "Arrive avec Bonus et promos : 3 jours avant, dans l'app et par email", null));
+  }));
 }
 previewNotif();
+
+// The partner programme (partners.ts).
+let partnersData = null;
+const cfa = (n) => fr.format(n) + " F";
+const siteHost = location.hostname.replace(/^app\./, "");
+const pct = (x) => fr.format(Math.round(x * 1000) / 10) + " %";
+$("p-new-open").addEventListener("click", () => { $("p-new").hidden = false; $("p-name").focus(); });
+$("p-new-cancel").addEventListener("click", () => { $("p-new").hidden = true; $("p-form").reset(); });
+$("p-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    const r = await send("/partners", { name: $("p-name").value, code: $("p-code").value, network: $("p-network").value, city: $("p-city").value, accountEmail: $("p-email").value });
+    toast("Partenaire ajouté : " + r.code);
+    $("p-form").reset(); $("p-new").hidden = true; await loadPartners();
+  } catch (err) { toast(err.message); }
+});
+$("p-rules").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const n = (id) => Number($(id).value);
+  try {
+    await send("/partners/rules", {
+      basePct: n("r-base"), silverPct: n("r-silver"), silverFrom: n("r-silver-from"), goldPct: n("r-gold"), goldFrom: n("r-gold-from"),
+      months: n("r-months"), holdDays: n("r-hold"), payoutMinXof: n("r-min"), giftPlanId: $("r-gift").value || null, giftDays: n("r-gift-days"),
+      cookieDays: partnersData.rules.cookieDays,
+    });
+    toast("Règles enregistrées"); await loadPartners();
+  } catch (err) { toast(err.message); }
+});
+async function loadPartners() {
+  const r = await get("/partners");
+  partnersData = r;
+  const rules = r.rules;
+  $("p-months").textContent = rules.months;
+  $("p-hold").textContent = rules.holdDays;
+  $("r-cookie").textContent = rules.cookieDays;
+  const set = (id, v) => { if (document.activeElement !== $(id)) $(id).value = v; };
+  set("r-base", rules.baseRate * 100); set("r-silver", rules.silverRate * 100); set("r-gold", rules.goldRate * 100);
+  set("r-silver-from", rules.silverFrom); set("r-gold-from", rules.goldFrom); set("r-months", rules.months);
+  set("r-hold", rules.holdDays); set("r-min", rules.payoutMinXof); set("r-gift-days", rules.giftDays);
+  $("r-gift").replaceChildren(el("option", { value: "" }, "Rien"), ...r.plans.map((p) => el("option", { value: p.id }, p.name + " offert")));
+  $("r-gift").value = rules.giftPlanId ?? "";
+  if ($("r-gift").value !== (rules.giftPlanId ?? "")) $("r-gift").append(el("option", { value: rules.giftPlanId, selected: "" }, rules.giftPlanId + " (introuvable)"));
+  const active = r.data.filter((x) => x.partner.status === "active");
+  $("n-partners").textContent = active.length ? String(active.length) : "";
+  const sum = (k) => r.data.reduce((t, x) => t + x[k], 0);
+  const stat = (value, label) => el("div", { class: "stat" }, el("b", {}, value), el("span", {}, label));
+  $("p-stats").replaceChildren(
+    stat(fr.format(active.length), "partenaires actifs"),
+    stat(fr.format(sum("clicks")), "clics sur leurs liens"),
+    stat(fr.format(sum("paying")), "clients payants amenés · " + fr.format(sum("signups")) + " inscrits"),
+    stat(cfa(sum("payableXof")), "à payer · " + cfa(sum("pendingXof")) + " en attente"),
+  );
+  const tierPill = (x) => x.partner.status === "paused" ? el("span", { class: "pill warn" }, "En pause") : el("span", { class: "pill" + (x.tier === "base" ? "" : " blue") }, x.tierLabel + " · " + pct(x.rate));
+  $("p-rows").replaceChildren(...(r.data.length ? r.data.map((x) => el("tr", { class: "row", tabindex: "0", onclick: () => editPartner(x), onkeydown: (e) => { if (e.key === "Enter") editPartner(x); } },
+    el("td", { class: "who" }, el("b", {}, x.partner.name), el("small", {}, el("span", { class: "code" }, x.partner.code), [x.partner.network, x.partner.city].filter(Boolean).map((w) => " · " + w).join(""))),
+    el("td", {}, tierPill(x)),
+    el("td", { class: "num" }, fr.format(x.clicks)),
+    el("td", { class: "num" }, fr.format(x.signups)),
+    el("td", { class: "num" }, fr.format(x.paying)),
+    el("td", { class: "num" }, cfa(x.payableXof)),
+  )) : [el("tr", {}, el("td", { colspan: "6", class: "empty" }, "Aucun partenaire pour l'instant. Ajoutez le premier."))]));
+  const due = r.data.filter((x) => x.payableXof > 0);
+  $("p-due").replaceChildren(...(due.length ? due.map(dueRow) : [el("p", { class: "empty" }, "Rien à payer pour l'instant.")]));
+  $("p-paid").replaceChildren(...(r.payouts.length ? r.payouts.map((p) => el("div", { class: "it" }, el("time", {}, stamp.format(p.at)),
+    el("p", {}, el("b", {}, cfa(p.amountXof)), " · " + p.partnerName + " · " + p.methodLabel, el("br"), el("small", {}, "Transaction " + p.reference + " · par " + p.by)))) : [el("p", { class: "empty" }, "Aucun paiement encore.")]));
+  if ($("p-edit").dataset.id) { const open = r.data.find((x) => x.partner.id === $("p-edit").dataset.id); if (open) editPartner(open); }
+}
+function dueRow(x) {
+  const rules = partnersData.rules;
+  const method = partnersData.methods.find((m) => m.id === x.partner.payoutMethod);
+  const where = method && x.partner.payoutNumber ? method.name + " · " + x.partner.payoutNumber : "Numéro de mobile money manquant";
+  const under = x.payableXof < rules.payoutMinXof;
+  const ref = el("input", { placeholder: "N° de transaction", maxlength: "64", "aria-label": "Numéro de transaction" });
+  const pay = el("button", { class: "btn primary", type: "button", onclick: async (e) => {
+    const b = e.currentTarget; b.disabled = true;
+    try { await send("/partners/" + encodeURIComponent(x.partner.id) + "/payout", { reference: ref.value }); toast("Payé : " + cfa(x.payableXof)); await loadPartners(); }
+    catch (err) { toast(err.message); b.disabled = false; }
+  } }, "Marquer payé");
+  const ready = !under && method && x.partner.payoutNumber;
+  return el("div", { class: "it" }, el("time", {}, x.partner.name),
+    el("p", {}, el("b", {}, cfa(x.payableXof)), " · " + where, el("br"), el("small", {}, fr.format(x.paying) + " client(s) payant(s)" + (under ? " · sous le seuil de " + cfa(rules.payoutMinXof) : "")),
+      ready ? el("span", { class: "toolbar spaced" }, ref, pay) : null));
+}
+function editPartner(x) {
+  const p = x.partner;
+  const box = $("p-edit");
+  box.dataset.id = p.id;
+  const input = (label, value, attrs = {}) => { const i = el("input", { value: value ?? "", ...attrs }); return [el("label", { class: "f" }, label, i), i]; };
+  const [lName, name] = input("Nom", p.name, { maxlength: "60" });
+  const [lNet, network] = input("Réseau", p.network, { maxlength: "40" });
+  const [lCity, city] = input("Ville", p.city, { maxlength: "40" });
+  const [lMail, email] = input("Son compte Baarali", x.accountEmail, { type: "email", placeholder: "Pas encore lié" });
+  const method = el("select", {}, el("option", { value: "" }, "Pas encore donné"), ...partnersData.methods.map((m) => el("option", { value: m.id }, m.name)));
+  method.value = p.payoutMethod ?? "";
+  const [lNum, number] = input("Numéro", p.payoutNumber, { placeholder: "+226 70 00 00 00", inputmode: "tel" });
+  const link = "https://" + siteHost + "/?p=" + p.code;
+  const save = async (patch, words) => {
+    try { await send("/partners/" + encodeURIComponent(p.id), patch); toast(words); await loadPartners(); }
+    catch (err) { toast(err.message); }
+  };
+  box.replaceChildren(
+    el("h2", {}, p.name, " ", el("span", { class: "pill" + (p.status === "active" ? " ok" : " warn") }, p.status === "active" ? "Actif" : "En pause")),
+    el("div", { class: "plink" }, el("span", { class: "code" }, link), el("button", { class: "btn", type: "button", onclick: async () => {
+      try { await navigator.clipboard.writeText(link); toast("Lien copié"); } catch { toast(link); }
+    } }, "Copier")),
+    el("p", { class: "hint" }, fr.format(x.signups) + " inscrit(s) · " + fr.format(x.paying) + " payant(s) · " + cfa(x.pendingXof) + " en attente · " + cfa(x.paidXof) + " déjà payés"),
+    el("div", { class: "form" }, lName, lNet, lCity, lMail, el("label", { class: "f" }, "Mobile money", method), lNum),
+    el("div", { class: "toolbar spaced" },
+      el("button", { class: "btn" + (p.status === "active" ? " danger" : ""), type: "button", onclick: () => save({ status: p.status === "active" ? "paused" : "active" }, p.status === "active" ? "Mis en pause" : "Repris") }, p.status === "active" ? "Mettre en pause" : "Reprendre"),
+      el("span", { class: "spacer" }),
+      el("button", { class: "btn", type: "button", onclick: () => { box.replaceChildren(); delete box.dataset.id; } }, "Fermer"),
+      el("button", { class: "btn primary", type: "button", onclick: () => save({ name: name.value, network: network.value, city: city.value, accountEmail: email.value, payoutMethod: method.value || null, payoutNumber: number.value }, "Enregistré") }, "Enregistrer")),
+  );
+}
 
 async function loadJournal() {
   const r = await get("/journal");

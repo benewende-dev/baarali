@@ -4,6 +4,8 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { isAdmin, type SoldPack } from './admin.js';
 import { adminPage, deniedPage } from './admin-page.js';
 import { isLive, parseDraft, type Announcement } from './announcements.js';
+import type { PartnerProgram } from './partner-program.js';
+import { normalizeCode, parseRules, PAYOUT_METHODS, PAYOUT_WORDS, TIER_WORDS, type Partner, type PayoutMethod } from './partners.js';
 import { AUTO_KINDS, type AutoKind, type AutoMessages } from './auto-messages.js';
 import { audienceOf, emailable, parseNoticeDraft, sendNotice, type DispatchDeps, type Notice } from './notifications.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -56,6 +58,7 @@ export interface ConsoleDeps {
   /** Notifications: the store, the clock and, when email is on, the mailer. */
   notices: DispatchDeps;
   auto: AutoMessages;
+  program: PartnerProgram;
 }
 
 /** One write touches this many models at most: a whole vendor fits, a slip does not empty the catalog. */
@@ -690,6 +693,128 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     return c.json({ kind, enabled: b.enabled });
   });
 
+  // The partner programme (partners.ts): who brings clients, what they earn,
+  // what is paid to them, and the rules that decide it.
+  const accountByEmail = async (email: string) =>
+    (await store.listAccounts(deps.now())).find((s) => s.account.email?.toLowerCase() === email.toLowerCase())?.account ?? null;
+  const text = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+
+  app.get('/admin/api/partners', async (c) => {
+    const actor = await api(c, false);
+    if (actor instanceof Response) return actor;
+    const [rules, summaries, payouts, plans, accounts] = await Promise.all([
+      deps.program.rules(),
+      deps.program.summaries(),
+      store.payouts(),
+      store.plans(),
+      store.listAccounts(deps.now()),
+    ]);
+    const emailOf = (id: string | null) => (id ? (accounts.find((a) => a.account.id === id)?.account.email ?? null) : null);
+    const nameOf = (id: string) => summaries.find((s) => s.partner.id === id)?.partner.name ?? id;
+    return c.json({
+      rules,
+      plans: plans.filter((p) => p.category !== 'free').map((p) => ({ id: p.id, name: p.displayName })),
+      methods: PAYOUT_METHODS.map((m) => ({ id: m, name: PAYOUT_WORDS[m] })),
+      data: summaries
+        .map(({ payableIds: _ids, ...s }) => ({ ...s, tierLabel: TIER_WORDS[s.tier], accountEmail: emailOf(s.partner.accountId) }))
+        .sort((a, b) => b.paying - a.paying || b.signups - a.signups),
+      payouts: payouts.slice(0, 30).map((p) => ({ ...p, partnerName: nameOf(p.partnerId), methodLabel: PAYOUT_WORDS[p.method] })),
+    });
+  });
+
+  /** The fields the console sets; the code and the account are checked here. */
+  const partnerFields = async (b: Record<string, unknown>, base: Partner): Promise<Partner | string> => {
+    const next = { ...base };
+    if ('name' in b) {
+      const name = text(b.name, 60);
+      if (!name) return 'Le nom est attendu.';
+      next.name = name;
+    }
+    if ('code' in b) {
+      const code = normalizeCode(b.code);
+      if (!code) return 'Le code : de 3 à 16 lettres ou chiffres.';
+      next.code = code;
+    }
+    if ('network' in b) next.network = text(b.network, 40);
+    if ('city' in b) next.city = text(b.city, 40);
+    if ('status' in b) {
+      if (b.status !== 'active' && b.status !== 'paused') return 'État inconnu.';
+      next.status = b.status;
+    }
+    if ('payoutMethod' in b) {
+      if (b.payoutMethod !== null && !PAYOUT_METHODS.includes(b.payoutMethod as PayoutMethod)) return 'Moyen de paiement inconnu.';
+      next.payoutMethod = (b.payoutMethod as PayoutMethod | null) ?? null;
+    }
+    if ('payoutNumber' in b) {
+      const number = text(b.payoutNumber, 24);
+      if (number && !/^\+?[\d ]{8,20}$/.test(number)) return 'Le numéro : des chiffres, avec l’indicatif (+226…).';
+      next.payoutNumber = number;
+    }
+    if ('accountEmail' in b) {
+      const email = text(b.accountEmail, 200);
+      if (!email) next.accountId = null;
+      else {
+        const account = await accountByEmail(email);
+        if (!account) return 'Aucun compte Baarali avec cet email : le partenaire doit d’abord se connecter une fois.';
+        next.accountId = account.id;
+      }
+    }
+    return next;
+  };
+
+  app.post('/admin/api/partners', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const b = await body(c);
+    if (!('name' in b) || !('code' in b)) return c.json({ error: { code: 'invalid_request', message: 'Le nom et le code sont attendus.' } }, 400);
+    const blank: Partner = {
+      id: `ptn_${randomUUID()}`, name: '', code: '', network: null, city: null, accountId: null, status: 'active',
+      createdAt: deps.now(), createdBy: actor, payoutMethod: null, payoutNumber: null,
+    };
+    const partner = await partnerFields(b, blank);
+    if (typeof partner === 'string') return c.json({ error: { code: 'invalid_request', message: partner } }, 400);
+    if (!(await store.savePartner(partner))) return c.json({ error: { code: 'conflict', message: 'Ce code ou ce compte est déjà à un autre partenaire.' } }, 409);
+    await log(actor, 'partner', partner.accountId, `Partenaire ajouté : ${partner.name} (${partner.code})`);
+    return c.json({ id: partner.id, code: partner.code }, 201);
+  });
+
+  app.post('/admin/api/partners/rules', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const parsed = parseRules(await body(c), (await store.plans()).map((p) => p.id));
+    if (!parsed.ok) return c.json({ error: { code: 'invalid_request', message: parsed.message } }, 400);
+    const r = parsed.rules;
+    await store.saveProgramRules(r, deps.now());
+    const pct = (x: number) => `${Math.round(x * 1000) / 10} %`;
+    await log(actor, 'partner-rules', null, `Règles partenaires : ${pct(r.baseRate)} / ${pct(r.silverRate)} dès ${r.silverFrom} / ${pct(r.goldRate)} dès ${r.goldFrom}, ${r.months} mois, ${r.holdDays} j, seuil ${r.payoutMinXof} F, cadeau ${r.giftPlanId ? `${r.giftPlanId} ${r.giftDays} j` : 'aucun'}`);
+    return c.json({ rules: r });
+  });
+
+  app.post('/admin/api/partners/:id', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const found = (await store.partners()).find((p) => p.id === c.req.param('id'));
+    if (!found) return c.json({ error: { code: 'not_found' } }, 404);
+    const partner = await partnerFields(await body(c), found);
+    if (typeof partner === 'string') return c.json({ error: { code: 'invalid_request', message: partner } }, 400);
+    if (!(await store.savePartner(partner))) return c.json({ error: { code: 'conflict', message: 'Ce code ou ce compte est déjà à un autre partenaire.' } }, 409);
+    const what = partner.status !== found.status ? (partner.status === 'paused' ? 'mis en pause' : 'repris') : 'modifié';
+    await log(actor, 'partner', partner.accountId, `Partenaire ${what} : ${partner.name} (${partner.code})`);
+    return c.json({ id: partner.id });
+  });
+
+  app.post('/admin/api/partners/:id/payout', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const b = await body(c);
+    const result = await deps.program.payout(c.req.param('id'), typeof b.reference === 'string' ? b.reference : '', actor);
+    if (!result.ok) return c.json({ error: { code: 'invalid_request', message: result.message } }, 400);
+    const p = result.payout;
+    const partner = (await store.partners()).find((x) => x.id === p.partnerId);
+    await log(actor, 'partner-payout', partner?.accountId ?? null, `Paiement partenaire : ${p.amountXof} F à ${partner?.name ?? p.partnerId} par ${PAYOUT_WORDS[p.method]} (${p.reference})`);
+    return c.json({ payout: p });
+  });
+
   app.get('/admin/api/journal', async (c) => {
     const actor = await api(c, false);
     if (actor instanceof Response) return actor;
@@ -702,6 +827,7 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
 const AUTO_WORDS: Record<AutoKind, string> = {
   limit: 'Limite atteinte',
   media_low: 'Crédits médias presque épuisés',
+  gift_ending: 'Forfait offert qui se termine',
   inactive: 'Client inactif depuis 14 jours',
   welcome: 'Bienvenue',
 };

@@ -1,5 +1,6 @@
 import { PGlite } from '@electric-sql/pglite';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { DEFAULT_RULES } from '../src/partners.js';
 import { migrate, MIGRATIONS } from '../src/db.js';
 import { PgStore } from '../src/pg-store.js';
 import { MemoryStore, hashToken, type Account, type ControlStore, type Plan } from '../src/store.js';
@@ -295,6 +296,55 @@ describe.each([
     expect(await store.setEmailOptOut(ME.id, null)).toBe(true);
     expect((await store.listAccounts(T0)).find((s) => s.account.id === ME.id)?.account.emailOptOutAt).toBeUndefined();
     expect(await store.setEmailOptOut('acc_none', T0)).toBe(false);
+  });
+
+  it('keeps partners, the people they bring, offered plans, and pays each commission once', async () => {
+    const store = await make();
+    const rules = { ...DEFAULT_RULES, baseRate: 0.15 };
+    expect(await store.programRules()).toBeNull();
+    await store.saveProgramRules(rules, T0);
+    expect(await store.programRules()).toEqual(rules);
+
+    const awa = {
+      id: 'ptn_awa', name: 'Awa', code: 'AWA', network: 'TikTok', city: null, accountId: ME.id, status: 'active' as const,
+      createdAt: T0, createdBy: 'boss', payoutMethod: 'wave' as const, payoutNumber: '+225 07 00 00 00',
+    };
+    expect(await store.savePartner(awa)).toBe(true);
+    expect(await store.savePartner({ ...awa, id: 'ptn_copy' })).toBe(false);
+    expect(await store.savePartner({ ...awa, name: 'Awa Tech', status: 'paused' })).toBe(true);
+    expect(await store.partnerByCode('AWA')).toMatchObject({ name: 'Awa Tech', status: 'paused', payoutMethod: 'wave' });
+    expect((await store.partnerForAccount(ME.id))?.id).toBe('ptn_awa');
+    expect(await store.partnerByCode('NOPE')).toBeNull();
+    expect((await store.partners()).map((p) => p.id)).toEqual(['ptn_awa']);
+
+    await store.countPartnerClick('ptn_awa', '2026-10-01');
+    await store.countPartnerClick('ptn_awa', '2026-10-01');
+    await store.countPartnerClick('ptn_awa', '2026-10-02');
+    expect(await store.addReferral({ accountId: OTHER.id, partnerId: 'ptn_awa', at: T0, via: 'code' })).toBe(true);
+    expect(await store.addReferral({ accountId: OTHER.id, partnerId: 'ptn_awa', at: T0 + 1, via: 'link' })).toBe(false);
+    expect(await store.referralOf(OTHER.id)).toEqual({ accountId: OTHER.id, partnerId: 'ptn_awa', at: T0, via: 'code' });
+    expect(await store.referralOf(ME.id)).toBeNull();
+    expect(await store.partnerFigures()).toEqual({ ptn_awa: { clicks: 3, signups: 1 } });
+
+    const gift = { id: 'gft_1', accountId: OTHER.id, planId: 'essentiel', previousPlanId: 'decouverte', startsAt: T0, endsAt: T0 + 9, reason: 'Partenaire AWA', endedAt: null };
+    await store.addGift(gift);
+    await store.addGift({ ...gift, id: 'gft_0', endsAt: T0 + 5 });
+    expect((await store.openGifts()).map((g) => g.id)).toEqual(['gft_0', 'gft_1']);
+    expect(await store.endGift('gft_0', T0 + 6)).toBe(true);
+    expect(await store.endGift('gft_0', T0 + 7)).toBe(false);
+    expect(await store.openGifts()).toEqual([gift]);
+
+    const c = { id: 'pay_1', partnerId: 'ptn_awa', accountId: OTHER.id, paidAt: T0, amountXof: 13119, rate: 0.2, commissionXof: 2624, payableAt: T0 + 30, payoutId: null };
+    expect(await store.addCommission(c)).toBe(true);
+    expect(await store.addCommission({ ...c, commissionXof: 1 })).toBe(false);
+    expect(await store.addCommission({ ...c, id: 'pay_2' })).toBe(true);
+    const payout = { id: 'po_1', partnerId: 'ptn_awa', amountXof: 5248, method: 'wave' as const, number: '+225', reference: 'W1', at: T0 + 40, by: 'boss' };
+    expect(await store.payCommissions(payout, ['pay_1', 'pay_2'])).toBe(2);
+    // Paid already: no second payout is written.
+    expect(await store.payCommissions({ ...payout, id: 'po_2' }, ['pay_1'])).toBe(0);
+    expect(await store.commissions('ptn_awa')).toEqual([{ ...c, payoutId: 'po_1' }, { ...c, id: 'pay_2', payoutId: 'po_1' }]);
+    expect(await store.commissions('ptn_other')).toEqual([]);
+    expect(await store.payouts()).toEqual([payout]);
   });
 
   it('sends an automatic message once per period, keeps its switches, and leaves it out of the console list', async () => {

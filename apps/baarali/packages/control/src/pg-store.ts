@@ -1,6 +1,7 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import { isStrength, type ModelSetting } from './model-access.js';
 import type { AutoKind } from './auto-messages.js';
+import type { Commission, Gift, Partner, PartnerStatus, Payout, PayoutMethod, ProgramRules, Referral } from './partners.js';
 import { AUTO_AUTHOR, type Delivery, type Notice, type NoticeEvent, type NoticeStats } from './notifications.js';
 import type { Db, Queryable } from './db.js';
 import type { QuotaState } from './quota.js';
@@ -25,6 +26,25 @@ import {
 
 const ms = (d: Date | null): number | null => (d === null ? null : d.getTime());
 const date = (t: number | null): Date | null => (t === null ? null : new Date(t));
+
+const PARTNER_COLUMNS = 'id, name, code, network, city, account_id, status, created_at, created_by, payout_method, payout_number';
+interface PartnerRow {
+  id: string;
+  name: string;
+  code: string;
+  network: string | null;
+  city: string | null;
+  account_id: string | null;
+  status: PartnerStatus;
+  created_at: Date;
+  created_by: string;
+  payout_method: PayoutMethod | null;
+  payout_number: string | null;
+}
+const toPartner = (r: PartnerRow): Partner => ({
+  id: r.id, name: r.name, code: r.code, network: r.network, city: r.city, accountId: r.account_id, status: r.status,
+  createdAt: r.created_at.getTime(), createdBy: r.created_by, payoutMethod: r.payout_method, payoutNumber: r.payout_number,
+});
 // pg returns bigint columns as strings: they hold credits, safe as numbers.
 const num = (v: unknown): number => Number(v);
 
@@ -375,6 +395,160 @@ export class PgStore implements ControlStore {
   async autoMessageCounts() {
     const { rows } = await this.db.query<{ kind: AutoKind; n: number }>('SELECT kind, count(*)::int AS n FROM baarali.auto_message_sends GROUP BY kind');
     return Object.fromEntries(rows.map((r) => [r.kind, r.n]));
+  }
+
+  async programRules() {
+    const { rows } = await this.db.query<{ rules: ProgramRules }>('SELECT rules FROM baarali.partner_program WHERE id = 1');
+    return rows[0]?.rules ?? null;
+  }
+
+  async saveProgramRules(rules: ProgramRules, at: number) {
+    await this.db.query(
+      `INSERT INTO baarali.partner_program (id, rules, updated_at) VALUES (1, $1, $2)
+       ON CONFLICT (id) DO UPDATE SET rules = EXCLUDED.rules, updated_at = EXCLUDED.updated_at`,
+      [JSON.stringify(rules), new Date(at)],
+    );
+  }
+
+  private async partnerWhere(where: string, values: unknown[]): Promise<Partner[]> {
+    const { rows } = await this.db.query<PartnerRow>(`SELECT ${PARTNER_COLUMNS} FROM baarali.partners ${where}`, values);
+    return rows.map(toPartner);
+  }
+
+  async partners() {
+    return this.partnerWhere('ORDER BY created_at, id', []);
+  }
+
+  async partnerByCode(code: string) {
+    return (await this.partnerWhere('WHERE code = $1', [code]))[0] ?? null;
+  }
+
+  async partnerForAccount(accountId: string) {
+    return (await this.partnerWhere('WHERE account_id = $1', [accountId]))[0] ?? null;
+  }
+
+  async savePartner(p: Partner) {
+    try {
+      await this.db.query(
+        `INSERT INTO baarali.partners (id, name, code, network, city, account_id, status, created_at, created_by, payout_method, payout_number)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code, network = EXCLUDED.network, city = EXCLUDED.city,
+           account_id = EXCLUDED.account_id, status = EXCLUDED.status, payout_method = EXCLUDED.payout_method, payout_number = EXCLUDED.payout_number`,
+        [p.id, p.name, p.code, p.network, p.city, p.accountId, p.status, new Date(p.createdAt), p.createdBy, p.payoutMethod, p.payoutNumber],
+      );
+      return true;
+    } catch (err) {
+      // The code (or the account) belongs to another partner.
+      if ((err as { code?: string }).code === '23505') return false;
+      throw err;
+    }
+  }
+
+  async countPartnerClick(partnerId: string, day: string) {
+    await this.db.query(
+      `INSERT INTO baarali.partner_clicks (partner_id, day, clicks) VALUES ($1, $2, 1)
+       ON CONFLICT (partner_id, day) DO UPDATE SET clicks = baarali.partner_clicks.clicks + 1`,
+      [partnerId, day],
+    );
+  }
+
+  async addReferral(r: Referral) {
+    const { rows } = await this.db.query(
+      'INSERT INTO baarali.referrals (account_id, partner_id, at, via) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING account_id',
+      [r.accountId, r.partnerId, new Date(r.at), r.via],
+    );
+    return rows.length > 0;
+  }
+
+  async referralOf(accountId: string) {
+    const { rows } = await this.db.query<{ account_id: string; partner_id: string; at: Date; via: Referral['via'] }>(
+      'SELECT account_id, partner_id, at, via FROM baarali.referrals WHERE account_id = $1',
+      [accountId],
+    );
+    const r = rows[0];
+    return r ? { accountId: r.account_id, partnerId: r.partner_id, at: r.at.getTime(), via: r.via } : null;
+  }
+
+  async partnerFigures() {
+    const { rows } = await this.db.query<{ id: string; clicks: number; signups: number }>(
+      `SELECT p.id,
+         COALESCE((SELECT sum(clicks)::int FROM baarali.partner_clicks c WHERE c.partner_id = p.id), 0) AS clicks,
+         (SELECT count(*)::int FROM baarali.referrals r WHERE r.partner_id = p.id) AS signups
+       FROM baarali.partners p`,
+    );
+    return Object.fromEntries(rows.filter((r) => r.clicks || r.signups).map((r) => [r.id, { clicks: r.clicks, signups: r.signups }]));
+  }
+
+  async addGift(g: Gift) {
+    await this.db.query(
+      `INSERT INTO baarali.gifts (id, account_id, plan_id, previous_plan_id, starts_at, ends_at, reason, ended_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [g.id, g.accountId, g.planId, g.previousPlanId, new Date(g.startsAt), new Date(g.endsAt), g.reason, date(g.endedAt)],
+    );
+  }
+
+  async openGifts() {
+    const { rows } = await this.db.query<{ id: string; account_id: string; plan_id: string; previous_plan_id: string; starts_at: Date; ends_at: Date; reason: string }>(
+      `SELECT id, account_id, plan_id, previous_plan_id, starts_at, ends_at, reason FROM baarali.gifts WHERE ended_at IS NULL ORDER BY ends_at, id`,
+    );
+    return rows.map((r) => ({
+      id: r.id, accountId: r.account_id, planId: r.plan_id, previousPlanId: r.previous_plan_id,
+      startsAt: r.starts_at.getTime(), endsAt: r.ends_at.getTime(), reason: r.reason, endedAt: null,
+    }));
+  }
+
+  async endGift(id: string, at: number) {
+    const { rows } = await this.db.query('UPDATE baarali.gifts SET ended_at = $2 WHERE id = $1 AND ended_at IS NULL RETURNING id', [id, new Date(at)]);
+    return rows.length > 0;
+  }
+
+  async addCommission(c: Commission) {
+    const { rows } = await this.db.query(
+      `INSERT INTO baarali.commissions (id, partner_id, account_id, paid_at, amount_xof, rate, commission_xof, payable_at, payout_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING RETURNING id`,
+      [c.id, c.partnerId, c.accountId, new Date(c.paidAt), c.amountXof, c.rate, c.commissionXof, new Date(c.payableAt), c.payoutId],
+    );
+    return rows.length > 0;
+  }
+
+  async commissions(partnerId?: string) {
+    const { rows } = await this.db.query<{
+      id: string; partner_id: string; account_id: string; paid_at: Date; amount_xof: string; rate: string; commission_xof: string; payable_at: Date; payout_id: string | null;
+    }>(
+      `SELECT id, partner_id, account_id, paid_at, amount_xof, rate, commission_xof, payable_at, payout_id FROM baarali.commissions
+       ${partnerId ? 'WHERE partner_id = $1' : ''} ORDER BY paid_at, id`,
+      partnerId ? [partnerId] : [],
+    );
+    return rows.map((r) => ({
+      id: r.id, partnerId: r.partner_id, accountId: r.account_id, paidAt: r.paid_at.getTime(), amountXof: Number(r.amount_xof),
+      rate: Number(r.rate), commissionXof: Number(r.commission_xof), payableAt: r.payable_at.getTime(), payoutId: r.payout_id,
+    }));
+  }
+
+  async payCommissions(p: Payout, commissionIds: string[]) {
+    // One statement: the payout exists only if it pays something, and a
+    // commission is never paid twice, even by two clicks at once.
+    const { rows } = await this.db.query<{ n: number }>(
+      `WITH due AS (
+         SELECT id FROM baarali.commissions WHERE partner_id = $2 AND payout_id IS NULL AND id = ANY($9::text[]) FOR UPDATE
+       ), payout AS (
+         INSERT INTO baarali.partner_payouts (id, partner_id, amount_xof, method, number, reference, at, by)
+         SELECT $1, $2, $3, $4, $5, $6, $7, $8 WHERE EXISTS (SELECT 1 FROM due) RETURNING id
+       ), paid AS (
+         UPDATE baarali.commissions SET payout_id = (SELECT id FROM payout) WHERE id IN (SELECT id FROM due) AND EXISTS (SELECT 1 FROM payout) RETURNING id
+       )
+       SELECT count(*)::int AS n FROM paid`,
+      [p.id, p.partnerId, p.amountXof, p.method, p.number, p.reference, new Date(p.at), p.by, commissionIds],
+    );
+    return rows[0]?.n ?? 0;
+  }
+
+  async payouts(partnerId?: string) {
+    const { rows } = await this.db.query<{ id: string; partner_id: string; amount_xof: string; method: PayoutMethod; number: string; reference: string; at: Date; by: string }>(
+      `SELECT id, partner_id, amount_xof, method, number, reference, at, by FROM baarali.partner_payouts ${partnerId ? 'WHERE partner_id = $1' : ''} ORDER BY at DESC, id`,
+      partnerId ? [partnerId] : [],
+    );
+    return rows.map((r) => ({ id: r.id, partnerId: r.partner_id, amountXof: Number(r.amount_xof), method: r.method, number: r.number, reference: r.reference, at: r.at.getTime(), by: r.by }));
   }
 
   async allInstances(): Promise<InstanceRecord[]> {

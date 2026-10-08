@@ -358,8 +358,8 @@ export class NoticeDispatcher {
   private lastRun = 0;
   constructor(
     private readonly deps: DispatchDeps,
-    /** Welcome and the inactive are found here too (auto-messages.ts). */
-    private readonly auto?: { sweep(): Promise<void> },
+    /** Also run each time: the welcome and the inactive (auto-messages.ts), the offered plans' end (partner-program.ts). */
+    private readonly sweepers: Array<{ sweep(): Promise<void> }> = [],
   ) {}
 
   /** At most once a minute unless forced; never twice at a time. */
@@ -373,7 +373,7 @@ export class NoticeDispatcher {
         for (const n of await this.deps.store.notifications(100)) {
           if (n.sentAt === null && n.cancelledAt === null && n.sendAt <= now) await sendNotice(this.deps, n);
         }
-        await this.auto?.sweep();
+        for (const s of this.sweepers) await s.sweep();
       } catch (err) {
         console.error('[notifications] dispatch failed', err);
       } finally {

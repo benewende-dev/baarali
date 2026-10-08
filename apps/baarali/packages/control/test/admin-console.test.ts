@@ -8,6 +8,7 @@ import { createGateway } from '../src/gateway.js';
 import { Instances } from '../src/instances.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
 import { AUTO_KINDS } from '../src/auto-messages.js';
+import { OFFERS } from '../src/catalog.js';
 import { MemoryMailer, NoticeLinks } from '../src/notifications.js';
 
 // The admin console (/admin, decided 03/10/2026): who opens it, what each
@@ -80,6 +81,7 @@ function setup(opts: { adminEmails?: string[]; noAuth?: boolean; noMail?: boolea
     publicUrl: 'https://app.baarali.test',
     appName: 'Baarali',
     mediaPacks: [{ id: 'medias-2', credits: 71, prices: [{ amount: 200, currency: 'EUR' }] }],
+    home: { offers: OFFERS, weekCredits: {}, packs: [] },
     adminTokenHash: hashToken('operator-token'),
     adminEmails: opts.adminEmails ?? ['boss@example.test'],
     auth: opts.noAuth ? undefined : auth,
@@ -590,6 +592,7 @@ describe('automatic messages', () => {
     expect(auto.data).toEqual([
       { kind: 'limit', enabled: true, sent: 0 },
       { kind: 'media_low', enabled: true, sent: 0 },
+      { kind: 'gift_ending', enabled: true, sent: 0 },
       { kind: 'inactive', enabled: false, sent: 0 },
       { kind: 'welcome', enabled: true, sent: 2 },
     ]);
@@ -621,5 +624,82 @@ describe('automatic messages', () => {
       'Message automatique « Client inactif depuis 14 jours » activé',
       'Message automatique « Bienvenue » coupé',
     ]);
+  });
+});
+
+describe('partners', () => {
+  const create = (post: ReturnType<typeof setup>['post'], b: Record<string, unknown>) => post('boss', '/admin/api/partners', b);
+
+  it('adds a partner, whose link is counted and remembered for the sign-up', async () => {
+    const { post, as, app } = setup();
+    const res = await create(post, { name: 'Awa Tech', code: 'awa-tech', network: 'TikTok', city: 'Ouagadougou' });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ code: 'AWATECH' });
+    expect((await create(post, { name: 'Copie', code: 'AWATECH' })).status).toBe(409);
+    expect((await create(post, { name: 'Sans code' })).status).toBe(400);
+    expect((await create(post, { name: 'X', code: 'Y1', accountEmail: 'nobody@x.test' })).status).toBe(400);
+    expect((await post('awa', '/admin/api/partners', { name: 'A', code: 'ABC' })).status).toBe(404);
+
+    const home = await app.request('/?p=awatech');
+    expect(home.status).toBe(200);
+    expect(home.headers.get('set-cookie')).toBe('baarali_ref=AWATECH; Max-Age=5184000; Path=/; SameSite=Lax; HttpOnly; Secure; Domain=baarali.test');
+    expect((await app.request('/?p=NOBODY')).headers.get('set-cookie')).toBeNull();
+
+    const list = (await (await as('boss', '/admin/api/partners')).json()) as { rules: { baseRate: number }; data: Array<{ partner: { code: string }; clicks: number; tierLabel: string; rate: number }> };
+    expect(list.rules.baseRate).toBe(0.2);
+    expect(list.data).toMatchObject([{ partner: { code: 'AWATECH' }, clicks: 1, tierLabel: 'Base', rate: 0.2 }]);
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ detail: string }> };
+    expect(journal.data[0].detail).toBe('Partenaire ajouté : Awa Tech (AWATECH)');
+  });
+
+  it('changes the rules within what the plans can pay, and writes it down', async () => {
+    const { post } = setup();
+    const form = { basePct: 20, silverPct: 25, silverFrom: 10, goldPct: 30, goldFrom: 50, months: 12, holdDays: 30, payoutMinXof: 10000, giftPlanId: null, giftDays: 7, cookieDays: 60 };
+    expect((await post('boss', '/admin/api/partners/rules', { ...form, goldPct: 50 })).status).toBe(400);
+    const ok = await post('boss', '/admin/api/partners/rules', { ...form, basePct: 22.5 });
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as { rules: { baseRate: number; giftPlanId: null } }).rules).toMatchObject({ baseRate: 0.225, giftPlanId: null });
+  });
+
+  it('lets a new person type the code in the app, once, and pauses a partner', async () => {
+    const { post, as, app, store } = setup();
+    const { id } = (await (await create(post, { name: 'Awa Tech', code: 'AWATECH', accountEmail: 'boss@example.test' })).json()) as { id: string };
+    const redeem = (token: string, code: string) =>
+      app.request('/v1/codes/redeem', { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
+    // The partner's own account cannot use their code.
+    expect(((await (await redeem('tok-owner', 'AWATECH')).json()) as { error: { code: string } }).error.code).toBe('own');
+    expect(((await (await redeem('tok-awa', 'NOPE')).json()) as { error: { message: string } }).error.message).toBe('Ce code n’existe pas. Vérifiez l’orthographe.');
+    // No Essentiel in this catalogue: counted, nothing offered.
+    const ok = await redeem('tok-awa', 'awatech');
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ partner: 'Awa Tech', gift: null });
+    expect((await store.referralOf(AWA.id))?.via).toBe('code');
+    expect(((await (await redeem('tok-awa', 'AWATECH')).json()) as { error: { code: string } }).error.code).toBe('already');
+    expect((await app.request('/v1/codes/redeem', { method: 'POST' })).status).toBe(401);
+
+    expect((await post('boss', `/admin/api/partners/${id}`, { status: 'paused' })).status).toBe(200);
+    expect((await post('boss', `/admin/api/partners/${id}`, { payoutMethod: 'paypal' })).status).toBe(400);
+    expect((await post('boss', `/admin/api/partners/${id}`, { payoutMethod: 'orange', payoutNumber: '+226 70 00 00 12' })).status).toBe(200);
+    expect((await post('boss', '/admin/api/partners/ptn_none', { status: 'paused' })).status).toBe(404);
+    const list = (await (await as('boss', '/admin/api/partners')).json()) as { data: Array<{ partner: { status: string; payoutNumber: string }; signups: number; accountEmail: string }> };
+    expect(list.data[0]).toMatchObject({ partner: { status: 'paused', payoutNumber: '+226 70 00 00 12' }, signups: 1, accountEmail: 'boss@example.test' });
+  });
+
+  it('pays what is due by mobile money and writes the transaction down', async () => {
+    const { post, as, store, tick } = setup();
+    const { id } = (await (await create(post, { name: 'Awa Tech', code: 'AWATECH' })).json()) as { id: string };
+    await post('boss', `/admin/api/partners/${id}`, { payoutMethod: 'wave', payoutNumber: '+225 07 00 00 48' });
+    await store.addReferral({ accountId: AWA.id, partnerId: id, at: T0, via: 'link' });
+    await store.addCommission({ id: 'pay_1', partnerId: id, accountId: AWA.id, paidAt: T0, amountXof: 65_595, rate: 0.2, commissionXof: 13_119, payableAt: T0, payoutId: null });
+    tick(1000);
+    expect((await post('boss', `/admin/api/partners/${id}/payout`, {})).status).toBe(400);
+    const res = await post('boss', `/admin/api/partners/${id}/payout`, { reference: 'WV-778' });
+    expect(res.status).toBe(200);
+    expect((await post('boss', `/admin/api/partners/${id}/payout`, { reference: 'WV-779' })).status).toBe(400);
+    const list = (await (await as('boss', '/admin/api/partners')).json()) as { payouts: Array<{ amountXof: number; methodLabel: string; partnerName: string }>; data: Array<{ paidXof: number }> };
+    expect(list.payouts).toMatchObject([{ amountXof: 13_119, methodLabel: 'Wave', partnerName: 'Awa Tech' }]);
+    expect(list.data[0].paidXof).toBe(13_119);
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ detail: string }> };
+    expect(journal.data[0].detail).toBe('Paiement partenaire : 13119 F à Awa Tech par Wave (WV-778)');
   });
 });
