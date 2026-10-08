@@ -124,3 +124,13 @@ describe('render service', () => {
     expect((await call('/jobs/new?id=job-f-0001&format=mp4', { method: 'POST', body: '{' })).status).toBe(400);
   });
 });
+
+describe('capture browsers', () => {
+  it('asks the producer for RENDER_WORKERS browsers, or lets it decide', async () => {
+    const { captureWorkers } = await import('../src/hyperframes.js');
+    expect(captureWorkers({ RENDER_WORKERS: '4' })).toBe(4);
+    expect(captureWorkers({})).toBeUndefined();
+    expect(captureWorkers({ RENDER_WORKERS: 'many' })).toBeUndefined();
+    expect(captureWorkers({ RENDER_WORKERS: '0' })).toBeUndefined();
+  });
+});

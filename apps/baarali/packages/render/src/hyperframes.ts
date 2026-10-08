@@ -7,6 +7,17 @@ import { createRenderJob, executeRenderJob } from '@hyperframes/producer';
 import { RefusedError, type Renderer } from './queue.js';
 import { usesGsap } from './project.js';
 
+/**
+ * Capture browsers per render (RENDER_WORKERS). Measured 08/10/2026 on
+ * performance-4x: left to itself the producer kept 1 (its contention rule:
+ * 4 cores ÷ 2.5 cores a browser ÷ 1.15 slow-capture factor), 183 s for 10 s
+ * of video; PRODUCER_MAX_WORKERS is only a ceiling. Unset: the producer decides.
+ */
+export function captureWorkers(env: NodeJS.ProcessEnv = process.env): number | undefined {
+  const n = Number(env.RENDER_WORKERS);
+  return Number.isInteger(n) && n >= 1 && n <= 16 ? n : undefined;
+}
+
 // The real renderer: HyperFrames' lint, then its producer (Chrome captures
 // each frame, FFmpeg encodes, the <audio> clips are mixed in). The light
 // MP4 and the GIF are made from a draft MP4 by FFmpeg: smaller files for a
@@ -45,6 +56,7 @@ export function hyperframesRenderer(opts: { ffmpeg: string }): Renderer {
       fps: task.format === 'gif' ? 24 : task.fps,
       quality: direct ? 'standard' : 'draft',
       format: task.format === 'webm' ? 'webm' : 'mp4',
+      ...(captureWorkers() ? { workers: captureWorkers() } : {}),
     });
     // The producer reports 0 to 100; the encode of a derived format is the last tenth.
     await executeRenderJob(job, task.dir, target, (j) => progress((j.progress > 1 ? j.progress / 100 : j.progress) * (direct ? 1 : 0.9)));

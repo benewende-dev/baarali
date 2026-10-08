@@ -12,9 +12,10 @@ primary_region = "cdg"
   # Measured 08/10/2026 on performance-2x/4 GB: 182 s for 10 s of video. At
   # 8 GB or less the producer picks its low-memory profile (one capture
   # browser); Fly has no GPU, so capture is by screenshot either way, and
-  # speed comes from browsers in parallel, one per core.
+  # speed comes from browsers in parallel, one per core. The producer's own
+  # sizing still kept 1 (hyperframes.ts, captureWorkers): asked explicitly.
   PRODUCER_LOW_MEMORY_MODE = "false"
-  PRODUCER_MAX_WORKERS = "4"
+  RENDER_WORKERS = "4"
 
 [http_service]
   internal_port = 8080
