@@ -1,7 +1,7 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import { isStrength, type ModelSetting } from './model-access.js';
 import type { AutoKind } from './auto-messages.js';
-import type { Commission, Gift, Partner, PartnerStatus, Payout, PayoutMethod, ProgramRules, Referral } from './partners.js';
+import type { Commission, Gift, Partner, PartnerApplication, PartnerStatus, Payout, PayoutMethod, ProgramRules, Referral } from './partners.js';
 import { AUTO_AUTHOR, type Delivery, type Notice, type NoticeEvent, type NoticeStats } from './notifications.js';
 import type { Db, Queryable } from './db.js';
 import type { QuotaState } from './quota.js';
@@ -27,7 +27,7 @@ import {
 const ms = (d: Date | null): number | null => (d === null ? null : d.getTime());
 const date = (t: number | null): Date | null => (t === null ? null : new Date(t));
 
-const PARTNER_COLUMNS = 'id, name, code, network, city, account_id, status, created_at, created_by, payout_method, payout_number';
+const PARTNER_COLUMNS = 'id, name, code, network, city, account_id, email, status, created_at, created_by, payout_method, payout_number';
 interface PartnerRow {
   id: string;
   name: string;
@@ -35,6 +35,7 @@ interface PartnerRow {
   network: string | null;
   city: string | null;
   account_id: string | null;
+  email: string | null;
   status: PartnerStatus;
   created_at: Date;
   created_by: string;
@@ -42,7 +43,7 @@ interface PartnerRow {
   payout_number: string | null;
 }
 const toPartner = (r: PartnerRow): Partner => ({
-  id: r.id, name: r.name, code: r.code, network: r.network, city: r.city, accountId: r.account_id, status: r.status,
+  id: r.id, name: r.name, code: r.code, network: r.network, city: r.city, accountId: r.account_id, email: r.email, status: r.status,
   createdAt: r.created_at.getTime(), createdBy: r.created_by, payoutMethod: r.payout_method, payoutNumber: r.payout_number,
 });
 // pg returns bigint columns as strings: they hold credits, safe as numbers.
@@ -430,11 +431,11 @@ export class PgStore implements ControlStore {
   async savePartner(p: Partner) {
     try {
       await this.db.query(
-        `INSERT INTO baarali.partners (id, name, code, network, city, account_id, status, created_at, created_by, payout_method, payout_number)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO baarali.partners (id, name, code, network, city, account_id, email, status, created_at, created_by, payout_method, payout_number)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code, network = EXCLUDED.network, city = EXCLUDED.city,
-           account_id = EXCLUDED.account_id, status = EXCLUDED.status, payout_method = EXCLUDED.payout_method, payout_number = EXCLUDED.payout_number`,
-        [p.id, p.name, p.code, p.network, p.city, p.accountId, p.status, new Date(p.createdAt), p.createdBy, p.payoutMethod, p.payoutNumber],
+           account_id = EXCLUDED.account_id, email = EXCLUDED.email, status = EXCLUDED.status, payout_method = EXCLUDED.payout_method, payout_number = EXCLUDED.payout_number`,
+        [p.id, p.name, p.code, p.network, p.city, p.accountId, p.email, p.status, new Date(p.createdAt), p.createdBy, p.payoutMethod, p.payoutNumber],
       );
       return true;
     } catch (err) {
@@ -549,6 +550,38 @@ export class PgStore implements ControlStore {
       partnerId ? [partnerId] : [],
     );
     return rows.map((r) => ({ id: r.id, partnerId: r.partner_id, amountXof: Number(r.amount_xof), method: r.method, number: r.number, reference: r.reference, at: r.at.getTime(), by: r.by }));
+  }
+
+  async addPartnerApplication(a: PartnerApplication) {
+    const { rows } = await this.db.query(
+      `INSERT INTO baarali.partner_applications (id, name, email, phone, network, profile, audience, city, message, created_at, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'new') ON CONFLICT DO NOTHING RETURNING id`,
+      [a.id, a.name, a.email, a.phone, a.network, a.profile, a.audience, a.city, a.message, new Date(a.createdAt)],
+    );
+    return rows.length > 0;
+  }
+
+  async partnerApplications(limit: number) {
+    const { rows } = await this.db.query<{
+      id: string; name: string; email: string; phone: string | null; network: string; profile: string; audience: string; city: string | null;
+      message: string | null; created_at: Date; status: PartnerApplication['status']; decided_at: Date | null; decided_by: string | null;
+    }>(
+      `SELECT id, name, email, phone, network, profile, audience, city, message, created_at, status, decided_at, decided_by
+       FROM baarali.partner_applications ORDER BY created_at DESC, id DESC LIMIT $1`,
+      [limit],
+    );
+    return rows.map((r) => ({
+      id: r.id, name: r.name, email: r.email, phone: r.phone, network: r.network, profile: r.profile, audience: r.audience, city: r.city,
+      message: r.message, createdAt: r.created_at.getTime(), status: r.status, decidedAt: r.decided_at?.getTime() ?? null, decidedBy: r.decided_by,
+    }));
+  }
+
+  async decidePartnerApplication(id: string, status: 'accepted' | 'declined', at: number, by: string) {
+    const { rows } = await this.db.query(
+      `UPDATE baarali.partner_applications SET status = $2, decided_at = $3, decided_by = $4 WHERE id = $1 AND status = 'new' RETURNING id`,
+      [id, status, new Date(at), by],
+    );
+    return rows.length > 0;
   }
 
   async allInstances(): Promise<InstanceRecord[]> {

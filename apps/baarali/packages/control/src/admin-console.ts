@@ -5,6 +5,8 @@ import { isAdmin, type SoldPack } from './admin.js';
 import { adminPage, deniedPage } from './admin-page.js';
 import { isLive, parseDraft, type Announcement } from './announcements.js';
 import type { PartnerProgram } from './partner-program.js';
+import { partnerWelcomeMail } from './partner-page.js';
+import { siteOf } from './partner-routes.js';
 import { normalizeCode, parseRules, PAYOUT_METHODS, PAYOUT_WORDS, TIER_WORDS, type Partner, type PayoutMethod } from './partners.js';
 import { AUTO_KINDS, type AutoKind, type AutoMessages } from './auto-messages.js';
 import { audienceOf, emailable, parseNoticeDraft, sendNotice, type DispatchDeps, type Notice } from './notifications.js';
@@ -59,6 +61,8 @@ export interface ConsoleDeps {
   notices: DispatchDeps;
   auto: AutoMessages;
   program: PartnerProgram;
+  /** The app's address; the public site is the same without `app.` (partner-routes.ts). */
+  publicUrl: string;
 }
 
 /** One write touches this many models at most: a whole vendor fits, a slip does not empty the catalog. */
@@ -702,12 +706,13 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
   app.get('/admin/api/partners', async (c) => {
     const actor = await api(c, false);
     if (actor instanceof Response) return actor;
-    const [rules, summaries, payouts, plans, accounts] = await Promise.all([
+    const [rules, summaries, payouts, plans, accounts, applications] = await Promise.all([
       deps.program.rules(),
       deps.program.summaries(),
       store.payouts(),
       store.plans(),
       store.listAccounts(deps.now()),
+      store.partnerApplications(50),
     ]);
     const emailOf = (id: string | null) => (id ? (accounts.find((a) => a.account.id === id)?.account.email ?? null) : null);
     const nameOf = (id: string) => summaries.find((s) => s.partner.id === id)?.partner.name ?? id;
@@ -716,9 +721,11 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
       plans: plans.filter((p) => p.category !== 'free').map((p) => ({ id: p.id, name: p.displayName })),
       methods: PAYOUT_METHODS.map((m) => ({ id: m, name: PAYOUT_WORDS[m] })),
       data: summaries
-        .map(({ payableIds: _ids, ...s }) => ({ ...s, tierLabel: TIER_WORDS[s.tier], accountEmail: emailOf(s.partner.accountId) }))
+        .map(({ payableIds: _ids, ...s }) => ({ ...s, tierLabel: TIER_WORDS[s.tier], accountEmail: emailOf(s.partner.accountId) ?? s.partner.email, linked: s.partner.accountId !== null }))
         .sort((a, b) => b.paying - a.paying || b.signups - a.signups),
       payouts: payouts.slice(0, 30).map((p) => ({ ...p, partnerName: nameOf(p.partnerId), methodLabel: PAYOUT_WORDS[p.method] })),
+      applications: applications.filter((a) => a.status === 'new'),
+      email: Boolean(deps.notices.mailer),
     });
   });
 
@@ -751,13 +758,11 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
       next.payoutNumber = number;
     }
     if ('accountEmail' in b) {
-      const email = text(b.accountEmail, 200);
-      if (!email) next.accountId = null;
-      else {
-        const account = await accountByEmail(email);
-        if (!account) return 'Aucun compte Baarali avec cet email : le partenaire doit d’abord se connecter une fois.';
-        next.accountId = account.id;
-      }
+      // Linked now when the account exists; otherwise at their first sign-in with it, proved.
+      const email = text(b.accountEmail, 200)?.toLowerCase() ?? null;
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Cet email ne semble pas valide.';
+      next.email = email;
+      next.accountId = email ? ((await accountByEmail(email))?.id ?? null) : null;
     }
     return next;
   };
@@ -768,14 +773,37 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     const b = await body(c);
     if (!('name' in b) || !('code' in b)) return c.json({ error: { code: 'invalid_request', message: 'Le nom et le code sont attendus.' } }, 400);
     const blank: Partner = {
-      id: `ptn_${randomUUID()}`, name: '', code: '', network: null, city: null, accountId: null, status: 'active',
+      id: `ptn_${randomUUID()}`, name: '', code: '', network: null, city: null, accountId: null, email: null, status: 'active',
       createdAt: deps.now(), createdBy: actor, payoutMethod: null, payoutNumber: null,
     };
     const partner = await partnerFields(b, blank);
     if (typeof partner === 'string') return c.json({ error: { code: 'invalid_request', message: partner } }, 400);
+    const application = typeof b.applicationId === 'string' ? (await store.partnerApplications(200)).find((a) => a.id === b.applicationId && a.status === 'new') : undefined;
+    if (b.applicationId !== undefined && !application) return c.json({ error: { code: 'not_found', message: 'Candidature introuvable ou déjà traitée.' } }, 404);
     if (!(await store.savePartner(partner))) return c.json({ error: { code: 'conflict', message: 'Ce code ou ce compte est déjà à un autre partenaire.' } }, 409);
     await log(actor, 'partner', partner.accountId, `Partenaire ajouté : ${partner.name} (${partner.code})`);
-    return c.json({ id: partner.id, code: partner.code }, 201);
+    // From an application: it is answered, and the creator gets their link by email.
+    let emailed = false;
+    if (application) {
+      await store.decidePartnerApplication(application.id, 'accepted', deps.now(), actor);
+      if (deps.notices.mailer) {
+        const rules = await deps.program.rules();
+        const gift = rules.giftPlanId ? ((await store.plan(rules.giftPlanId))?.displayName ?? null) : null;
+        const mail = partnerWelcomeMail(partner, application.email, { site: siteOf(deps.publicUrl), app: deps.publicUrl }, rules, gift);
+        emailed = (await deps.notices.mailer.send([mail])).accepted.length > 0;
+      }
+    }
+    return c.json({ id: partner.id, code: partner.code, emailed }, 201);
+  });
+
+  app.post('/admin/api/partners/applications/:id/decline', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const found = (await store.partnerApplications(200)).find((a) => a.id === c.req.param('id'));
+    if (!found) return c.json({ error: { code: 'not_found' } }, 404);
+    if (!(await store.decidePartnerApplication(found.id, 'declined', deps.now(), actor))) return c.json({ changed: false });
+    await log(actor, 'partner-application', null, `Candidature partenaire écartée : ${found.name} (${found.network})`);
+    return c.json({ changed: true });
   });
 
   app.post('/admin/api/partners/rules', async (c) => {

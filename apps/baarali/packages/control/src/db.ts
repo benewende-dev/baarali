@@ -350,6 +350,28 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX commissions_partner ON baarali.commissions (partner_id);
   `,
+  // 11 — applications to the partner programme (07/10/2026), from its public
+  // page; one waiting per email.
+  `
+  CREATE TABLE baarali.partner_applications (
+    id text PRIMARY KEY,
+    name text NOT NULL,
+    email text NOT NULL,
+    phone text,
+    network text NOT NULL,
+    profile text NOT NULL,
+    audience text NOT NULL,
+    city text,
+    message text,
+    created_at timestamptz NOT NULL,
+    status text NOT NULL CHECK (status IN ('new', 'accepted', 'declined')),
+    decided_at timestamptz,
+    decided_by text
+  );
+  CREATE UNIQUE INDEX partner_applications_waiting ON baarali.partner_applications (email) WHERE status = 'new';
+
+  ALTER TABLE baarali.partners ADD COLUMN email text;
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

@@ -441,11 +441,18 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
         <label class="f">Code<input id="p-code" maxlength="16" required placeholder="AWATECH" autocapitalize="characters"></label>
         <label class="f">Réseau<input id="p-network" maxlength="40" placeholder="TikTok"></label>
         <label class="f">Ville<input id="p-city" maxlength="40" placeholder="Ouagadougou"></label>
-        <label class="f wide">Son compte Baarali (facultatif)<input id="p-email" type="email" placeholder="awa@exemple.com"></label>
+        <label class="f wide">Son email (ouvre son espace partenaire quand il se connecte avec)<input id="p-email" type="email" placeholder="awa@exemple.com"></label>
+        <input type="hidden" id="p-app-id">
+        <p class="hint wide" id="p-from" hidden></p>
         <div class="wide toolbar formbar"><span class="spacer"></span><button class="btn" type="button" id="p-new-cancel">Annuler</button><button class="btn primary" type="submit">Ajouter</button></div>
       </form>
     </section>
     <div class="stats" id="p-stats"></div>
+    <section class="card" id="p-apps-card" hidden style="margin-bottom:16px">
+      <h2>Candidatures</h2>
+      <p class="hint">Reçues sur la page publique « Devenir partenaire ». Accepter prépare sa fiche ; à l'ajout, son lien lui part par email.</p>
+      <div class="list" id="p-apps"></div>
+    </section>
     <div class="grid2">
       <section class="card">
         <h2>Les partenaires</h2>
@@ -1124,13 +1131,14 @@ const cfa = (n) => fr.format(n) + " F";
 const siteHost = location.hostname.replace(/^app\./, "");
 const pct = (x) => fr.format(Math.round(x * 1000) / 10) + " %";
 $("p-new-open").addEventListener("click", () => { $("p-new").hidden = false; $("p-name").focus(); });
-$("p-new-cancel").addEventListener("click", () => { $("p-new").hidden = true; $("p-form").reset(); });
+$("p-new-cancel").addEventListener("click", () => { $("p-new").hidden = true; $("p-form").reset(); $("p-app-id").value = ""; $("p-from").hidden = true; });
 $("p-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
-    const r = await send("/partners", { name: $("p-name").value, code: $("p-code").value, network: $("p-network").value, city: $("p-city").value, accountEmail: $("p-email").value });
-    toast("Partenaire ajouté : " + r.code);
-    $("p-form").reset(); $("p-new").hidden = true; await loadPartners();
+    const appId = $("p-app-id").value;
+    const r = await send("/partners", { name: $("p-name").value, code: $("p-code").value, network: $("p-network").value, city: $("p-city").value, accountEmail: $("p-email").value, ...(appId ? { applicationId: appId } : {}) });
+    toast("Partenaire ajouté : " + r.code + (r.emailed ? " · son lien lui est parti par email" : ""));
+    $("p-form").reset(); $("p-app-id").value = ""; $("p-from").hidden = true; $("p-new").hidden = true; await loadPartners();
   } catch (err) { toast(err.message); }
 });
 $("p-rules").addEventListener("submit", async (e) => {
@@ -1160,7 +1168,7 @@ async function loadPartners() {
   $("r-gift").value = rules.giftPlanId ?? "";
   if ($("r-gift").value !== (rules.giftPlanId ?? "")) $("r-gift").append(el("option", { value: rules.giftPlanId, selected: "" }, rules.giftPlanId + " (introuvable)"));
   const active = r.data.filter((x) => x.partner.status === "active");
-  $("n-partners").textContent = active.length ? String(active.length) : "";
+  $("n-partners").textContent = r.applications.length ? r.applications.length + " ✉" : active.length ? String(active.length) : "";
   const sum = (k) => r.data.reduce((t, x) => t + x[k], 0);
   const stat = (value, label) => el("div", { class: "stat" }, el("b", {}, value), el("span", {}, label));
   $("p-stats").replaceChildren(
@@ -1178,6 +1186,27 @@ async function loadPartners() {
     el("td", { class: "num" }, fr.format(x.paying)),
     el("td", { class: "num" }, cfa(x.payableXof)),
   )) : [el("tr", {}, el("td", { colspan: "6", class: "empty" }, "Aucun partenaire pour l'instant. Ajoutez le premier."))]));
+  const AUD = { xs: "moins de 5 000", s: "5 000 à 50 000", m: "50 000 à 500 000", l: "plus de 500 000" };
+  $("p-apps-card").hidden = !r.applications.length;
+  $("p-apps").replaceChildren(...r.applications.map((a) => el("div", { class: "it" }, el("time", {}, stamp.format(a.createdAt)),
+    el("p", {}, el("b", {}, a.name), " · " + a.network + " · " + AUD[a.audience] + (a.city ? " · " + a.city : ""), el("br"),
+      el("small", {}, a.email + (a.phone ? " · " + a.phone : "") + " · "), el("a", { href: a.profile, target: "_blank", rel: "noopener noreferrer" }, "voir son profil"),
+      a.message ? el("small", {}, el("br"), "« " + a.message + " »") : null),
+    el("button", { class: "btn", type: "button", onclick: async (e) => {
+      e.currentTarget.disabled = true;
+      try { await send("/partners/applications/" + encodeURIComponent(a.id) + "/decline"); toast("Candidature écartée"); await loadPartners(); }
+      catch (err) { toast(err.message); }
+    } }, "Écarter"),
+    el("button", { class: "btn primary", type: "button", onclick: () => {
+      $("p-form").reset();
+      $("p-name").value = a.name; $("p-network").value = a.network; $("p-city").value = a.city || ""; $("p-email").value = a.email;
+      $("p-code").value = a.name.normalize("NFD").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 16);
+      $("p-app-id").value = a.id;
+      $("p-from").hidden = false;
+      $("p-from").textContent = "Depuis la candidature de " + a.email + (r.email ? ". Son lien lui partira par email." : ". L'email n'est pas branché : envoyez-lui son lien vous-même.");
+      $("p-new").hidden = false; $("p-code").focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } }, "Accepter"))));
   const due = r.data.filter((x) => x.payableXof > 0);
   $("p-due").replaceChildren(...(due.length ? due.map(dueRow) : [el("p", { class: "empty" }, "Rien à payer pour l'instant.")]));
   $("p-paid").replaceChildren(...(r.payouts.length ? r.payouts.map((p) => el("div", { class: "it" }, el("time", {}, stamp.format(p.at)),
@@ -1208,7 +1237,7 @@ function editPartner(x) {
   const [lName, name] = input("Nom", p.name, { maxlength: "60" });
   const [lNet, network] = input("Réseau", p.network, { maxlength: "40" });
   const [lCity, city] = input("Ville", p.city, { maxlength: "40" });
-  const [lMail, email] = input("Son compte Baarali", x.accountEmail, { type: "email", placeholder: "Pas encore lié" });
+  const [lMail, email] = input(x.linked ? "Son compte Baarali (lié)" : "Son email (lié à sa 1re connexion)", x.accountEmail, { type: "email", placeholder: "awa@exemple.com" });
   const method = el("select", {}, el("option", { value: "" }, "Pas encore donné"), ...partnersData.methods.map((m) => el("option", { value: m.id }, m.name)));
   method.value = p.payoutMethod ?? "";
   const [lNum, number] = input("Numéro", p.payoutNumber, { placeholder: "+226 70 00 00 00", inputmode: "tel" });

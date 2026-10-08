@@ -221,6 +221,8 @@ const oauthQuery = location.search.slice(1);
 // The admin console sends people here with #admin: a fragment, since the
 // query is the signed authorization request and anything else in it is refused.
 const forAdmin = location.hash === "#admin";
+// The partner space does the same (partner-routes.ts).
+const backTo = forAdmin ? "/admin" : location.hash === "#partenaire" ? "/partenaire" : null;
 async function post(path, body) {
   const res = await fetch("/auth/v1" + path, {
     method: "POST",
@@ -303,7 +305,7 @@ function finish(data) {
   duo.say(s.done[0], s.done[1]);
   if (data && typeof data.url === "string") return setTimeout(() => follow(data), 900);
   // Opened by the admin console (/admin): back to it once signed in.
-  if (forAdmin) return setTimeout(() => location.assign("/admin"), 600);
+  if (backTo) return setTimeout(() => location.assign(backTo), 600);
   document.querySelector("h1").textContent = t.done;
   for (const el of document.querySelectorAll("main > :not(h1):not(#done):not(.duo-stage)")) el.hidden = true;
   document.getElementById("done").hidden = false;
@@ -319,7 +321,7 @@ function fail(e, line) {
 for (const b of document.querySelectorAll("[data-provider]")) {
   b.addEventListener("click", async () => {
     b.disabled = true;
-    try { follow(await post("/sign-in/social", { provider: b.dataset.provider, callbackURL: forAdmin ? "/admin" : "/auth/v1/sign-in" })); }
+    try { follow(await post("/sign-in/social", { provider: b.dataset.provider, callbackURL: backTo ?? "/auth/v1/sign-in" })); }
     catch (e) { fail(e); b.disabled = false; }
   });
 }

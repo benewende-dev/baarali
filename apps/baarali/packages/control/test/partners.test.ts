@@ -26,7 +26,7 @@ const DAY = 86_400_000;
 const FREE: Plan = { id: 'decouverte', category: 'free', displayName: 'Découverte', weekCredits: 1000, monthlyPrices: [], models: null };
 const ESSENTIEL: Plan = { id: 'essentiel', category: 'starter', displayName: 'Essentiel', weekCredits: 4000, monthlyPrices: [], models: null };
 const AWA: Partner = {
-  id: 'ptn_awa', name: 'Awa Tech', code: 'AWATECH', network: 'TikTok', city: 'Ouagadougou', accountId: 'acc_awa', status: 'active',
+  id: 'ptn_awa', name: 'Awa Tech', code: 'AWATECH', network: 'TikTok', city: 'Ouagadougou', accountId: 'acc_awa', email: 'awa@example.test', status: 'active',
   createdAt: T0 - 30 * DAY, createdBy: 'boss@example.test', payoutMethod: 'orange', payoutNumber: '+226 70 00 00 12',
 };
 const account = (id: string, over: Partial<Account> = {}): Account => ({ id, email: `${id}@example.test`, planId: 'decouverte', createdAt: T0, ...over });
