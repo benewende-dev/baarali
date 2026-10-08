@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ModelSelector, modelOverrideToRef, refToModelOverride } from '@/components/model-selector'
 import { useModels } from '@/hooks/use-models'
-import { formatRelativeTime } from '@/lib/relative-time'
 import { appLang } from '@/lib/prompt-library'
 import { cn } from '@/lib/utils'
 import {
@@ -50,12 +49,13 @@ function UnreadBadge({ count }: { count: number }) {
   )
 }
 
-/** A conversation's time in the contacts: the hour today, otherwise how long ago. */
+/** A conversation's time in the contacts: the hour today, otherwise the day. */
 function when(iso: string) {
   const d = new Date(iso)
+  const locale = appLang() === 'fr' ? 'fr-FR' : 'en-GB'
   return d.toDateString() === new Date().toDateString()
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : formatRelativeTime(iso)
+    ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
 }
 
 function blank(taken: string[]): Baarasseur {
@@ -283,7 +283,8 @@ function Overview({ team, latest, unread, workingAgents, taken, onOpen, onRecrui
   onRecruit: (draft: Baarasseur) => void
 }) {
   const { namesByKey } = useModels()
-  const templates = TEMPLATES.filter((t) => !team.some((b) => b.name === t.name))
+  // Four, as the mockup shows them: one full row, none left alone.
+  const templates = TEMPLATES.filter((t) => !team.some((b) => b.name === t.name)).slice(0, 4)
   const lang = appLang()
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -401,7 +402,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
   const [trial, setTrial] = useState<Turn[]>([])
   const [ask, setAsk] = useState('')
   const [picking, setPicking] = useState(false)
-  const [custom, setCustom] = useState(() => !PRESETS.some((p) => presetKey(p) === presetKey(initial.schedule)))
+  const [custom, setCustom] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const set = (patch: Partial<Baarasseur>) => setB((cur) => ({ ...cur, ...patch }))
@@ -417,7 +418,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
       const filled = res.text ? parseDescribed(res.text) : null
       if (!filled) throw new Error(res.error ?? 'empty')
       setB((cur) => ({ ...cur, ...filled }))
-      setCustom(!PRESETS.some((p) => presetKey(p) === presetKey(filled.schedule ?? null)))
+      setCustom(false)
       setTab('setup')
     } catch {
       setError('Baarali could not prepare it. Try again, or set it up yourself.')
@@ -485,10 +486,12 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
   }
 
   const schedule = b.schedule ?? null
+  // Its own hours stay in the list when they are none of the usual ones.
+  const options = PRESETS.some((p) => presetKey(p) === presetKey(schedule)) ? PRESETS : [...PRESETS, schedule]
   const pickPreset = (key: string) => {
     if (key === 'custom') { setCustom(true); if (!schedule) set({ schedule: { every: 'week', day: 1, hour: 8 } }); return }
     setCustom(false)
-    set({ schedule: PRESETS.find((p) => presetKey(p) === key) ?? null })
+    set({ schedule: options.find((p) => presetKey(p) === key) ?? null })
   }
   const setEvery = (every: BaarasseurSchedule['every']) => set({
     schedule: { every, hour: schedule?.hour ?? 8, ...(every === 'week' || every === 'month' ? { day: 1 } : {}) },
@@ -528,10 +531,10 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-wrap">
-        <div className="min-w-0 flex-[999_1_520px] overflow-y-auto border-r border-border px-8 py-7">
+        <div className="min-w-0 flex-[1_1_560px] overflow-y-auto border-r border-border px-8 py-7">
           {error && <p role="alert" className="mb-4 rounded-lg bg-destructive/10 px-3 py-2 text-[13px] text-destructive">{error}</p>}
           {tab === 'describe' ? (
-            <div className="flex max-w-2xl flex-col gap-3">
+            <div className="flex max-w-3xl flex-col gap-3">
               <label htmlFor="baarasseur-sentence" className="text-sm font-medium">Describe it in a sentence</label>
               <Textarea id="baarasseur-sentence" rows={4} value={sentence} onChange={(e) => setSentence(e.target.value)}
                 placeholder="E.g. Someone who follows up with my customers every Monday and prepares my quotes"
@@ -542,7 +545,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
               </Button></div>
             </div>
           ) : (
-            <div className="flex max-w-2xl flex-col gap-6">
+            <div className="flex max-w-3xl flex-col gap-6">
               <div className="flex items-start gap-5">
                 <div className="relative flex flex-col items-center gap-1.5">
                   <Avatar b={{ name: b.name || '?', color: b.color }} size="lg" />
@@ -600,7 +603,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
                 <div className="flex flex-col gap-1.5 text-sm font-medium"><span>Works on its own</span>
                   <select aria-label="Works on its own" className={select}
                     value={custom ? 'custom' : presetKey(schedule)} onChange={(e) => pickPreset(e.target.value)}>
-                    {PRESETS.map((p) => <option key={presetKey(p)} value={presetKey(p)}>{p ? scheduleLabel(p) : 'Only when I write'}</option>)}
+                    {options.map((p) => <option key={presetKey(p)} value={presetKey(p)}>{p ? scheduleLabel(p) : 'Only when I write'}</option>)}
                     <option value="custom">Other hours…</option>
                   </select>
                 </div>
@@ -677,9 +680,9 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
           )}
         </div>
 
-        <section aria-label="Try-out" className="flex min-h-[320px] min-w-0 flex-[1_1_380px] flex-col bg-muted/40">
-          <div className="flex flex-wrap items-center gap-2 px-6 py-4 text-sm">
-            <span className="flex-1 font-medium text-muted-foreground">Try it before recruiting</span>
+        <section aria-label="Try-out" className="flex min-h-[320px] min-w-0 flex-[1_1_480px] flex-col bg-muted/40">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 py-4 text-sm">
+            <span className="flex-1 whitespace-nowrap font-medium text-muted-foreground">Try it before recruiting</span>
             <span className="text-[13px] text-muted-foreground">Nothing is sent during the try-out</span>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-3">

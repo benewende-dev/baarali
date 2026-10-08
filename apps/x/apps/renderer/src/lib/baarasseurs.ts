@@ -154,7 +154,7 @@ export function useBaarasseurUnread(runs: Array<{ agentId: string; modifiedAt: s
 }
 
 /** The hour as the person's language writes it: « 8 h », "8:00". */
-export const hourWords = (h: number) => (appLang() === 'fr' ? `${h} h` : `${h}:00`)
+export const hourWords = (h: number) => (appLang() === 'fr' ? `${h}\u00a0h` : `${h}:00`)
 
 /** Its hours in one whole sentence, for the French layer (fr.ts templates). */
 export function scheduleLabel(s: BaarasseurSchedule): string {
