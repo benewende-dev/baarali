@@ -1,372 +1,91 @@
-<a href="https://www.youtube.com/watch?v=5AWoGo-L16I" target="_blank" rel="noopener noreferrer">
-  <img width="1339" height="607" alt="rowboat-github-2" src="assets/readme-dark/hero-video.png" />
-</a>
-
-<h5 align="center">
-
-<h1 align="center">Rowboat</h1>
-<p align="center"><b>Open-source personal AI assistant with built-in docs, whiteboard and email. Works solo or with your team.</b></p>
-
-<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
-  <a href="https://trendshift.io/repositories/13609" target="blank">
-    <img src="https://trendshift.io/api/badge/repositories/13609" alt="rowboatlabs/rowboat | Trendshift" width="250" height="55"/>
-  </a>
-</p>
+<h1 align="center">Baarali</h1>
+<p align="center"><b>Un assistant IA qui travaille pour vous : il écrit, cherche, crée des images, des vidéos et des animations, et fait vos tâches, sur Mac, sur iPhone et sur le web.</b></p>
 
 <p align="center">
-    <a href="https://www.rowboatlabs.com/" target="_blank" rel="noopener">
-    <img alt="Website" src="https://img.shields.io/badge/Website-10b981?labelColor=10b981&logo=window&logoColor=white">
-  </a>
-  <a href="https://discord.gg/wajrgmJQ6b" target="_blank" rel="noopener">
-    <img alt="Discord" src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white&labelColor=5865F2">
-  </a>
-  <a href="https://x.com/intent/user?screen_name=rowboatlabshq" target="_blank" rel="noopener">
-    <img alt="Twitter" src="https://img.shields.io/twitter/follow/rowboatlabshq?style=social">
-  </a>
-  <a href="https://www.ycombinator.com" target="_blank" rel="noopener">
-    <img alt="Y Combinator" src="https://img.shields.io/badge/Y%20Combinator-S24-orange">
-  </a>
+  <a href="https://baarali.com">baarali.com</a> · <a href="https://app.baarali.com">app.baarali.com</a>
 </p>
 
-<p align="center">
-  <a href="docs/readme/README.zh-CN.md">简体中文</a> · <a href="docs/readme/README.ja.md">日本語</a> · <a href="docs/readme/README.ko.md">한국어</a> · <a href="docs/readme/README.es.md">Español</a> · <a href="docs/readme/README.fr.md">Français</a> · <a href="docs/readme/README.pt.md">Português</a>
-</p>
-
-</h5>
-
-Rowboat indexes your work into a living knowledge graph and uses that to get work done on your machine. It includes work surfaces for collaborating with AI: email client, notes, browser, code mode, meeting note taker, and workspaces for different projects.
-
-
-Download latest for Mac/Windows/Linux: [Download](https://www.rowboatlabs.com/downloads)
-
-<p align="center">
-<a href="https://www.youtube.com/watch?v=et5yQABJ3xI">
-<img width="800" height="450" alt="Rowboat Apps to Code demo" src="apps/x/demo.gif" />
-</a>
-</p>
-
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=et5yQABJ3xI"> Demo - apps to code </a> · <a href="https://www.youtube.com/watch?v=7xTpciZCfpw"> Demo - knowledge graph</a>
-</p>
-
-
-⭐ If you find Rowboat useful, please star the repo. It helps more people find it.
-
----
-## Overview
-
-<table>
-<tr>
-<td width="40%" valign="middle">
-<h3>Brain</h3>
-Rowboat indexes email, meetings, slack and assistant conversations into a living Obsidian-style backlinked knowledge graph.
-</td>
-<td width="60%">
-<img width="1502" height="939" alt="Brain graph screenshot" src="assets/readme-dark/brain.png" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Email</h3>
-The built-in email client sorts emails into important and everything else. Rowboat automatically drafts responses for important email using all the work context.
-</td>
-<td width="60%">
-<img width="1512" height="948" alt="Email screenshot" src="assets/readme-dark/email.png" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Background agents</h3>
-You can set up background agents that run on events like new email or on schedule like every day at 8am. They can connect to tools, search the web, use the browser and write code using Claude Code or Codex.
-</td>
-<td width="60%">
-<img width="1512" height="951" alt="Background agents screenshot" src="assets/readme-dark/background-agents.png" />
-
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Built-in Browser</h3>
-Rowboat includes a browser that lets you and assistant collaborate on web tasks. Because it's isolated from your main browser, you can log in only to the accounts that you want the assistant to access.
-</td>
-<td width="60%">
-<img width="1512" height="948" alt="Browser screenshot" src="assets/readme-dark/browser.png" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Meeting Notes</h3>
-A local meeting note-taker that taps into mic & speaker, produces live transcript and summarizes the meeting in a markdown file and updates the knowledge graph.
-</td>
-<td width="60%">
-<img width="1512" height="947" alt="Meeting notes screenshot" src="assets/readme-dark/meeting-notes.png" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Code Mode</h3>
-Code mode lets you spin up parallel coding agents with Claude Code or Codex, and have Rowboat drive them with all the work context where needed.
-</td>
-<td width="60%">
-<img width="1512" height="949" alt="Code mode screenshot" src="assets/readme-dark/code-mode.png" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Apps</h3>
-You can build your own work surfaces inside Rowboat — they get access to all the tools and integrations, and you can share them with other people.
-</td>
-<td width="60%">
-<img width="1512" height="949" alt="Apps screenshot" src="assets/readme-dark/apps.png" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Integrations</h3>
-Includes one-click integrations to most popular products.
-</td>
-<td width="60%">
-<img width="1512" height="948" alt="Integrations screenshot" src="assets/readme-dark/integrations.png" />
-</td>
-</tr>
-
-</table>
+Baarali est pensé d'abord pour l'Afrique de l'Ouest, et ouvert au monde : l'app parle français, ses prix sont en francs CFA comme en euros, ses forfaits sont pensés pour le mobile money, et elle marche sur un téléphone modeste. Chaque personne a son propre agent, sur une machine à elle dans le cloud, avec sa mémoire, ses fichiers et ses outils. Rien à installer ni à configurer : on se connecte, on demande.
 
 ---
 
-## Spaces: the multiplayer part
+## Ce que Baarali sait faire
 
-Everyone on the team runs their own Rowboat on their own machine, with their own memory of their work and their own model keys. A **Space** is where you come together: a place to talk, share files and whiteboards, and get work done. Type `@rowboat` in a Space and your Rowboat works with your context on your machine, then brings the result back to the room as you.
+| | |
+|---|---|
+| **Discuter et travailler** | Un agent qui écrit, résume, cherche sur le web, lit vos fichiers, prépare vos réunions et rédige vos e-mails. Il choisit les bons outils lui-même. |
+| **Images** | Affiches, visuels, logos, illustrations, à partir d'une phrase. |
+| **Vidéos, voix et musique** | Plans filmés, voix off, musiques et jingles, par les meilleurs modèles du moment, au prix annoncé avant de lancer. |
+| **Studio Motion** | Motion design aux couleurs de votre marque : annonce animée, logo animé, chiffres clés, sous-titres, compte à rebours, en 9:16, 1:1 ou 16:9. L'export en MP4, MP4 léger (WhatsApp), GIF ou WebM transparent se fait en une minute environ. |
+| **Tâches planifiées** | Des agents qui travaillent seuls, chaque matin ou à chaque e-mail reçu. |
+| **Espaces** | Le lieu de l'équipe : messages, fichiers partagés, tableaux blancs. Chacun y appelle son propre agent, qui répond avec son contexte à lui. |
+| **Apps** | Des petits outils de travail construits dans Baarali, qui ont accès à tout l'agent. |
 
-<table>
-<tr>
-<td width="40%" valign="middle">
-<h3>One Space. All your people. And their assistants.</h3>
-A Space is a channel plus a shared folder. Messages, threads, DMs, reactions, polls, scheduled messages, and <code>@mentions</code> on one side; markdown files rendered as a wiki, uploads, and whiteboards on the other. Conversations, ideas, knowledge and the work itself, finally in the same place.
-</td>
-<td width="60%">
-<img alt="A Space: the Referral Program channel with a shared whiteboard and three teammates' cursors" src="assets/readme-spaces/spaces-room.jpg" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Ask your own Rowboat</h3>
-<code>@rowboat what is missing?</code> wakes <b>your</b> Rowboat on <b>your</b> machine. It gathers context from your Brain, email, meetings and notes, none of which ever leave your computer, and posts the answer back to the Space as "You (via Rowboat)". Every teammate gets the same: their own agent, their own context, one shared room.
-</td>
-<td width="60%">
-<img alt="John asks @rowboat what is missing; John's Rowboat answers and adds a safeguard to the shared board" src="assets/readme-spaces/spaces-ask-your-own.jpg" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>Make something together</h3>
-Draw on a shared whiteboard with live cursors. Write docs as markdown with full history, diffs and restore. Open decks and documents in place. Agents use the very same files: an agent's edit lands on everyone's canvas within one event round-trip, and concurrent edits merge line by line instead of overwriting each other.
-</td>
-<td width="60%">
-<img alt="Sarah asks @rowboat to turn the board into a proposal; Sarah's Rowboat creates the Referral proposal file" src="assets/readme-spaces/spaces-idea-to-proposal.jpg" />
-</td>
-</tr>
-<tr>
-<td width="40%" valign="middle">
-<h3>From review to result</h3>
-<code>@rowboat implement the proposal</code> hands the work to Claude Code or Codex on that teammate's machine, with the Space's files as context. The changes come back to the thread ready for review.
-</td>
-<td width="60%">
-<img alt="Sam asks @rowboat to implement the proposal; Sam's Rowboat reports the safeguard implemented with changes ready for review" src="assets/readme-spaces/spaces-review-to-result.jpg" />
-</td>
-</tr>
-</table>
+### Les forfaits
 
-### How it fits together
+| Forfait | Prix | Minutes d'export Studio Motion |
+|---|---|---|
+| Découverte | gratuit | 2 par mois |
+| Semaine | 5 € par semaine | 3 par semaine payée |
+| Essentiel | 20 € par mois | 30 par mois |
+| Pro | 100 € par mois | 120 par mois |
+| Pro max | 200 € par mois | 300 par mois |
 
-Each person's Rowboat is a full local assistant. The Space lives on a small server called **Harbor**. The only thing that crosses the line between the two is what you (or your agent, acting as you) chose to post.
+Les prix en francs CFA suivent la parité fixe (1 € = 655,957 FCFA). Le texte se décompte sur deux fenêtres, 5 heures et la semaine, au coût réel des modèles. Images, vidéos, voix, musiques et exports au-delà des minutes incluses se paient en **crédits médias**, vendus en packs de 2 €, 5 € et 20 €. Un export vidéo au-delà des minutes coûte 3 crédits la minute, comptés à la seconde. Une création qui échoue est toujours remboursée.
+
+---
+
+## Comment c'est construit
 
 ```mermaid
 flowchart LR
-  subgraph J["John's machine"]
-    JR["John's Rowboat<br/>Brain · email · notes · code"]
-  end
-  subgraph S["Sarah's machine"]
-    SR["Sarah's Rowboat<br/>Brain · email · notes · code"]
-  end
-  subgraph M["Sam's machine"]
-    MR["Sam's Rowboat<br/>Brain · email · notes · code"]
-  end
-  H[("Harbor<br/>the Space: messages, files, whiteboards")]
-  JR <-- "only what gets posted" --> H
-  SR <--> H
-  MR <--> H
+  A["Apps<br/>Mac · iPhone · web"] -->|"connexion, passerelle"| C["Plan de contrôle<br/>comptes · forfaits · quotas · paiements"]
+  C -->|"réveille et relaie"| I["Instance de la personne<br/>son agent, ses fichiers, sa mémoire"]
+  I -->|"modèles, médias, voix"| C
+  C -->|"export vidéo"| R["Service de rendu<br/>Chrome + FFmpeg"]
+  I <-->|"Espaces"| H["Harbor<br/>l'espace de l'équipe"]
 ```
 
-Harbor has one core and three doors: HTTP, a live WebSocket, and an MCP server. Rowboat's own agent gets **no privileged path**. It reaches the Space through the same MCP door any other agent would use, so anything Rowboat can do in a Space, your own agent can do too (see [Bring any agent](#bring-any-agent-to-a-space)).
+- **Le plan de contrôle** tient les comptes, les forfaits, les quotas et les crédits, et ne laisse jamais passer une clé de fournisseur vers l'instance. Il sert aussi baarali.com et la console d'administration.
+- **Une instance par personne**, une micro-VM qui s'endort quand on ne l'utilise pas et se réveille à la première demande. Elle passe seule à chaque nouvelle version : à son réveil, ou après 10 minutes sans activité de son agent.
+- **Le service de rendu** transforme une animation Studio Motion en vidéo. Il n'a pas d'adresse publique, et un pare-feu interdit au navigateur qui rend les pages de joindre le réseau interne.
+- **Harbor** sert les Espaces.
 
-### What the room sees
+Tout tourne chez [Fly.io](https://fly.io), à Paris.
 
-When you address your Rowboat in a thread, the whole room saw the ask, so the receipt is a reaction on your message, not a stream of chatter:
+Les documents de conception, à lire dans l'ordre, sont dans [`docs/baarali/`](docs/baarali/README.md). L'architecture cible, qui décrit chaque fonction telle qu'elle est en production, est dans [`TARGET_AGENTIC_ARCHITECTURE.md`](docs/baarali/TARGET_AGENTIC_ARCHITECTURE.md).
 
-| Reaction | Meaning |
+---
+
+## Ce qu'il y a dans ce dépôt
+
+| Dossier | Contenu |
 |---|---|
-| 👀 | Your Rowboat picked it up and is working. The room also sees a live "Rowboat is working" chip. |
-| ✅ | Done. When the outcome speaks for itself (a file edited, a thread titled, a message pinned), that is all you get. A reply is posted only when the ask wanted an answer. |
-| ❗ | It needs you: a decision, a confirmation, or something it could only explain with private detail. It asks in your own chat, which only you can see, never in the room. |
+| [`apps/baarali/packages/control`](apps/baarali/packages/control) | Le plan de contrôle : comptes, passerelle, forfaits, quotas, crédits médias, paiements, Studio Motion, console d'admin, baarali.com. |
+| [`apps/baarali/packages/instance`](apps/baarali/packages/instance) | L'image de l'instance d'une personne : le serveur de l'agent, les compétences et serveurs MCP de Baarali (médias, Studio Motion). |
+| [`apps/baarali/packages/render`](apps/baarali/packages/render) | Le service de rendu des vidéos Studio Motion. |
+| [`apps/baarali/packages/desktop`](apps/baarali/packages/desktop) | La fabrication de l'app Mac : la marque Baarali et la traduction française, appliquées au build. |
+| [`apps/baarali/packages/spaces`](apps/baarali/packages/spaces) | Le déploiement de Harbor pour Baarali. |
+| [`apps/x`](apps/x) | L'app de bureau (Electron), le serveur de l'agent, et l'app mobile (Expo). |
+| [`apps/harbor`](apps/harbor) | Harbor, le serveur des Espaces, et son protocole. |
+| [`docs/baarali`](docs/baarali) | Les documents de conception de Baarali. |
 
-Everything an agent writes is attributed to its person, "Name (via Rowboat)", and stays in history like any other message.
+### Travailler sur le code
 
-### Privacy rules your Rowboat follows in a Space
+Les trois espaces de travail se construisent dans cet ordre : Harbor, puis l'app (qui le lie), puis Baarali (qui lie `@x/shared`).
 
-Everything it posts lands in front of the team. Everything it reads might be private to you. So:
+```sh
+cd apps/harbor && pnpm install && pnpm -r build
+cd ../x && pnpm install && (cd packages/shared && npm run build) && npm test
+cd ../baarali && pnpm install && pnpm typecheck && pnpm test
+```
 
-- **Read only what the task needs.** "Message Harsh" needs a member id, not the HR directory.
-- **Answer only what was asked.** What it saw in your files, DMs, email or notes along the way does not go into the reply.
-- **Private crosses to shared only on request, and as a summary.** "Add my meeting notes to the roadmap" writes what the room needs from them, never the notes themselves. It never pastes emails, chats or DM content into a Space.
-- **A receipt says what it did, not what it read.**
-
-### Get a Space
-
-- **Create a server.** In the app, open Spaces and choose *Create a server*. Sign in with your Rowboat account (Google or Microsoft) and you get a hosted server with your first Space. Add teammates with *Copy invite link*.
-- **Join a server.** Paste the invite link someone sent you. Invites bind your sign-in to a membership; a server can restrict joins to an email domain.
-- **Self-host.** Harbor is open source and lives in this repo. See [Run your own Harbor](#run-your-own-harbor).
-
-You can belong to several servers at once, and a server can be just you: your notes to self live in a one-member DM.
+Les règles du dépôt sont dans [`AGENTS.md`](AGENTS.md).
 
 ---
 
-## Installation
+## D'où vient Baarali
 
-**Download latest for Mac/Windows/Linux:** [Download](https://www.rowboatlabs.com/downloads)
+Baarali est dérivé de [Rowboat](https://github.com/rowboatlabs/rowboat), sous licence [Apache 2.0](LICENSE) (voir [`NOTICE`](NOTICE)). On suit son évolution de près. La manière de rester à jour est décrite dans [`UPSTREAM.md`](docs/baarali/UPSTREAM.md), et chaque fichier d'origine que Baarali modifie est listé, avec la raison, dans [`DIVERGENCES.md`](docs/baarali/DIVERGENCES.md).
 
-**All release files:**   https://github.com/rowboatlabs/rowboat/releases/latest
-
-### Google setup
-To connect Google services (Gmail, Calendar, and Drive), follow [Google setup](https://github.com/rowboatlabs/rowboat/blob/main/google-setup.md).
-
-### Voice input
-To enable voice input and voice notes (optional), add a Deepgram API key in `~/.rowboat/config/deepgram.json`
-
-### Voice output
-
-To enable voice output (optional), add an ElevenLabs API key in `~/.rowboat/config/elevenlabs.json`
-
-### Web search
-
-To use Exa research search (optional), add the Exa API key in `~/.rowboat/config/exa-search.json`
-
-### External tools
-
-To enable external tools (optional), you can add any MCP server or use Composio tools by adding an API key in `~/.rowboat/config/composio.json`
-
-All API key files use the same format:
-```
-{
-  "apiKey": "<key>"
-}
-```
-
-
-## How it’s different
-
-Most AI tools reconstruct context on demand by searching transcripts or documents.
-
-Rowboat maintains **long-lived knowledge** instead:
-- context accumulates over time
-- relationships are explicit and inspectable
-- notes are editable by you, not hidden inside a model
-- everything lives on your machine as plain Markdown
-
-The result is memory that compounds, rather than retrieval that starts cold every time.
-
-## Bring your own model
-
-Rowboat works with the model setup you prefer:
-- **Local models** via Ollama or LM Studio
-- **Hosted models** (bring your own API key/provider)
-- Swap models anytime — your data stays in your local Markdown vault
-
-## Extend Rowboat with tools (MCP)
-
-Rowboat can connect to external tools and services via **Model Context Protocol (MCP)**.
-That means you can plug in (for example) search, databases, CRMs, support tools, and automations - or your own internal tools.
-
-Examples: Exa (web search), Twitter/X, ElevenLabs (voice), Slack, Linear/Jira, GitHub, and more.
-
-### Example: Parallel web search
-
-[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp) provides `web_search` and `web_fetch` for public web search and page extraction without a Parallel account or API key. Free access is rate limited.
-
-Open **Settings → MCP Servers**, add the `parallel` entry to your existing `mcpServers` object, and click **Save**. Keep any other server entries. If no servers are configured, use:
-
-```json
-{
-  "mcpServers": {
-    "parallel": {
-      "url": "https://search.parallel.ai/mcp"
-    }
-  }
-}
-```
-
-This connects through Rowboat's existing Streamable HTTP client. Ask Rowboat to list the tools on the `parallel` server, then try: "Use Parallel to find the official MCP documentation."
-
-Once configured, Rowboat can invoke these tools during its work, subject to your MCP tool permissions. Queries, requested URLs, and any supplied objectives or context are sent to Parallel. This setup leaves Exa and other configured providers unchanged. To remove it, delete the `parallel` entry in **Settings → MCP Servers** and save.
-
-## Local-first by design
-
-- All personal data is stored locally as plain Markdown
-- No proprietary formats or hosted lock-in
-- You can inspect, edit, back up, or delete everything at any time
-
----
-
-## Run your own Harbor
-
-Harbor is the Spaces server. It is open source, in this repo at [`apps/harbor`](apps/harbor), and it is what Rowboat's hosted servers run. One process serves one org or many, on top of Postgres.
-
-**Try it locally in a minute.** The dev entry boots a seeded single-org Harbor (a small team and a "Roadboard" space) in memory on port 4272, with dev tokens instead of real sign-in:
-
-```bash
-cd apps/harbor
-pnpm install && pnpm build
-cd packages/server && pnpm dev
-```
-
-In the app, open the Spaces dialog, choose *Add a dev server*, and point it at `http://localhost:4272` with one of the seeded member ids. Or talk to it directly: every route in `/v1/*`, the live stream at `/v1/live`, and the agent door at `/mcp`. Set `DATABASE_URL` to make it durable.
-
-**Deploy it for a team.** The [Dockerfile](apps/harbor/Dockerfile) builds the deployment image. Orgs are served by hostname under your apex domain (`<slug>.<APEX_DOMAIN>`), sign-in is OpenID Connect against an issuer you pin, and new members only ever arrive by accepting an invite.
-
-| Variable | What it does |
-|---|---|
-| `HARBOR_MODE=deployment` | Multi-org mode: resolve the org from the request host. |
-| `DATABASE_URL` | Postgres. Schema is a versioned, append-only migration ladder. |
-| `APEX_DOMAIN` | Orgs live at `<slug>.<APEX_DOMAIN>`; the apex itself serves create-org and my-orgs. |
-| `AUTH_ISSUER` | The OIDC issuer whose tokens are trusted (JWKS-verified). Without it Harbor falls back to dev tokens, which must never be exposed publicly. |
-| `AUTH_PUBLISHABLE_KEY` | Enables the login/consent page (social sign-in only; Harbor never sees a credential). |
-| `HARBOR_ALLOWED_DOMAINS` | Comma-separated email domains allowed to accept invites (single-org mode). |
-| `BLOBS_DIR` or `BLOBS_S3_BUCKET` | Where uploads go: local disk, or any S3-compatible bucket (`BLOBS_S3_ENDPOINT`, `BLOBS_S3_REGION`). |
-| `PORT` | Defaults to 4272. |
-
-The wire contract between Harbor and everything that talks to it is the `@rowboat/spaces-protocol` package; [`apps/harbor/CONTRACT.md`](apps/harbor/CONTRACT.md) is its narrative, including the merge semantics, the invite ceremony, and what is deliberately still v0. Expect breaking changes while we dogfood.
-
-## Bring any agent to a Space
-
-Every org exposes an MCP server at `https://<org address>/mcp` (streamable HTTP). It is the exact surface Rowboat's own agent uses: read and post messages, react, open DMs, create and manage threads, read files, propose changes with a base version, upload attachments, search, catch up on activity, mint invites. Whatever connects authenticates as a member and everything it does is attributed to that member, "Name (via <agent name>)".
-
-With Claude Code, for example:
-
-```bash
-claude mcp add --transport http my-team https://<org address>/mcp
-```
-
-Harbor publishes OAuth protected-resource metadata, so any MCP client that speaks OAuth 2.1 finds the sign-in flow on its own. Sign in as yourself and the agent works as you; sign in as a member you created for it and it has a seat of its own.
-
-
-## What's in this repo
-
-- [`apps/x`](apps/x): the desktop app (Electron), the headless `rowboat-server`, and a Spaces-only mobile client
-- [`apps/harbor`](apps/harbor): the Spaces server and the `@rowboat/spaces-protocol` contract
-
----
-
-<div align="center">
-
-[Discord](https://discord.gg/wajrgmJQ6b) · [Twitter](https://x.com/intent/user?screen_name=rowboatlabshq)
-</div>
+<p align="center">© 2026 OpenBaara</p>
