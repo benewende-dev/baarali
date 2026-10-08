@@ -16,13 +16,15 @@ RUN cd apps/baarali && pnpm install --frozen-lockfile --filter @baarali/render \
 # Debian 13: FFmpeg 7. Noto covers the scripts our users write in, emoji included.
 FROM node:22-trixie-slim
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ffmpeg iptables ca-certificates fonts-noto-core fonts-noto-color-emoji fonts-liberation \
+ && apt-get install -y --no-install-recommends ffmpeg iptables ca-certificates unzip fonts-noto-core fonts-noto-color-emoji fonts-liberation \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /out ./
-# The headless shell the producer's puppeteer expects, with its system libraries.
+# The headless shell the producer's puppeteer expects, with its system
+# libraries (--install-deps calls apt-get, hence the update; unzip extracts it).
 ENV PUPPETEER_CACHE_DIR=/opt/puppeteer
-RUN node "$(find node_modules/.pnpm -path '*/node_modules/puppeteer/lib/puppeteer/node/cli.js' | head -1)" \
+RUN apt-get update \
+ && node "$(find node_modules/.pnpm -path '*/node_modules/puppeteer/lib/puppeteer/node/cli.js' | head -1)" \
       browsers install chrome-headless-shell --install-deps \
  && ln -s "$(find /opt/puppeteer -type f -name chrome-headless-shell | head -1)" /usr/local/bin/chrome-headless-shell \
  && chmod -R a+rX /opt/puppeteer \
