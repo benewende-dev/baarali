@@ -18,7 +18,10 @@ export interface BrandKit {
   name: string;
   /** Workspace path of the logo (SVG or PNG), if any. */
   logo: string | null;
+  /** The four roles every template is built on, so text stays legible. */
   colors: { background: string; ink: string; accent: string; highlight: string };
+  /** The brand's other colours (up to PALETTE_LIMIT): chart series, shapes, free edits. */
+  palette: string[];
   fonts: { display: string; text: string };
   /** energetic | warm | premium: the default rhythm. */
   tone: 'energetic' | 'warm' | 'premium';
@@ -28,9 +31,28 @@ export const DEFAULT_BRAND: BrandKit = {
   name: '',
   logo: null,
   colors: { background: '#0a1630', ink: '#ffffff', accent: '#1a6dff', highlight: '#ffbe3c' },
+  palette: [],
   fonts: { display: 'Inter', text: 'Inter' },
   tone: 'energetic',
 };
+
+export const PALETTE_LIMIT = 6;
+
+/** WCAG contrast ratio of two #rrggbb colours, 1 to 21. */
+export function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** White or near-black, whichever reads better on `hex`. */
+export const textOn = (hex: string) => (contrast(hex, '#ffffff') >= contrast(hex, '#111111') ? '#ffffff' : '#111111');
 
 export interface Slot {
   key: string;
@@ -176,7 +198,9 @@ export const TEMPLATES: Template[] = [
       { key: 'title', label: 'Titre', example: 'Nos chiffres de septembre' },
       { key: 'items', label: 'Chiffres (libellé : valeur)', example: 'Clients : 1250\nCommandes : 3400\nVilles : 12', list: true },
     ],
-    body: (v) => {
+    body: (v, ctx) => {
+      // One colour per figure when the brand has more than its accent.
+      const series = [ctx.brand.colors.accent, ...ctx.brand.palette];
       const items = lines(v.items).slice(0, 4).map((l) => {
         const [label, value] = l.split(/[:=]/);
         return { label: (label ?? '').trim(), value: Math.max(0, Math.round(num(value, 0))) };
@@ -188,14 +212,14 @@ export const TEMPLATES: Template[] = [
     <h1 class="title">${escapeHtml(v.title)}</h1>
     ${items.map((it, i) => `<div class="stat" style="top:${30 + i * 15}cqh">
       <span class="label">${escapeHtml(it.label)}</span>
-      <span class="track"><span class="bar" style="width:${Math.round((it.value / max) * 100)}%"></span></span>
       <span class="count" style="--to:${it.value}"></span>
+      <span class="track"><span class="bar" style="width:${Math.max(3, Math.round((it.value / max) * 100))}%;background:${series[i % series.length]}"></span></span>
     </div>`).join('\n    ')}
   </section>`,
         css: `
   @property --n{syntax:'<integer>';inherits:false;initial-value:0}
   .title{position:absolute;left:8cqw;right:8cqw;top:10cqh;margin:0;font:900 8cqmin/1.05 var(--display);letter-spacing:-.02em}
-  .stat{position:absolute;left:8cqw;right:8cqw;display:grid;grid-template-columns:1fr auto;row-gap:1.5cqmin}
+  .stat{position:absolute;left:8cqw;right:8cqw;display:grid;grid-template-columns:1fr auto;align-items:baseline;row-gap:1.5cqmin}
   .label{font-size:4.4cqmin;opacity:.85}
   .count{font:900 6cqmin var(--display);color:var(--highlight);counter-reset:n var(--n);text-align:right}
   .count::after{content:counter(n)}
@@ -416,6 +440,7 @@ export function compose(templateId: string, opts: { format: Format; title: strin
   const part = t.body(values, { brand: opts.brand, logoSrc: opts.logoSrc, speed });
   const duration = part.duration ?? t.duration;
   const c = opts.brand.colors;
+  const palette = (opts.brand.palette ?? []).map((hex, i) => `;--brand-${i + 1}:${hex}`).join('');
   const fontsUrl = [...new Set([opts.brand.fonts.display, opts.brand.fonts.text])]
     .map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;700;800;900`).join('&');
   const html = `<!doctype html>
@@ -426,12 +451,12 @@ export function compose(templateId: string, opts: { format: Format; title: strin
 <!-- Baarali Studio Motion · template ${t.id} · HyperFrames composition, Web Animations only (no GSAP). -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${fontsUrl}&display=block">
 <style>
-  :root{--background:${c.background};--ink:${c.ink};--accent:${c.accent};--highlight:${c.highlight};--display:'${opts.brand.fonts.display}',system-ui,sans-serif;--text:'${opts.brand.fonts.text}',system-ui,sans-serif}
+  :root{--background:${c.background};--ink:${c.ink};--accent:${c.accent};--highlight:${c.highlight};--on-accent:${textOn(c.accent)}${palette};--display:'${opts.brand.fonts.display}',system-ui,sans-serif;--text:'${opts.brand.fonts.text}',system-ui,sans-serif}
   html,body{margin:0;background:${t.transparent ? 'transparent' : 'var(--background)'}}
   #root{position:relative;overflow:hidden;width:${width}px;height:${height}px;container-type:size;background:${t.transparent ? 'transparent' : 'var(--background)'};color:var(--ink);font-family:var(--text)}
   .scene{position:absolute;inset:0}
   .mark{width:7cqmin;height:7cqmin;object-fit:contain}
-  .mark.tile{display:grid;place-items:center;border-radius:1.8cqmin;background:var(--accent);color:#fff;font:900 4cqmin var(--display)}${part.css ?? ''}
+  .mark.tile{display:grid;place-items:center;border-radius:1.8cqmin;background:var(--accent);color:var(--on-accent);font:900 4cqmin var(--display)}${part.css ?? ''}
 </style>
 </head>
 <body>

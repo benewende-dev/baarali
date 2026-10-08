@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { compose, DEFAULT_BRAND, FORMATS, TEMPLATES, type BrandKit, type Format } from './motion-templates.js';
+import { compose, contrast, DEFAULT_BRAND, FORMATS, PALETTE_LIMIT, TEMPLATES, type BrandKit, type Format } from './motion-templates.js';
 import type { ToolDef, ToolResult } from './media-mcp.js';
 
 // The Studio Motion's tools (decided 08/10/2026): an MCP server the instance
@@ -24,7 +24,7 @@ export const MOTION_TOOLS: ToolDef[] = [
   {
     name: 'brand_kit',
     description:
-      "Read the user's brand kit (name, logo, colours, fonts, tone), or change it with `set`. Every new motion project uses it. Ask the user for their brand once, then keep it here.",
+      "Read the user's brand kit (name, logo, colours, other brand colours, fonts, tone), or change it with `set`. Every new motion project uses it. Ask the user for their brand once, then keep it here.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -42,6 +42,11 @@ export const MOTION_TOOLS: ToolDef[] = [
                 accent: { type: 'string', description: '#rrggbb' },
                 highlight: { type: 'string', description: '#rrggbb, for the key figure or word' },
               },
+            },
+            palette: {
+              type: 'array',
+              items: { type: 'string' },
+              description: `The brand's other colours, #rrggbb, up to ${PALETTE_LIMIT}; the whole list replaces the old one. For chart series, shapes and free edits (CSS --brand-1, --brand-2…).`,
             },
             fonts: { type: 'object', properties: { display: { type: 'string', description: 'A Google Fonts family for titles' }, text: { type: 'string', description: 'A Google Fonts family for text' } } },
             tone: { type: 'string', enum: ['energetic', 'warm', 'premium'] },
@@ -98,6 +103,17 @@ export const MOTION_TOOLS: ToolDef[] = [
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError } : {}) });
 const HEX = /^#[0-9a-f]{6}$/i;
 const FONT = /^[A-Za-z0-9 ]{2,40}$/;
+
+/** What would be hard to read in a video, from the brand's own colours. */
+export function legibility(brand: BrandKit): string[] {
+  const { background, ink, highlight } = brand.colors;
+  const out: string[] = [];
+  const text = contrast(ink, background);
+  if (text < 4.5) out.push(`Warning: the text (ink ${ink}) on the background ${background} has a contrast of ${text.toFixed(1)}:1, under 4.5:1 — hard to read on a phone. Suggest a darker or lighter ink or background to the user.`);
+  const key = contrast(highlight, background);
+  if (key < 3) out.push(`Warning: the highlight ${highlight} on the background ${background} has a contrast of ${key.toFixed(1)}:1, under 3:1 — the key figures will not stand out. Suggest another highlight, or a palette colour.`);
+  return out;
+}
 
 export const projectSlug = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'motion';
@@ -171,6 +187,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
         ...DEFAULT_BRAND,
         ...raw,
         colors: { ...DEFAULT_BRAND.colors, ...(raw.colors ?? {}) },
+        palette: Array.isArray(raw.palette) ? raw.palette.filter((c) => typeof c === 'string' && HEX.test(c)).slice(0, PALETTE_LIMIT) : [],
         fonts: { ...DEFAULT_BRAND.fonts, ...(raw.fonts ?? {}) },
       };
     } catch {
@@ -231,7 +248,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       if (!set || typeof set !== 'object') {
         return text(`Brand kit (${BRAND_FILE}):\n${JSON.stringify(current, null, 2)}${current.name ? '' : '\nNo brand yet: ask the user for their business name, logo and colours, then set them.'}`);
       }
-      const next: BrandKit = { ...current, colors: { ...current.colors }, fonts: { ...current.fonts } };
+      const next: BrandKit = { ...current, colors: { ...current.colors }, palette: [...current.palette], fonts: { ...current.fonts } };
       if (typeof set.name === 'string') next.name = set.name.trim().slice(0, 40);
       if (set.logo === null) next.logo = null;
       else if (typeof set.logo === 'string') {
@@ -249,6 +266,12 @@ export function createMotionTools(deps: MotionToolsDeps) {
         if (typeof v !== 'string' || !HEX.test(v)) return text(`Colour ${k} must be #rrggbb.`, true);
         next.colors[k as keyof BrandKit['colors']] = v.toLowerCase();
       }
+      if (set.palette !== undefined) {
+        if (!Array.isArray(set.palette) || set.palette.length > PALETTE_LIMIT) return text(`The palette is a list of up to ${PALETTE_LIMIT} colours.`, true);
+        const bad = set.palette.find((c) => typeof c !== 'string' || !HEX.test(c));
+        if (bad !== undefined) return text(`Palette colour ${String(bad)} must be #rrggbb.`, true);
+        next.palette = [...new Set(set.palette.map((c) => c.toLowerCase()))];
+      }
       for (const [k, v] of Object.entries(set.fonts ?? {})) {
         if (!(k in next.fonts)) continue;
         if (typeof v !== 'string' || !FONT.test(v)) return text(`Font ${k} must be a Google Fonts family name.`, true);
@@ -260,7 +283,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       }
       await fs.mkdir(path.dirname(abs(BRAND_FILE)), { recursive: true });
       await fs.writeFile(abs(BRAND_FILE), JSON.stringify(next, null, 2) + '\n');
-      return text(`Brand kit saved:\n${JSON.stringify(next, null, 2)}`);
+      return text([`Brand kit saved:\n${JSON.stringify(next, null, 2)}`, ...legibility(next)].join('\n'));
     }
 
     if (name === 'list_templates') {
