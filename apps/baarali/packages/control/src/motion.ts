@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { WEEK_MS } from './quota.js';
 import type { Account, ControlStore, MotionRender, MotionSplit, Plan } from './store.js';
 
 // Studio Motion exports (decided 08/10/2026): the instance sends a motion
@@ -12,11 +13,18 @@ export const RENDER_FORMATS = ['mp4', 'mp4-light', 'gif', 'webm'] as const;
 export type RenderFormat = (typeof RENDER_FORMATS)[number];
 
 /** Minutes of export a month, by plan; a plan not named here takes its category's. */
-export const RENDER_MINUTES_BY_PLAN: Record<string, number> = { semaine: 10, 'pro-200': 300 };
+export const RENDER_MINUTES_BY_PLAN: Record<string, number> = { 'pro-200': 300 };
 export const RENDER_MINUTES_BY_CATEGORY: Record<Plan['category'], number> = { free: 2, starter: 30, pro: 120 };
+/**
+ * A plan paid by the week gets its minutes each week instead (decided
+ * 08/10/2026): four paid weeks, four times 3 minutes. The week is the
+ * quota's, anchored to the account's creation (quota.ts).
+ */
+export const RENDER_MINUTES_PER_WEEK: Record<string, number> = { semaine: 3 };
 
 /**
- * Beyond the plan: 3 credits a minute. A minute costs us about a cent of
+ * Beyond the plan: 3 credits a minute, counted to the second over the
+ * period (splitFor). A minute costs us about a cent of
  * render machine (measured 08/10/2026: 10 s of 1080×1920 in 24 s of one
  * Chrome); the rest keeps the margin and the idle machine paid.
  */
@@ -25,9 +33,22 @@ export const MAX_RENDER_SECONDS = 300;
 /** As the render service: 150 MB of files, a third more in base64. */
 export const MAX_UPLOAD_BYTES = Math.ceil(150 * 1024 * 1024 * 1.4);
 
-export function renderMinutes(plan: Pick<Plan, 'id' | 'category'> | null): number {
-  if (!plan) return 0;
-  return RENDER_MINUTES_BY_PLAN[plan.id] ?? RENDER_MINUTES_BY_CATEGORY[plan.category] ?? 0;
+/** The period whose minutes an export at `at` uses, and how many it has. */
+export interface RenderWindow {
+  per: 'week' | 'month';
+  minutes: number;
+  start: number;
+  end: number;
+}
+
+export function renderWindow(plan: Pick<Plan, 'id' | 'category'> | null, account: Pick<Account, 'createdAt'>, at: number): RenderWindow {
+  const weekly = plan ? RENDER_MINUTES_PER_WEEK[plan.id] : undefined;
+  if (weekly !== undefined) {
+    const start = account.createdAt + Math.max(0, Math.floor((at - account.createdAt) / WEEK_MS)) * WEEK_MS;
+    return { per: 'week', minutes: weekly, start, end: start + WEEK_MS };
+  }
+  const minutes = plan ? (RENDER_MINUTES_BY_PLAN[plan.id] ?? RENDER_MINUTES_BY_CATEGORY[plan.category] ?? 0) : 0;
+  return { per: 'month', minutes, start: monthStart(at), end: nextMonthStart(at) };
 }
 
 /** Seconds counted for an export: whole seconds, twice at 60 images a second. */
@@ -45,10 +66,18 @@ export function nextMonthStart(at: number): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
 }
 
+const creditsFor = (extraSeconds: number) => Math.ceil((extraSeconds * RENDER_CREDITS_PER_MINUTE) / 60);
+
+/**
+ * The plan's seconds first, then credits. Credits are whole, so they are
+ * counted on all the seconds beyond the plan in the period: an export pays
+ * what its seconds add to that total. Three exports of 10 s past the minutes
+ * cost 2 credits (30 s), not 3.
+ */
 export function splitFor(seconds: number, allowanceSeconds: number): MotionSplit {
   return (used) => {
-    const included = Math.max(0, Math.min(seconds, allowanceSeconds - used));
-    return { included, credits: Math.ceil(((seconds - included) * RENDER_CREDITS_PER_MINUTE) / 60) };
+    const included = Math.max(0, Math.min(seconds, allowanceSeconds - used.included));
+    return { included, credits: creditsFor(used.extra + seconds - included) - creditsFor(used.extra) };
   };
 }
 
@@ -65,16 +94,25 @@ function error(status: number, code: string, message: string, extra: Record<stri
 }
 
 async function allowanceOf(deps: MotionDeps, account: Account) {
-  const plan = await deps.store.plan(account.planId);
-  const total = renderMinutes(plan) * 60;
-  const at = deps.now();
-  const used = await deps.store.motionUsedSeconds(account.id, monthStart(at));
-  return { total_seconds: total, used_seconds: Math.min(used, total), resets_at: new Date(nextMonthStart(at)).toISOString() };
+  const window = renderWindow(await deps.store.plan(account.planId), account, deps.now());
+  const total = window.minutes * 60;
+  const used = await deps.store.motionUsage(account.id, window.start);
+  return {
+    period: window.per,
+    total_seconds: total,
+    used_seconds: Math.min(used.included, total),
+    resets_at: new Date(window.end).toISOString(),
+    window,
+    used,
+  };
 }
+
+/** What the person sees of the period: never the window's internals. */
+const shown = ({ window: _w, used: _u, ...rest }: Awaited<ReturnType<typeof allowanceOf>>) => rest;
 
 export async function motionAllowance(deps: MotionDeps, account: Account): Promise<Response> {
   return Response.json({
-    ...(await allowanceOf(deps, account)),
+    ...shown(await allowanceOf(deps, account)),
     credits_per_minute: RENDER_CREDITS_PER_MINUTE,
     balance: await deps.store.mediaBalance(account.id),
   });
@@ -136,14 +174,14 @@ export async function createRender(deps: MotionDeps, account: Account, req: Requ
   const id = `mr_${randomUUID().replace(/-/g, '')}`;
   const reserved = await deps.store.reserveMotionRender(
     { id, accountId: account.id, at, format, fps, seconds: billed, chargeRef: `motion:${id}`, status: 'rendering', machine: null, refunded: false, error: null },
-    monthStart(at),
+    allowance.window.start,
     splitFor(billed, allowance.total_seconds),
   );
   if (!reserved.ok) {
     return error(402, 'insufficient_media_credits', 'The minutes of the plan are used up and the credits do not cover this export', {
       cost: reserved.credits,
       balance: await deps.store.mediaBalance(account.id),
-      allowance,
+      allowance: shown(allowance),
     });
   }
   let render = reserved.render;
@@ -174,7 +212,7 @@ export async function createRender(deps: MotionDeps, account: Account, req: Requ
   render = { ...render, machine: typeof body.machine === 'string' ? body.machine : null };
   await deps.store.saveMotionRender(render);
   return Response.json(
-    view(render, { progress: 0, allowance: await allowanceOf(deps, account), balance: await deps.store.mediaBalance(account.id) }),
+    view(render, { progress: 0, allowance: shown(await allowanceOf(deps, account)), balance: await deps.store.mediaBalance(account.id) }),
     { status: 202 },
   );
 }

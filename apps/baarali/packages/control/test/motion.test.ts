@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { billedSeconds, monthStart, nextMonthStart, renderMinutes, splitFor } from '../src/motion.js';
+import { billedSeconds, monthStart, nextMonthStart, renderWindow, splitFor } from '../src/motion.js';
+import { WEEK_MS } from '../src/quota.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
 
 const T0 = Date.UTC(2026, 9, 8, 12, 0, 0);
 const plan = (id: string, category: Plan['category']): Plan => ({ id, category, displayName: id, weekCredits: 1000, monthlyPrices: [], models: null });
-const PLANS = [plan('essentiel', 'starter'), plan('decouverte', 'free'), plan('pro-200', 'pro')];
+const PLANS = [plan('essentiel', 'starter'), plan('decouverte', 'free'), plan('pro-200', 'pro'), plan('semaine', 'starter')];
 
 interface Seen { url: string; init: RequestInit & { headers?: Record<string, string> }; body: string | null }
 
-function setup(respond: (s: Seen) => Response, opts: { planId?: string; credits?: number; render?: boolean } = {}) {
+function setup(respond: (s: Seen) => Response, opts: { planId?: string; credits?: number; render?: boolean; createdAt?: number } = {}) {
   const accounts = new Map<string, Account>([
-    [hashToken('me'), { id: 'me', email: null, planId: opts.planId ?? 'essentiel', createdAt: T0 }],
+    [hashToken('me'), { id: 'me', email: null, planId: opts.planId ?? 'essentiel', createdAt: opts.createdAt ?? T0 }],
     [hashToken('other'), { id: 'other', email: null, planId: 'essentiel', createdAt: T0 }],
   ]);
   const store = new MemoryStore(accounts, PLANS);
@@ -41,14 +42,27 @@ const accepted = (seconds: number) => json({ id: 'x', status: 'queued', machine:
 
 describe('Studio Motion export rules', () => {
   it('gives each plan its minutes and counts 60 images a second twice', () => {
-    expect(renderMinutes(PLANS[0])).toBe(30);
-    expect(renderMinutes(PLANS[1])).toBe(2);
-    expect(renderMinutes(PLANS[2])).toBe(300);
-    expect(renderMinutes(null)).toBe(0);
+    const born = { createdAt: T0 - 10 * 24 * 3600_000 };
+    expect(renderWindow(PLANS[0], born, T0)).toEqual({ per: 'month', minutes: 30, start: monthStart(T0), end: nextMonthStart(T0) });
+    expect(renderWindow(PLANS[1], born, T0).minutes).toBe(2);
+    expect(renderWindow(PLANS[2], born, T0).minutes).toBe(300);
+    expect(renderWindow(plan('pro-100', 'pro'), born, T0).minutes).toBe(120);
+    expect(renderWindow(null, born, T0).minutes).toBe(0);
+    // Semaine: 3 minutes a week, the quota's week (here the second since the account opened).
+    expect(renderWindow(PLANS[3], born, T0)).toEqual({ per: 'week', minutes: 3, start: born.createdAt + WEEK_MS, end: born.createdAt + 2 * WEEK_MS });
     expect(billedSeconds(9.2, 30)).toBe(10);
     expect(billedSeconds(10, 60)).toBe(20);
-    expect(splitFor(30, 120)(100)).toEqual({ included: 20, credits: 1 });
-    expect(splitFor(60, 0)(0)).toEqual({ included: 0, credits: 3 });
+    expect(splitFor(30, 120)({ included: 100, extra: 0 })).toEqual({ included: 20, credits: 1 });
+    expect(splitFor(60, 0)({ included: 0, extra: 0 })).toEqual({ included: 0, credits: 3 });
+  });
+
+  it('counts the credits to the second over the period, not export by export', () => {
+    // 10 s past the minutes, three times: 30 s, so 2 credits (3 a minute), not 3.
+    const paid = [0, 10, 20].map((extra) => splitFor(10, 0)({ included: 0, extra }).credits);
+    expect(paid).toEqual([1, 0, 1]);
+    // 100 s in all, 5 credits, however it is cut.
+    expect(splitFor(100, 0)({ included: 0, extra: 0 }).credits).toBe(5);
+    expect(splitFor(70, 30)({ included: 0, extra: 0 })).toEqual({ included: 30, credits: 2 });
     expect(new Date(monthStart(T0)).toISOString()).toBe('2026-10-01T00:00:00.000Z');
     expect(new Date(nextMonthStart(Date.UTC(2026, 11, 31))).toISOString()).toBe('2027-01-01T00:00:00.000Z');
   });
@@ -64,8 +78,8 @@ describe('/v1/motion', () => {
     expect(seen[0].url).toMatch(/^http:\/\/render\.test\/jobs\/new\?id=mr_[0-9a-f]{32}&format=mp4&fps=30$/);
     expect(seen[0].init.headers).toMatchObject({ authorization: 'Bearer rs', 'content-length': String(project.length) });
     expect(seen[0].body).toBe(project);
-    expect(await store.motionUsedSeconds('me', monthStart(T0))).toBe(10);
-    expect(await (await call('/v1/motion/allowance')).json()).toMatchObject({ total_seconds: 1800, used_seconds: 10, credits_per_minute: 3, resets_at: '2026-11-01T00:00:00.000Z' });
+    expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 10, extra: 0 });
+    expect(await (await call('/v1/motion/allowance')).json()).toMatchObject({ period: 'month', total_seconds: 1800, used_seconds: 10, credits_per_minute: 3, resets_at: '2026-11-01T00:00:00.000Z' });
   });
 
   it('charges credits beyond the minutes, and refuses what they cannot pay before rendering', async () => {
@@ -78,6 +92,20 @@ describe('/v1/motion', () => {
     expect(third.status).toBe(402);
     expect((await third.json()).error).toMatchObject({ code: 'insufficient_media_credits', cost: 5, balance: 0 });
     expect(free.seen).toHaveLength(2);
+  });
+
+  it('gives the Semaine plan 3 minutes for each paid week', async () => {
+    const week = setup(() => accepted(120), { planId: 'semaine', credits: 10, createdAt: T0 - 3 * 24 * 3600_000 });
+    const allowance = await (await week.call('/v1/motion/allowance')).json();
+    expect(allowance).toMatchObject({ period: 'week', total_seconds: 180, used_seconds: 0, resets_at: new Date(T0 + 4 * 24 * 3600_000).toISOString() });
+    expect(allowance).not.toHaveProperty('window');
+    expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 120, credits: 0 });
+    // 60 s left: the next 120 s pay 60 s, 3 credits.
+    expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 60, credits: 3, allowance: { period: 'week', used_seconds: 180 } });
+    // The next week, the minutes are back.
+    week.tick(4 * 24 * 3600_000);
+    expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 120, credits: 0 });
+    expect(await week.store.mediaBalance('me')).toBe(7);
   });
 
   it('follows the export to its file, on the machine that holds it', async () => {
@@ -112,7 +140,7 @@ describe('/v1/motion', () => {
     await call(`/v1/motion/renders/${id}`);
     expect(await store.mediaBalance('me')).toBe(10);
     expect(store.ledger.filter((e) => e.kind === 'refund')).toHaveLength(1);
-    expect(await store.motionUsedSeconds('me', monthStart(T0))).toBe(60);
+    expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 60, extra: 0 });
   });
 
   it('refunds what the render service refuses, and a duration that lied', async () => {
@@ -120,15 +148,15 @@ describe('/v1/motion', () => {
     const res = await bad.submit('seconds=10');
     expect(res.status).toBe(400);
     expect((await res.json()).error.message).toContain('Bad file path');
-    expect(await bad.store.motionUsedSeconds('me', monthStart(T0))).toBe(0);
+    expect(await bad.store.motionUsage('me', monthStart(T0))).toEqual({ included: 0, extra: 0 });
 
     const liar = setup(() => accepted(90), { planId: 'decouverte' });
     expect((await liar.submit('seconds=5')).status).toBe(400);
-    expect(await liar.store.motionUsedSeconds('me', monthStart(T0))).toBe(0);
+    expect(await liar.store.motionUsage('me', monthStart(T0))).toEqual({ included: 0, extra: 0 });
 
     const down = setup(() => { throw new Error('ECONNREFUSED'); });
     expect((await down.submit('seconds=5')).status).toBe(502);
-    expect(await down.store.motionUsedSeconds('me', monthStart(T0))).toBe(0);
+    expect(await down.store.motionUsage('me', monthStart(T0))).toEqual({ included: 0, extra: 0 });
   });
 
   it('checks the request and is off without the render service', async () => {

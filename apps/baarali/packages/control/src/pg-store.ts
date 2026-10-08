@@ -19,6 +19,7 @@ import {
   type MediaLedgerEntry,
   type MotionRender,
   type MotionSplit,
+  type MotionUsage,
   type Plan,
   type UsageRecord,
 } from './store.js';
@@ -116,12 +117,13 @@ async function balanceOf(q: Queryable, accountId: string): Promise<number> {
   return num(rows[0].balance);
 }
 
-async function usedSecondsOf(db: Queryable, accountId: string, since: number): Promise<number> {
-  const { rows } = await db.query<{ used: unknown }>(
-    'SELECT COALESCE(SUM(included), 0) AS used FROM baarali.motion_renders WHERE account_id = $1 AND at >= $2 AND NOT refunded',
+async function usageOf(db: Queryable, accountId: string, since: number): Promise<MotionUsage> {
+  const { rows } = await db.query<{ included: unknown; extra: unknown }>(
+    `SELECT COALESCE(SUM(included), 0) AS included, COALESCE(SUM(seconds - included), 0) AS extra
+     FROM baarali.motion_renders WHERE account_id = $1 AND at >= $2 AND NOT refunded`,
     [accountId, new Date(since)],
   );
-  return num(rows[0].used);
+  return { included: num(rows[0].included), extra: num(rows[0].extra) };
 }
 
 export class PgStore implements ControlStore {
@@ -346,7 +348,7 @@ export class PgStore implements ControlStore {
     return this.db.transaction(async (tx) => {
       // The account's row serializes its exports with its media charges.
       await tx.query('SELECT 1 FROM baarali.accounts WHERE id = $1 FOR UPDATE', [r.accountId]);
-      const { included, credits } = split(await usedSecondsOf(tx, r.accountId, since));
+      const { included, credits } = split(await usageOf(tx, r.accountId, since));
       if (credits > 0) {
         if ((await balanceOf(tx, r.accountId)) < credits) return { ok: false as const, credits };
         await tx.query(
@@ -380,8 +382,8 @@ export class PgStore implements ControlStore {
     await this.db.query('UPDATE baarali.motion_renders SET status = $2, machine = $3, refunded = $4, error = $5 WHERE id = $1', [r.id, r.status, r.machine, r.refunded, r.error]);
   }
 
-  async motionUsedSeconds(accountId: string, since: number) {
-    return usedSecondsOf(this.db, accountId, since);
+  async motionUsage(accountId: string, since: number) {
+    return usageOf(this.db, accountId, since);
   }
 
   async listAccounts(since: number): Promise<AccountSummary[]> {

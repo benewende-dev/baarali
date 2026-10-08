@@ -48,8 +48,8 @@ describe.each([
     const store = await make();
     await store.applyMediaEntry({ accountId: ME.id, at: T0, kind: 'topup', credits: 5, reference: 'pay-m' });
     const base = { accountId: ME.id, at: T0, format: 'mp4', fps: 30, status: 'rendering' as const, machine: null, refunded: false, error: null };
-    const split = (seconds: number) => (used: number) => {
-      const included = Math.max(0, Math.min(seconds, 100 - used));
+    const split = (seconds: number) => (used: { included: number; extra: number }) => {
+      const included = Math.max(0, Math.min(seconds, 100 - used.included));
       return { included, credits: Math.ceil((seconds - included) / 20) };
     };
     const a = await store.reserveMotionRender({ ...base, id: 'mr_a', seconds: 80, chargeRef: 'motion:mr_a' }, T0 - 1000, split(80));
@@ -59,14 +59,14 @@ describe.each([
     expect(await store.mediaBalance(ME.id)).toBe(3);
     expect(await store.reserveMotionRender({ ...base, id: 'mr_c', seconds: 80, chargeRef: 'motion:mr_c' }, T0 - 1000, split(80))).toEqual({ ok: false, credits: 4 });
     expect(await store.motionRender('mr_c')).toBeNull();
-    expect(await store.motionUsedSeconds(ME.id, T0 - 1000)).toBe(100);
+    expect(await store.motionUsage(ME.id, T0 - 1000)).toEqual({ included: 100, extra: 40 });
     // Another month, another account: nothing used.
-    expect(await store.motionUsedSeconds(ME.id, T0 + 1)).toBe(0);
-    expect(await store.motionUsedSeconds(OTHER.id, T0 - 1000)).toBe(0);
+    expect(await store.motionUsage(ME.id, T0 + 1)).toEqual({ included: 0, extra: 0 });
+    expect(await store.motionUsage(OTHER.id, T0 - 1000)).toEqual({ included: 0, extra: 0 });
     const failed = { ...(await store.motionRender('mr_b'))!, status: 'failed' as const, refunded: true, error: 'GSAP', machine: 'm1' };
     await store.saveMotionRender(failed);
     expect(await store.motionRender('mr_b')).toEqual(failed);
-    expect(await store.motionUsedSeconds(ME.id, T0 - 1000)).toBe(80);
+    expect(await store.motionUsage(ME.id, T0 - 1000)).toEqual({ included: 80, extra: 0 });
   });
 
   it('finds an account by its token, never by a wrong one', async () => {
