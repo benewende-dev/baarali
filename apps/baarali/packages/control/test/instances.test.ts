@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FlyApiError, type FlyApi, type Machine, type MachineConfig, type Volume, type VolumeOpts } from '../src/fly.js';
-import { Instances, InstanceUnavailable, KEYS, settleOwnerInstance, type InstancesConfig } from '../src/instances.js';
+import { IDLE_UPDATE_MS, Instances, InstanceUnavailable, KEYS, settleOwnerInstance, type InstancesConfig } from '../src/instances.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
 
 const T0 = Date.UTC(2026, 9, 1, 8, 0, 0);
@@ -83,6 +83,46 @@ function setup(config: InstancesConfig | null = CONFIG) {
   const instances = new Instances({ store, secret: 'test-secret-0123456789abcdef0123', fly: config ? fly : undefined, config: config ?? undefined, now: () => clock });
   return { store, fly, instances, tick: (ms: number) => { clock += ms; } };
 }
+
+describe('Instances.updateIdle', () => {
+  it('moves a running instance on an old image once unused for 10 minutes, never sooner', async () => {
+    const s = setup();
+    await s.instances.ensure(ME);
+    await s.instances.ensure(OTHER);
+    let clock = T0;
+    const next = new Instances({ store: s.store, secret: 'test-secret-0123456789abcdef0123', fly: s.fly, config: { ...CONFIG, image: 'registry.fly.io/baarali-instances:v3' }, now: () => clock });
+    // Just started: nobody is known to be idle yet.
+    expect(await next.updateIdle()).toBe(0);
+    // OTHER sleeps: left to its next wake. ME works until 9 minutes in.
+    s.fly.machines.get((await s.store.instance(OTHER.id))!.machineId!)!.state = 'suspended';
+    clock += 9 * 60_000;
+    next.used(ME.id);
+    clock += IDLE_UPDATE_MS - 1;
+    expect(await next.updateIdle()).toBe(0);
+    clock += 1;
+    s.fly.calls.length = 0;
+    expect(await next.updateIdle()).toBe(1);
+    const mine = (await s.store.instance(ME.id))!;
+    expect(mine.image).toBe('registry.fly.io/baarali-instances:v3');
+    expect(s.fly.calls).toContain(`update ${mine.machineId} registry.fly.io/baarali-instances:v3`);
+    expect((await s.store.instance(OTHER.id))!.image).toBe(CONFIG.image);
+    // Done: nothing more to move.
+    expect(await next.updateIdle()).toBe(0);
+  });
+
+  it('tries again at the next sweep when Fly refuses', async () => {
+    const s = setup();
+    await s.instances.ensure(ME);
+    let clock = T0;
+    const next = new Instances({ store: s.store, secret: 'test-secret-0123456789abcdef0123', fly: s.fly, config: { ...CONFIG, image: 'registry.fly.io/baarali-instances:v3' }, now: () => clock });
+    clock += IDLE_UPDATE_MS;
+    s.fly.failUpdate = true;
+    expect(await next.updateIdle()).toBe(0);
+    expect((await s.store.instance(ME.id))!.image).toBe(CONFIG.image);
+    s.fly.failUpdate = false;
+    expect(await next.updateIdle()).toBe(1);
+  });
+});
 
 describe('Instances.ensure', () => {
   it('creates a volume and a machine once, with the keys and the control plane in its env', async () => {

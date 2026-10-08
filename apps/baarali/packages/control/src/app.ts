@@ -198,6 +198,14 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/spaces/*', authed);
   app.use('/v1/voice/*', authed);
   app.use('/v1/announcement', authed);
+  // The agent at work: what it spends counts as use of the instance, so an
+  // image update never restarts it under a running task (instances.updateIdle).
+  for (const path of ['/v1/llm/*', '/v1/media/*', '/v1/motion/*', '/v1/voice/*']) {
+    app.use(path, async (c, next) => {
+      deps.instances?.used(c.get('account').id);
+      await next();
+    });
+  }
   app.use('/v1/announcement/*', authed);
   app.use('/v1/notifications', authed);
   app.use('/v1/notifications/*', authed);

@@ -153,6 +153,9 @@ if (process.env.BAARALI_GATEWAY_SECRET) {
   }
   console.log(`[control] instances: ${config ? `${config.app}, ${config.maxInstances} at most` : 'owner only'}`);
   console.log(`[control] instance tokens granted: ${await instances.grantRunningTokens()}`);
+  // A running instance on an old image moves once unused for 10 minutes.
+  const sweeping = instances;
+  setInterval(() => void sweeping.updateIdle().catch((err) => console.error('[instances] idle sweep', err)), 2 * 60_000).unref();
 }
 const gateway = instances ? createGateway({ store, instances, now: Date.now, fetch: globalThis.fetch }) : undefined;
 
