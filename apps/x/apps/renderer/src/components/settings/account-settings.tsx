@@ -273,7 +273,12 @@ export function AccountSettings({ dialogOpen, onOpenUsage }: AccountSettingsProp
 
       <Separator />
 
-      <PartnerCode enabled={isRowboatConnected && dialogOpen} />
+      <PartnerCode
+        enabled={isRowboatConnected && dialogOpen}
+        offers={offers}
+        currentPlanName={currentPlan?.displayName ?? null}
+        onApplied={() => void refreshBilling()}
+      />
 
       {/* Earn Credits Section */}
       <CreditRewards store={billing?.store ?? null} />

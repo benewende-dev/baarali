@@ -431,7 +431,7 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
   </div>
 
   <div data-p="partenaires" hidden>
-    <div class="head"><div><h1>Partenaires</h1><p>Les influenceurs et créateurs qui amènent des clients. Ils touchent une part de chaque paiement de leurs clients, pendant <span id="p-months">12</span> mois.</p></div>
+    <div class="head"><div><h1>Partenaires</h1><p>Les influenceurs et créateurs qui amènent des clients. Ils touchent une part de chaque paiement de leurs clients, pendant <span id="p-months">12</span> mois à partir de leur premier paiement.</p></div>
       <div class="actions"><button class="btn primary" type="button" id="p-new-open">Ajouter un partenaire</button></div></div>
     <section class="card" id="p-new" hidden>
       <h2>Nouveau partenaire</h2>

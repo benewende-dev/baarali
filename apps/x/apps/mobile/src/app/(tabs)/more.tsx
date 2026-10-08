@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { billing as billingShared } from '@x/shared';
 
 import { useConnection } from '@/lib/connection';
+import { daysLeft, type PartnerState } from '@/lib/partner-code';
 import { useColors } from '@/theme/colors';
 
 // BAARALI(07/10/2026): the More tab (mockup artboard 16,
@@ -20,10 +21,13 @@ export default function MoreScreen() {
   const insets = useSafeAreaInsets();
   const { rpc, pairing, status } = useConnection();
   const [info, setInfo] = useState<Info | null>(null);
+  // A creator's partner code, while it can still be typed (08/10/2026).
+  const [partner, setPartner] = useState<PartnerState | null>(null);
 
   useFocusEffect(useCallback(() => {
     if (!rpc) return;
     void rpc.call('billing:getInfo', null).then(setInfo, () => setInfo(null));
+    void rpc.call('billing:getPartnerCode', null).then(setPartner, () => setPartner(null));
   }, [rpc]));
 
   const plan = info ? billingShared.getBillingPlanData(info.catalog, info.subscriptionPlanId) : null;
@@ -61,6 +65,27 @@ export default function MoreScreen() {
                 <View style={{ width: `${Math.round(used * 100)}%`, height: '100%', backgroundColor: colors.accent }} />
               </View>
             ) : null}
+          </View>
+          <Image source="sf:chevron.right" style={{ width: 12, height: 12 }} contentFit="contain" tintColor={colors.tertiaryLabel} />
+        </Pressable>
+      ) : null}
+
+      {/* Seen where people look: gone once applied, or after the days. */}
+      {paired && partner?.canRedeem && partner.until && !partner.partner ? (
+        <Pressable onPress={() => go('/partner-code')} accessibilityRole="button"
+          style={({ pressed }) => [group, { marginTop: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: pressed ? 0.7 : 1 }]}>
+          <View style={{ width: 40, height: 40, borderRadius: 11, borderCurve: 'continuous', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent }}>
+            <Image source="sf:gift.fill" style={{ width: 20, height: 20 }} contentFit="contain" tintColor={colors.onAccent} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.label }}>Got a partner code?</Text>
+            <Text numberOfLines={1} style={{ fontSize: 13, color: colors.secondaryLabel }}>
+              {(() => {
+                const n = daysLeft(partner.until);
+                const left = n === 1 ? '1 day left' : `${n} days left`;
+                return partner.gift ? `${partner.gift.plan} free for ${partner.gift.days} days · ${left}` : left;
+              })()}
+            </Text>
           </View>
           <Image source="sf:chevron.right" style={{ width: 12, height: 12 }} contentFit="contain" tintColor={colors.tertiaryLabel} />
         </Pressable>

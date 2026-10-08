@@ -1,6 +1,6 @@
 import { getAccessToken } from '../auth/tokens.js';
 import { API_URL } from '../config/env.js';
-import { AnnouncementSchema, MediaCreditsSchema, NoticeInboxSchema, PartnerCodeStateSchema, PlanOffersSchema, type PartnerCodeResult, type PartnerCodeState, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type NoticeEventKind, type NoticeInbox, type PlanOffers } from '@x/shared/dist/billing.js';
+import { AnnouncementSchema, MediaCreditsSchema, NoticeInboxSchema, PartnerCodeStateSchema, PlanOffersSchema, type PartnerCodeCheck, type PartnerCodeResult, type PartnerCodeState, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type NoticeEventKind, type NoticeInbox, type PlanOffers } from '@x/shared/dist/billing.js';
 import { getRowboatConfig } from '../config/rowboat.js';
 
 export async function getBillingInfo(): Promise<BillingInfo> {
@@ -179,10 +179,41 @@ export async function getPartnerCode(): Promise<PartnerCodeState | null> {
     const accessToken = await getAccessToken();
     const response = await fetch(`${API_URL}/v1/codes/partner`, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!response.ok) return null;
-    const body = (await response.json()) as { partner?: unknown; can_redeem?: unknown; until?: unknown; gift?: unknown };
-    return PartnerCodeStateSchema.parse({ partner: body.partner ?? null, canRedeem: body.can_redeem === true, until: body.until ?? null, gift: body.gift ?? null });
+    const body = (await response.json()) as {
+      partner?: unknown;
+      can_redeem?: unknown;
+      until?: unknown;
+      gift?: { plan?: unknown; plan_id?: unknown; days?: unknown } | null;
+      running?: { plan?: unknown; starts_at?: unknown; ends_at?: unknown } | null;
+    };
+    return PartnerCodeStateSchema.parse({
+      partner: body.partner ?? null,
+      canRedeem: body.can_redeem === true,
+      until: body.until ?? null,
+      gift: body.gift ? { plan: body.gift.plan, planId: body.gift.plan_id, days: body.gift.days } : null,
+      running: body.running ? { plan: body.running.plan, startsAt: body.running.starts_at, endsAt: body.running.ends_at } : null,
+    });
   } catch {
     return null;
+  }
+}
+
+/** A code checked as it is typed (control GET /v1/codes/check): nothing is applied. */
+export async function checkPartnerCode(code: string): Promise<PartnerCodeCheck> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/codes/check?code=${encodeURIComponent(code)}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const body = (await response.json().catch(() => ({}))) as {
+      partner?: { name?: unknown; network?: unknown; city?: unknown };
+      error?: { message?: unknown };
+    };
+    if (response.ok && typeof body.partner?.name === 'string') {
+      const text = (v: unknown) => (typeof v === 'string' && v ? v : null);
+      return { ok: true, name: body.partner.name, network: text(body.partner.network), city: text(body.partner.city) };
+    }
+    return { ok: false, message: typeof body.error?.message === 'string' ? body.error.message : 'The code could not be checked. Try again in a moment.' };
+  } catch {
+    return { ok: false, message: 'The code could not be checked. Try again in a moment.' };
   }
 }
 

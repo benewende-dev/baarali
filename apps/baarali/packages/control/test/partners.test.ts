@@ -49,18 +49,22 @@ describe('the rules', () => {
     expect([0, 9, 10, 49, 50].map((n) => tierOf(DEFAULT_RULES, n))).toEqual(['base', 'base', 'silver', 'silver', 'gold']);
   });
 
-  it('pays a share only for an active partner, never on their own payment, for 12 months', () => {
+  it('pays a share only for an active partner, never on their own payment, for 12 months from the first payment', () => {
     const referral: Referral = { accountId: 'acc_fan', partnerId: AWA.id, at: T0, via: 'link' };
     const pay = (at: number, accountId = 'acc_fan') => ({ reference: `p_${at}`, accountId, amount: 13_119, currency: 'XOF', at });
-    const first = commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 + DAY), { count: 0, includes: false });
+    const first = commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 + DAY), { count: 0, includes: false, firstPaidAt: null });
     expect(first).toMatchObject({ id: `p_${T0 + DAY}`, rate: 0.2, commissionXof: 2624, payableAt: T0 + 31 * DAY, payoutId: null });
     // The 10th paying client moves every new payment to silver.
-    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 + DAY), { count: 9, includes: false })?.rate).toBe(0.25);
-    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 + DAY), { count: 9, includes: true })?.rate).toBe(0.2);
-    expect(commissionFor(DEFAULT_RULES, { ...AWA, status: 'paused' }, referral, pay(T0 + DAY), { count: 0, includes: false })).toBeNull();
-    expect(commissionFor(DEFAULT_RULES, AWA, { ...referral, accountId: 'acc_awa' }, pay(T0 + DAY, 'acc_awa'), { count: 0, includes: false })).toBeNull();
-    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(addMonths(T0, 12) - 1), { count: 0, includes: false })).not.toBeNull();
-    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(addMonths(T0, 12)), { count: 0, includes: false })).toBeNull();
+    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 + DAY), { count: 9, includes: false, firstPaidAt: null })?.rate).toBe(0.25);
+    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 + DAY), { count: 9, includes: true, firstPaidAt: T0 + DAY })?.rate).toBe(0.2);
+    expect(commissionFor(DEFAULT_RULES, { ...AWA, status: 'paused' }, referral, pay(T0 + DAY), { count: 0, includes: false, firstPaidAt: null })).toBeNull();
+    expect(commissionFor(DEFAULT_RULES, AWA, { ...referral, accountId: 'acc_awa' }, pay(T0 + DAY, 'acc_awa'), { count: 0, includes: false, firstPaidAt: null })).toBeNull();
+    // Twelve months from the first payment, however late it came after signing up.
+    const firstAt = addMonths(T0, 5);
+    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(addMonths(T0, 14)), { count: 1, includes: true, firstPaidAt: firstAt })).not.toBeNull();
+    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(addMonths(firstAt, 12) - 1), { count: 1, includes: true, firstPaidAt: firstAt })).not.toBeNull();
+    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(addMonths(firstAt, 12)), { count: 1, includes: true, firstPaidAt: firstAt })).toBeNull();
+    expect(commissionFor(DEFAULT_RULES, AWA, referral, pay(T0 - 1), { count: 0, includes: false, firstPaidAt: null })).toBeNull();
   });
 
   it('refuses a share that would cost more than a client brings, and tiers that go down', () => {

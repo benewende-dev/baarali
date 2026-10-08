@@ -66,6 +66,7 @@ export const RPC_CHANNELS = [
   'billing:notificationEvent',
   'billing:readAllNotifications',
   'billing:getPartnerCode',
+  'billing:checkPartnerCode',
   'billing:redeemPartnerCode',
   'credits:getState',
   'notifications:getSettings',

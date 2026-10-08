@@ -151,7 +151,7 @@ import { invalidateKnowledgeIndex } from '@x/core/dist/knowledge/knowledge_index
 import { versionHistory, voice } from '@x/core';
 import { classifySchedule, processRowboatInstruction } from '@x/core/dist/knowledge/inline_tasks.js';
 import { editSlide, generateDeckOutline, generateSlide } from '@x/core/dist/knowledge/deck_outline.js';
-import { getAnnouncement, getBillingInfo, getMediaCredits, getNotifications, getPartnerCode, getPlanOffers, readAllNotifications, redeemPartnerCode, sendAnnouncementEvent, sendNotificationEvent } from '@x/core/dist/billing/billing.js';
+import { getAnnouncement, getBillingInfo, getMediaCredits, getNotifications, checkPartnerCode, getPartnerCode, getPlanOffers, readAllNotifications, redeemPartnerCode, sendAnnouncementEvent, sendNotificationEvent } from '@x/core/dist/billing/billing.js';
 import { claimReferralCode, getCreditsState, maybeActivateCredit, subscribeCreditActivations } from '@x/core/dist/billing/credits.js';
 import { summarizeMeeting } from '@x/core/dist/knowledge/summarize_meeting.js';
 import { getAccessToken } from '@x/core/dist/auth/tokens.js';
@@ -3213,6 +3213,9 @@ export function setupIpcHandlers() {
     },
     'billing:getPartnerCode': async () => {
       return await getPartnerCode();
+    },
+    'billing:checkPartnerCode': async (_event, args) => {
+      return await checkPartnerCode(args.code);
     },
     'billing:redeemPartnerCode': async (_event, args) => {
       return await redeemPartnerCode(args.code);

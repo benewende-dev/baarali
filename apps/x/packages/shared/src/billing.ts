@@ -190,9 +190,18 @@ export const PartnerCodeStateSchema = z.object({
   /** Until when, when it can. */
   until: z.string().nullable(),
   /** The plan a code brings this person, for how many days; null: none. */
-  gift: z.object({ plan: z.string(), days: z.number() }).nullable(),
+  gift: z.object({ plan: z.string(), planId: z.string(), days: z.number() }).nullable(),
+  /** The offered plan while it runs: the account shows its days. */
+  running: z.object({ plan: z.string(), startsAt: z.string(), endsAt: z.string() }).nullable(),
 });
 export type PartnerCodeState = z.infer<typeof PartnerCodeStateSchema>;
+
+/** A code checked as it is typed: whose it is, or why it would not take. */
+export const PartnerCodeCheckSchema = z.union([
+  z.object({ ok: z.literal(true), name: z.string(), network: z.string().nullable(), city: z.string().nullable() }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export type PartnerCodeCheck = z.infer<typeof PartnerCodeCheckSchema>;
 
 export const PartnerCodeResultSchema = z.union([
   z.object({

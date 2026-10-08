@@ -3640,6 +3640,13 @@ export const FR: Dictionary = {
     "Recommended by": "Recommandé par",
     "AWATECH": "AWATECH",
     "The code could not be checked. Try again in a moment.": "Le code n’a pas pu être vérifié. Réessayez dans un instant.",
+    "Did a creator recommend Baarali? Enter their code.": "Un créateur vous a recommandé Baarali ? Saisissez son code.",
+    "No card, nothing to pay.": "Sans carte, sans rien payer.",
+    "Recognised": "Reconnu",
+    "1 day left": "Encore 1 jour",
+    "Code applied": "Code appliqué",
+    "Got a partner code?": "Un code partenaire ?",
+    "A partner code is typed within 7 days of signing up.": "Un code partenaire se saisit dans les 7 jours qui suivent l’inscription.",
   },
   // Lines about people (apps/x renderer lib/spaces-membership.ts): the names
   // stay as written. Neutral wording, a name says nothing of a gender.
@@ -3651,13 +3658,22 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
-    // A creator's partner code, Mac and phone (08/10/2026).
+    // A creator's partner code, Mac and phone (08/10/2026, mockup v2).
     "Did a creator recommend Baarali? Enter their code before $1.": "Un créateur vous a recommandé Baarali ? Saisissez son code avant le $1.",
-    "Did a creator recommend Baarali? Enter their code before $1: $2 is yours for $3 days.": "Un créateur vous a recommandé Baarali ? Saisissez son code avant le $1 : $2 vous est offert pendant $3 jours.",
-    "Did a creator recommend Baarali? Their code gives you $1 for $2 days. Enter it before $3.": "Un créateur vous a recommandé Baarali ? Son code vous offre $1 pendant $2 jours. À saisir avant le $3.",
-    "Code from $1 applied.": "Code de $1 appliqué.",
-    "Code from $1 applied. $2 is yours until $3.": "Code de $1 appliqué. $2 vous est offert jusqu’au $3.",
-    "$1 is yours until $2.": "$1 vous est offert jusqu’au $2.",
+    "Did a creator recommend Baarali? Their code gives you $1 for $2 days.": "Un créateur vous a recommandé Baarali ? Son code vous offre $1 pendant $2 jours.",
+    "$1 free": "$1 offert",
+    "for $1 days": "pendant $1 jours",
+    "$1 free for $2 days": "$1 offert pendant $2 jours",
+    "$1 free for $2 days · $3": "$1 offert $2 jours · $3",
+    "$1 days left": "Encore $1 jours",
+    "$1 is yours until $2": "$1 vous est offert jusqu’au $2",
+    "$1 · free until $2": "$1 · offert jusqu’au $2",
+    "Day $1 of $2": "Jour $1 sur $2",
+    "Recommended by $1": "Recommandé par $1",
+    "Get $1": "Recevoir $1",
+    "Then back to $1. No card, nothing to pay.": "Ensuite, retour à $1. Sans carte, sans rien payer.",
+    "Then back to $1. No card, nothing to pay. Enter the code before $2.": "Ensuite, retour à $1. Sans carte, sans rien payer. À saisir avant le $2.",
+    "No card, nothing to pay. Enter the code before $1.": "Sans carte, sans rien payer. À saisir avant le $1.",
     // Spaces, a new group (07/10/2026).
     "Agents of $1": "Agents de $1",
     "People of $1": "Personnes de $1",

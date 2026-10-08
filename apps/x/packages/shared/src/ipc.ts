@@ -27,7 +27,7 @@ import { AutoRouteDecision, AutoRouteRequest } from './auto-route.js';
 import { FindRequest, FindResult } from './find.js';
 import { AppSummarySchema, RegistryRecordSchema, RowboatAppManifestSchema } from './rowboat-app.js';
 import { BrowserStateSchema, DisplayMediaRequestSchema, HttpAuthRequestSchema } from './browser-control.js';
-import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, NoticeEventKindSchema, NoticeInboxSchema, PartnerCodeResultSchema, PartnerCodeStateSchema, PlanOffersSchema } from './billing.js';
+import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, NoticeEventKindSchema, NoticeInboxSchema, PartnerCodeCheckSchema, PartnerCodeResultSchema, PartnerCodeStateSchema, PlanOffersSchema } from './billing.js';
 import { CreditActivatedEventSchema, CreditsStateSchema, ReferralClaimResultSchema } from './credits.js';
 import { GmailThreadSchema } from './blocks.js';
 import { PermissionDecision, ApprovalPolicy, CodingAgent, type CodeRunFeedEvent } from './code-mode.js';
@@ -3758,6 +3758,10 @@ export const ipcSchemas = {
   'billing:getPartnerCode': {
     req: z.null(),
     res: PartnerCodeStateSchema.nullable(),
+  },
+  'billing:checkPartnerCode': {
+    req: z.object({ code: z.string() }),
+    res: PartnerCodeCheckSchema,
   },
   'billing:redeemPartnerCode': {
     req: z.object({ code: z.string() }),

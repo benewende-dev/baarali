@@ -47,9 +47,8 @@ export interface PartnerSummary {
   payableIds: string[];
 }
 
-export type AttachResult =
-  | { ok: true; partner: Partner; gift: Gift | null }
-  | { ok: false; reason: 'unknown' | 'paused' | 'own' | 'already' | 'late' };
+export type RefusalReason = 'unknown' | 'paused' | 'own' | 'already' | 'late';
+export type AttachResult = { ok: true; partner: Partner; gift: Gift | null } | { ok: false; reason: RefusalReason };
 
 /** Before the gift ends, the person is told: this long before. */
 export const GIFT_NOTICE_MS = 3 * DAY_MS;
@@ -73,9 +72,12 @@ export class PartnerProgram {
     return partner;
   }
 
-  /** A person signs up with the link's cookie, or types a code soon after. */
-  async attach(account: Account, rawCode: unknown, via: 'link' | 'code'): Promise<AttachResult> {
-    const now = this.deps.now();
+  /**
+   * Whether this code would take, without taking it: the app checks it as it
+   * is typed. The same reasons as attach() except the person already linked,
+   * which only the write knows for sure.
+   */
+  async check(account: Account, rawCode: unknown, via: 'link' | 'code'): Promise<{ ok: true; partner: Partner } | { ok: false; reason: Exclude<RefusalReason, 'already'> }> {
     const code = normalizeCode(rawCode);
     const partner = code ? await this.deps.store.partnerByCode(code) : null;
     if (!partner) return { ok: false, reason: 'unknown' };
@@ -83,8 +85,16 @@ export class PartnerProgram {
     // Accepted by email before their account was linked: the same email is still them.
     const ownEmail = partner.email !== null && account.email?.toLowerCase() === partner.email;
     if (partner.accountId === account.id || ownEmail) return { ok: false, reason: 'own' };
-    if (via === 'code' && now - account.createdAt > REDEEM_WINDOW_MS) return { ok: false, reason: 'late' };
-    if (!(await this.deps.store.addReferral({ accountId: account.id, partnerId: partner.id, at: now, via }))) return { ok: false, reason: 'already' };
+    if (via === 'code' && this.deps.now() - account.createdAt > REDEEM_WINDOW_MS) return { ok: false, reason: 'late' };
+    return { ok: true, partner };
+  }
+
+  /** A person signs up with the link's cookie, or types a code soon after. */
+  async attach(account: Account, rawCode: unknown, via: 'link' | 'code'): Promise<AttachResult> {
+    const checked = await this.check(account, rawCode, via);
+    if (!checked.ok) return checked;
+    const { partner } = checked;
+    if (!(await this.deps.store.addReferral({ accountId: account.id, partnerId: partner.id, at: this.deps.now(), via }))) return { ok: false, reason: 'already' };
     return { ok: true, partner, gift: await this.offer(account, partner) };
   }
 
@@ -150,7 +160,9 @@ export class PartnerProgram {
     if (!partner) return null;
     const earned = await this.deps.store.commissions(partner.id);
     const clients = new Set(earned.map((c) => c.accountId));
-    const commission = commissionFor(await this.rules(), partner, referral, facts, { count: clients.size, includes: clients.has(facts.accountId) });
+    const own = earned.filter((c) => c.accountId === facts.accountId).map((c) => c.paidAt);
+    const firstPaidAt = own.length ? Math.min(...own) : null;
+    const commission = commissionFor(await this.rules(), partner, referral, facts, { count: clients.size, includes: clients.has(facts.accountId), firstPaidAt });
     if (!commission) return null;
     return (await this.deps.store.addCommission(commission)) ? commission : null;
   }
