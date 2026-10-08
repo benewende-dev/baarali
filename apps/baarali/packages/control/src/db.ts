@@ -372,6 +372,26 @@ export const MIGRATIONS: string[] = [
 
   ALTER TABLE baarali.partners ADD COLUMN email text;
   `,
+  // 12 — Studio Motion exports (08/10/2026): the plan's minutes they used,
+  // the credits they cost, refunded together when an export fails.
+  `
+  CREATE TABLE baarali.motion_renders (
+    id text PRIMARY KEY,
+    account_id text NOT NULL REFERENCES baarali.accounts(id),
+    at timestamptz NOT NULL,
+    format text NOT NULL,
+    fps integer NOT NULL,
+    seconds integer NOT NULL,
+    included integer NOT NULL,
+    credits integer NOT NULL,
+    charge_ref text NOT NULL,
+    status text NOT NULL CHECK (status IN ('rendering', 'done', 'failed')),
+    machine text,
+    refunded boolean NOT NULL DEFAULT false,
+    error text
+  );
+  CREATE INDEX motion_renders_account ON baarali.motion_renders (account_id, at);
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

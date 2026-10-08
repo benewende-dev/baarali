@@ -11,6 +11,8 @@ import type { ToolDef, ToolResult } from './media-mcp.js';
 // The brand kit is config/brand.json. Rendering to MP4 comes with the render
 // service (the next step); `check` is the structural part of HyperFrames'
 // lint that needs no dependency, the full lint runs before each render.
+// `render` sends the folder through the control plane to the render service
+// (packages/render): minutes included in the plan, then media credits.
 
 export const MOTION_DIR = 'motion';
 export const BRAND_FILE = 'config/brand.json';
@@ -18,7 +20,19 @@ export const BRAND_FILE = 'config/brand.json';
 export interface MotionToolsDeps {
   workDir: string;
   now: () => number;
+  /** The control plane, for exports; unset: `render` says export is unavailable. */
+  control?: { url: string; token: string; fetch: typeof fetch; sleep: (ms: number) => Promise<void> };
 }
+
+export const EXPORT_FORMATS = ['mp4', 'mp4-light', 'gif', 'webm'] as const;
+type ExportFormat = (typeof EXPORT_FORMATS)[number];
+const EXPORT_EXTENSIONS: Record<ExportFormat, string> = { mp4: 'mp4', 'mp4-light': 'mp4', gif: 'gif', webm: 'webm' };
+/** How long `render` and `render_status` wait in one call; a 10 s video takes about 30 s. */
+export const RENDER_WAIT_MS = 75_000;
+const RENDER_POLL_MS = 4_000;
+/** As the render service. */
+const MAX_EXPORT_BYTES = 150 * 1024 * 1024;
+const EXPORTS_DIR = 'exports';
 
 export const MOTION_TOOLS: ToolDef[] = [
   {
@@ -87,6 +101,38 @@ export const MOTION_TOOLS: ToolDef[] = [
       },
       required: ['project', 'format'],
     },
+  },
+  {
+    name: 'render',
+    description:
+      'Export a motion project as a video file the user can post: mp4 (1080p, the default), mp4-light (720p, small, for WhatsApp), gif (no sound, for a message), webm (keeps the transparent background of an overlay such as bas-de-titre). Runs `check` first. Uses the minutes of export included in the plan, then a few media credits. Waits up to 75 s, then saves the file in the project’s exports/ folder and returns its path; if it is still rendering, call render_status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The project folder, e.g. motion/promo-week-end.' },
+        format: { type: 'string', enum: [...EXPORT_FORMATS], description: 'Default mp4.' },
+        fps: { type: 'number', enum: [30, 60], description: '30 (default). 60 only when asked for very smooth motion: it counts double.' },
+      },
+      required: ['project'],
+    },
+  },
+  {
+    name: 'render_status',
+    description: 'Follow an export started by `render` (waits up to 75 s). When ready, saves the file in the project’s exports/ folder and returns its path.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The export id returned by render.' },
+        project: { type: 'string', description: 'The project folder it belongs to.' },
+        format: { type: 'string', enum: [...EXPORT_FORMATS] },
+      },
+      required: ['id', 'project'],
+    },
+  },
+  {
+    name: 'export_minutes',
+    description: 'The minutes of export the plan includes this month, how many are used, when they come back, and the media credit balance for exports beyond them.',
+    inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'check',
@@ -168,6 +214,12 @@ export async function checkComposition(html: string, projectDir: string): Promis
   for (const m of html.matchAll(/\b(?:src|href)="([^"]+)"/g)) {
     const ref = m[1];
     if (/^(https?:|data:|#)/.test(ref)) continue;
+    // The render service receives the project folder alone.
+    const target = path.resolve(projectDir, ref);
+    if (target !== projectDir && !target.startsWith(projectDir + path.sep)) {
+      add('error', 'media_outside_project', `The file ${ref} is outside the project folder: the export would miss it.`, 'Copy it into the project (assets/) and point to assets/<name>.');
+      continue;
+    }
     try {
       await fs.access(path.resolve(projectDir, ref));
     } catch {
@@ -345,6 +397,110 @@ export function createMotionTools(deps: MotionToolsDeps) {
           findings.map((f) => `- ${f.severity} ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n'),
         errors > 0,
       );
+    }
+
+    if (name === 'render' || name === 'render_status' || name === 'export_minutes') {
+      if (!deps.control) return text('Video export is not available here.', true);
+      const control = deps.control;
+      const api = (route: string, init: RequestInit = {}) =>
+        control.fetch(`${control.url}/v1/motion${route}`, { ...init, headers: { authorization: `Bearer ${control.token}`, ...((init.headers as Record<string, string>) ?? {}) } });
+      const readJson = async (res: Response) => (await res.json().catch(() => ({}))) as Record<string, any>;
+      const minutes = (s: number) => `${Math.round((s / 60) * 10) / 10} min`;
+
+      if (name === 'export_minutes') {
+        const res = await api('/allowance');
+        const data = await readJson(res);
+        if (!res.ok) return text(`Could not read the export minutes (${res.status}).`, true);
+        return text(`Export minutes this month: ${minutes(data.used_seconds)} used of ${minutes(data.total_seconds)}, back on ${String(data.resets_at).slice(0, 10)}. Beyond them: ${data.credits_per_minute} media credits a minute; balance ${data.balance} credits.`);
+      }
+
+      const dir = projectDir(args.project);
+      if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
+      const format = (args.format ?? 'mp4') as ExportFormat;
+      if (!EXPORT_FORMATS.includes(format)) return text(`Format is one of ${EXPORT_FORMATS.join(', ')}.`, true);
+
+      /** Waits for the export, then saves it beside the project. */
+      const follow = async (id: string, intro: string): Promise<ToolResult> => {
+        const until = deps.now() + RENDER_WAIT_MS;
+        for (;;) {
+          const res = await api(`/renders/${encodeURIComponent(id)}`);
+          const data = await readJson(res);
+          if (res.status === 404) return text(`No export ${id}.`, true);
+          if (data.status === 'failed') {
+            return text(`${intro}The export failed: ${data.error ?? 'unknown error'}. Its minutes and credits were given back. Fix the composition if the error names it, call check, and render again.`, true);
+          }
+          if (data.status === 'done') {
+            const file = await api(`/renders/${encodeURIComponent(id)}/file`);
+            if (!file.ok) return text(`${intro}The export is done but its file could not be fetched (${file.status}); render it again.`, true);
+            const out = path.join(dir, EXPORTS_DIR, `${path.basename(dir)}${format === 'mp4' ? '' : `-${format}`}.${EXPORT_EXTENSIONS[format]}`);
+            await fs.mkdir(path.dirname(out), { recursive: true });
+            await fs.writeFile(out, Buffer.from(await file.arrayBuffer()));
+            return text(`${intro}Exported: ${rel(out)}. Show it to the user in a \`\`\`filepath block (${rel(out)}); it plays and downloads in the app, on the phone as on the computer.`);
+          }
+          if (deps.now() >= until) {
+            const pct = Math.round((Number(data.progress) || 0) * 100);
+            return text(`${intro}Still rendering (${data.queued ? 'waiting for a free machine' : `${pct} %`}). Call render_status with id ${id} and project ${rel(dir)}${format === 'mp4' ? '' : ` and format ${format}`}.`);
+          }
+          await control.sleep(RENDER_POLL_MS);
+        }
+      };
+
+      if (name === 'render_status') {
+        if (typeof args.id !== 'string' || !args.id) return text('Give the id returned by render.', true);
+        return follow(args.id, '');
+      }
+
+      let html: string;
+      try {
+        html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+      } catch {
+        return text(`No index.html in ${rel(dir)}.`, true);
+      }
+      const errors = (await checkComposition(html, dir)).filter((f) => f.severity === 'error');
+      if (errors.length > 0) {
+        return text(`Not exported: fix these first.\n${errors.map((f) => `- ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n')}`, true);
+      }
+      const root = /<[a-z]+\b[^>]*\bdata-composition-id\s*=[^>]*>/i.exec(html)?.[0] ?? '';
+      const seconds = Number(/\bdata-duration\s*=\s*["']?([\d.]+)/i.exec(root)?.[1]);
+      if (!Number.isFinite(seconds) || seconds <= 0) return text('The composition root has no data-duration.', true);
+      const fps = args.fps === 60 ? 60 : 30;
+
+      // The folder as it is, without its earlier exports.
+      const files: Array<{ path: string; data: string }> = [];
+      let total = 0;
+      const walk = async (sub: string) => {
+        for (const entry of await fs.readdir(path.join(dir, sub), { withFileTypes: true })) {
+          const relPath = sub ? `${sub}/${entry.name}` : entry.name;
+          if (entry.name.startsWith('.') || (!sub && (entry.name === EXPORTS_DIR || entry.name === 'project.json'))) continue;
+          if (entry.isDirectory()) await walk(relPath);
+          else if (entry.isFile()) {
+            const bytes = await fs.readFile(path.join(dir, relPath));
+            total += bytes.length;
+            files.push({ path: relPath, data: bytes.toString('base64') });
+          }
+        }
+      };
+      await walk('');
+      if (total > MAX_EXPORT_BYTES) return text(`The project is ${Math.round(total / 1024 / 1024)} MB; exports take 150 MB at most. Use shorter or lighter footage.`, true);
+
+      const body = JSON.stringify({ files });
+      const res = await api(`/renders?${new URLSearchParams({ format, fps: String(fps), seconds: String(seconds) })}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) },
+        body,
+      });
+      const data = await readJson(res);
+      if (res.status !== 202) {
+        const e = (data.error ?? {}) as Record<string, any>;
+        if (e.code === 'insufficient_media_credits') {
+          return text(`Not exported: the export minutes of the plan are used up (${minutes(e.allowance?.used_seconds ?? 0)} of ${minutes(e.allowance?.total_seconds ?? 0)}, back on ${String(e.allowance?.resets_at ?? '').slice(0, 10)}) and this export costs ${e.cost} media credits; the balance is ${e.balance}. The user can buy a media credit pack, or wait for the minutes to come back.`, true);
+        }
+        return text(`Not exported: ${e.message ?? `error ${res.status}`}.`, true);
+      }
+      const paid = data.credits > 0
+        ? `${minutes(data.included_seconds)} from the plan and ${data.credits} media credits`
+        : `${minutes(data.included_seconds)} from the plan's export minutes`;
+      return follow(String(data.id), `Export ${data.id} started (${paid}; ${minutes(data.allowance?.used_seconds ?? 0)} of ${minutes(data.allowance?.total_seconds ?? 0)} used this month).\n`);
     }
 
     return text(`Unknown tool: ${name}`, true);

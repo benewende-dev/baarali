@@ -102,6 +102,85 @@ describe('motion tools', () => {
     expect(codes).toEqual(expect.arrayContaining(['root_duration', 'gsap_not_allowed', 'clip_timing', 'missing_media']));
   });
 
+  it('exports a project through the control plane and saves the file beside it', async () => {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-motion-'));
+    const seen: Array<{ url: string; init: RequestInit }> = [];
+    let polls = 0;
+    let now = 0;
+    const tools = createMotionTools({
+      workDir,
+      now: () => now,
+      control: {
+        url: 'https://c.test',
+        token: 'tok',
+        sleep: async (ms) => void (now += ms),
+        fetch: (async (url: string, init: RequestInit = {}) => {
+          seen.push({ url: String(url), init });
+          if (url.includes('/renders?')) return Response.json({ id: 'mr_1', included_seconds: 10, credits: 0, allowance: { used_seconds: 70, total_seconds: 1800 } }, { status: 202 });
+          if (url.endsWith('/file')) return new Response('MP4DATA');
+          if (url.includes('/renders/mr_1')) return Response.json(++polls < 3 ? { status: 'rendering', progress: 0.5 } : { status: 'done' });
+          return Response.json({}, { status: 404 });
+        }) as typeof fetch,
+      },
+    });
+    await tools.run('new_project', { template: 'annonce-choc', title: 'Promo' });
+    await fs.mkdir(path.join(workDir, 'motion/promo/exports'), { recursive: true });
+    await fs.writeFile(path.join(workDir, 'motion/promo/exports/old.mp4'), 'OLD');
+    await fs.writeFile(path.join(workDir, 'motion/promo/assets/clip.mp4'), 'CLIP');
+    const out = textOf(await tools.run('render', { project: 'motion/promo', format: 'mp4-light' }));
+    expect(out).toContain('Export mr_1 started (0.2 min from the plan');
+    expect(out).toContain('Exported: motion/promo/exports/promo-mp4-light.mp4.');
+    expect(await fs.readFile(path.join(workDir, 'motion/promo/exports/promo-mp4-light.mp4'), 'utf8')).toBe('MP4DATA');
+    const post = seen[0];
+    expect(post.url).toBe('https://c.test/v1/motion/renders?format=mp4-light&fps=30&seconds=10');
+    expect(post.init.headers).toMatchObject({ authorization: 'Bearer tok', 'content-type': 'application/json' });
+    // The folder without its exports nor project.json.
+    const sent = (JSON.parse(post.init.body as string).files as Array<{ path: string }>).map((f) => f.path).sort();
+    expect(sent).toEqual(['assets/clip.mp4', 'index.html']);
+  });
+
+  it('says when an export waits, fails, or cannot be paid', async () => {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-motion-'));
+    let now = 0;
+    let answer: Response = Response.json({});
+    let status: Record<string, unknown> = { status: 'rendering', progress: 0.25 };
+    const tools = createMotionTools({
+      workDir,
+      now: () => now,
+      control: {
+        url: 'https://c.test',
+        token: 'tok',
+        sleep: async (ms) => void (now += ms),
+        fetch: (async (url: string) => (url.includes('/renders?') ? answer : Response.json(status))) as typeof fetch,
+      },
+    });
+    await tools.run('new_project', { template: 'logo-anime', title: 'Intro' });
+    answer = Response.json({ error: { code: 'insufficient_media_credits', cost: 4, balance: 1, allowance: { used_seconds: 120, total_seconds: 120, resets_at: '2026-11-01T00:00:00.000Z' } } }, { status: 402 });
+    const unpaid = await tools.run('render', { project: 'motion/intro' });
+    expect(unpaid.isError).toBe(true);
+    expect(textOf(unpaid)).toContain('used up (2 min of 2 min, back on 2026-11-01) and this export costs 4 media credits; the balance is 1');
+    answer = Response.json({ id: 'mr_2', included_seconds: 6, credits: 0, allowance: {} }, { status: 202 });
+    expect(textOf(await tools.run('render', { project: 'motion/intro', format: 'gif' }))).toContain('Still rendering (25 %). Call render_status with id mr_2 and project motion/intro and format gif.');
+    status = { status: 'failed', error: 'GSAP is not allowed' };
+    const failed = await tools.run('render_status', { id: 'mr_2', project: 'motion/intro', format: 'gif' });
+    expect(failed.isError).toBe(true);
+    expect(textOf(failed)).toContain('The export failed: GSAP is not allowed. Its minutes and credits were given back.');
+    // An error found by check stops the export before anything is sent.
+    await fs.writeFile(path.join(workDir, 'motion/intro/index.html'), '<div>no root</div>');
+    expect(textOf(await tools.run('render', { project: 'motion/intro' }))).toContain('Not exported: fix these first.');
+    const offline = createMotionTools({ workDir, now: () => 0 });
+    expect(textOf(await offline.run('render', { project: 'motion/intro' }))).toBe('Video export is not available here.');
+  });
+
+  it('refuses media outside the project folder', async () => {
+    const { workDir } = await setup();
+    const dir = path.join(workDir, 'motion/p');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(workDir, 'clip.mp4'), 'x');
+    const html = '<div id="root" data-composition-id="main" data-start="0" data-duration="3" data-width="1080" data-height="1920" data-no-timeline><video class="clip" id="v" data-start="0" data-duration="3" data-track-index="1" muted src="../../clip.mp4"></video></div>';
+    expect((await checkComposition(html, dir)).map((f) => f.code)).toContain('media_outside_project');
+  });
+
   it('turns a title into a folder name', () => {
     expect(projectSlug('Promo Week-end : -20 % !')).toBe('promo-week-end-20');
     expect(projectSlug('…')).toBe('motion');

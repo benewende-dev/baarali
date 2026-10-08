@@ -1,0 +1,39 @@
+# baarali-render on Fly, Paris (Studio Motion step 2, decided 08/10/2026).
+# No public IP: the control plane reaches it over Flycast, with
+# BAARALI_RENDER_SECRET. The service stops its machine after 15 idle minutes
+# (main.ts), never during a render; the next request starts it again.
+# One machine to start with (deploy --ha=false): one render at a time, the
+# next ones queue. A second machine needs the control plane to spread jobs.
+app = "baarali-render"
+primary_region = "cdg"
+
+[env]
+  RENDER_CONCURRENCY = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = false
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 50
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+# Exiting when idle stops the machine; a crash restarts it.
+[[restart]]
+  policy = "on-failure"
+  retries = 3
+
+[[vm]]
+  size = "performance-2x"
+  memory = "4gb"

@@ -1,3 +1,4 @@
+import { createRender, getRender, motionAllowance, renderFile, type MotionDeps } from './motion.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -62,6 +63,8 @@ export type ControlDeps = ProxyDeps & {
   auto?: AutoMessages;
   /** The partner programme; main.ts shares it with the sign-in server. */
   program?: PartnerProgram;
+  /** The Studio Motion render service (motion.ts); unset: exports answer 503. */
+  render?: MotionDeps['render'];
 };
 
 type Env = { Variables: { account: Account } };
@@ -191,6 +194,7 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/me', authed);
   app.use('/v1/llm/*', authed);
   app.use('/v1/media/*', authed);
+  app.use('/v1/motion/*', authed);
   app.use('/v1/spaces/*', authed);
   app.use('/v1/voice/*', authed);
   app.use('/v1/announcement', authed);
@@ -416,6 +420,10 @@ export function createApp(deps: ControlDeps) {
   app.get('/v1/media/packs', (c) => c.json({ data: deps.mediaPacks }));
   app.post('/v1/media/generations', (c) => createGeneration({ ...deps, models, auto }, c.get('account'), c.req.raw));
   app.get('/v1/media/generations/:id', (c) => getGeneration(deps, c.get('account'), c.req.param('id')));
+  app.get('/v1/motion/allowance', (c) => motionAllowance(deps, c.get('account')));
+  app.post('/v1/motion/renders', (c) => createRender(deps, c.get('account'), c.req.raw));
+  app.get('/v1/motion/renders/:id', (c) => getRender(deps, c.get('account'), c.req.param('id')));
+  app.get('/v1/motion/renders/:id/file', (c) => renderFile(deps, c.get('account'), c.req.param('id')));
 
   // Devices (security §2): only a signed-in person adds one, with the
   // access token of their sign-in, never an instance with its own token.
