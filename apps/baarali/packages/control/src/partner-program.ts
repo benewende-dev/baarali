@@ -139,6 +139,9 @@ export class PartnerProgram {
    * notified twice earns once.
    */
   async payment(facts: PaymentFacts): Promise<Commission | null> {
+    // Paying ends the offered plan: what they pay for is theirs, the sweep must not take it back.
+    const gift = await this.openGiftOf(facts.accountId);
+    if (gift) await this.deps.store.endGift(gift.id, facts.at);
     const referral = await this.deps.store.referralOf(facts.accountId);
     if (!referral) return null;
     const partner = (await this.deps.store.partners()).find((p) => p.id === referral.partnerId);

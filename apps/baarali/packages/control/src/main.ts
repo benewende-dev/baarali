@@ -91,7 +91,8 @@ if (process.env.DATABASE_URL) {
       onUserCreated: async (u, signUp) => {
         const account = { id: u.id, email: u.email, planId: 'decouverte', createdAt: u.createdAt };
         await pgStore.upsertAccount(account);
-        if (signUp.refCode) await program.attach(account, signUp.refCode, 'link');
+        // Never in the way of the sign-up: a partner missed is only a partner missed.
+        if (signUp.refCode) await program.attach(account, signUp.refCode, 'link').catch((err) => console.error('[partners] attach', err));
       },
       now: Date.now,
       spacesUrl,

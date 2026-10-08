@@ -141,6 +141,16 @@ describe('PartnerProgram', () => {
     expect(await store.openGifts()).toEqual([]);
   });
 
+  it('ends the offered plan when the person pays, so its end takes nothing back', async () => {
+    const { program, store, plan, tick } = setup();
+    await program.attach((await store.account('acc_fan'))!, 'AWATECH', 'link');
+    await program.payment({ reference: 'pay_1', accountId: 'acc_fan', amount: 13_119, currency: 'XOF', at: T0 + DAY });
+    expect(await store.openGifts()).toEqual([]);
+    tick(8 * DAY);
+    await program.sweep(true);
+    expect(await plan('acc_fan')).toBe('essentiel');
+  });
+
   it('leaves a plan changed meanwhile as it is', async () => {
     const { program, store, plan, tick } = setup();
     await program.attach((await store.account('acc_fan'))!, 'AWATECH', 'link');
