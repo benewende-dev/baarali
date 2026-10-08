@@ -30,7 +30,9 @@ setInterval(() => void queue.sweep().catch((err) => console.error('[render] swee
 // The machine stops itself once idle, never in the middle of a render: Fly's
 // own auto-stop counts requests, and a long render may go minutes without one.
 // The next request starts it again (fly.toml).
-const IDLE_MS = 15 * 60 * 1000;
+// 10 minutes (08/10/2026, was 15): the larger machine costs twice as much
+// idle; the instance fetches a finished file within seconds anyway.
+const IDLE_MS = 10 * 60 * 1000;
 let lastActivity = Date.now();
 setInterval(() => {
   if (queue.busy) lastActivity = Date.now();
