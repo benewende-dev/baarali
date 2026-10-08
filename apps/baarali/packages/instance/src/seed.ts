@@ -21,12 +21,16 @@ export interface SeedOptions {
   assistantModel: string;
   /** How rowboat-server starts the media MCP server (media-mcp-main.ts). */
   mediaServer?: { command: string; args: string[]; env: Record<string, string> };
+  /** How it starts the motion design MCP server (motion-mcp-main.ts, 08/10/2026). */
+  motionServer?: { command: string; args: string[]; env: Record<string, string> };
 }
 
 /** Our entries in the person's MCP config and skills; rewritten on every boot, the rest is theirs. */
 export const MEDIA_SERVER_NAME = 'baarali-media';
 export const MEDIA_SKILL_DIR = 'baarali-media';
 export const IMAGES_SKILL_DIR = 'baarali-images';
+export const MOTION_SERVER_NAME = 'baarali-motion';
+export const MOTION_SKILL_DIR = 'baarali-motion';
 /** core's gateway image default (models/rowboat-selection.ts ROWBOAT_IMAGE_MODEL): cheap, on OpenRouter. */
 export const IMAGE_MODEL = 'google/gemini-2.5-flash-image';
 /** Their names until the rename to Baarali (01/10/2026): removed from existing workdirs. */
@@ -37,7 +41,7 @@ const FORMER_MEDIA_NAME = 'warell-media';
 // bridge ones, which keep their mcp-execute approval.
 export const MEDIA_SKILL = `---
 name: Video, voice and music
-description: Generate a video, a voice-over (text to speech) or a song/music track. Load whenever the user asks to create, make or generate a video, clip, animation, voice, narration, audio reading, song, jingle or music. Not for still images (the Images skill makes those).
+description: Generate a video, a voice-over (text to speech) or a song/music track with an AI model. Load whenever the user asks to create, make or generate a filmed-looking video or clip, a voice, narration, audio reading, song, jingle or music. Not for still images (the Images skill makes those), nor for motion design — animated text, logos, figures, captions, promos built from the brand (the Motion design skill makes those, and calls this one for footage, voice or music).
 tools: [listMcpTools, executeMcpTool]
 ---
 
@@ -71,6 +75,36 @@ Call \`generate-image\` at once: no other tool is needed, and never look for one
 - Make one image per request unless the user asks for several.
 
 When it succeeds, show the saved path in a \`\`\`filepath code block, with one short sentence. If it fails, say in one plain sentence what went wrong and offer to try again. Mention the user's plan only when the error itself says \`not_in_plan\`.
+`;
+
+// Motion design for every chat (decided 08/10/2026, mockup v2): HyperFrames
+// compositions made from templates and the brand kit, edited as HTML, footage,
+// voice and music from the media server. Rendering comes with the render service.
+export const MOTION_SKILL = `---
+name: Motion design
+description: Make motion design and motion graphics — an animated promo or ad, kinetic typography, an animated logo, animated figures or charts, word-by-word captions, a lower third, a countdown, a social video for TikTok, Reels, WhatsApp Status or YouTube — exact text, prices and logo, in the user's brand. Load whenever the user asks for an animation, a motion design, an animated video or post, an animated text or logo, or captions.
+tools: [listMcpTools, executeMcpTool, file-readText, file-editText, file-writeText, file-list, file-copy]
+---
+
+# Motion design
+
+The \`${MOTION_SERVER_NAME}\` MCP server, through \`executeMcpTool\`, makes motion projects: HyperFrames compositions, one folder each in \`motion/\`, whose \`index.html\` is the video.
+
+1. **The brand.** Call \`brand_kit\` once. If it is empty, ask in one message for the business name, the logo (a file they send) and two or three colours, then save them with \`brand_kit\` \`set\`. Never invent a logo.
+2. **The brief.** From the request, decide: what it is for, the network (9:16 for TikTok, Reels and WhatsApp Status — the default; 1:1 or 4:5 for a feed; 16:9 for YouTube or a screen), the length, the exact words, prices and dates. Ask only for what you cannot know (a price, a date); never invent one.
+3. **Start from a template.** \`list_templates\`, then \`new_project\` with the template that fits and every slot filled from the request, in the user's language. Prefer a template, then edit it, over writing a composition from nothing.
+4. **Make it theirs.** Edit \`index.html\` with the file tools for what the template does not do. Rules that keep it renderable:
+   - The root keeps \`data-composition-id\`, \`data-start="0"\`, \`data-duration\`, \`data-width\`, \`data-height\` and \`data-no-timeline\`.
+   - Each scene is a \`<section class="clip">\` with a unique \`id\`, \`data-start\`, \`data-duration\` and \`data-track-index\`.
+   - Motion is the Web Animations API only, through the page's helpers: \`hf(selector, keyframes, {at, d, stagger, ease})\` and \`hfEl(element, …)\`, with times in seconds from the start of the video; eases: out, in, inout, snap, spring, linear. CSS @keyframes also work. **Never GSAP** — Baarali does not ship it.
+   - Sizes in \`cqw\`/\`cqh\`/\`cqmin\` so the design fits every format; colours and fonts from the variables \`--background\`, \`--ink\`, \`--accent\`, \`--highlight\`, \`--display\`, \`--text\`.
+   - Media (an image, footage, a voice, music) is copied into the project's \`assets/\` and referenced by a relative path; a \`<video>\` says \`muted\` or \`data-has-audio="true"\`; \`<audio>\` and \`<video>\` are clips with timing.
+   - Premium motion: something moves in every second, entrances overlap (stagger 0.08–0.2 s), the key figure lands on a beat, text stays on screen long enough to be read (at least 1.5 s per short line), nothing important sits in the bottom 15% or the right 15% of a 9:16 (the network's buttons).
+5. **Footage, voice, music.** For a filmed background, a voice-over or a music bed, use the Video, voice and music skill's tools (\`${MEDIA_SERVER_NAME}\`): give the price in credits first, then copy the file into \`assets/\` and add it as a clip. For a still picture, the Images skill.
+6. **Check.** Call \`check\` and fix every error before showing it.
+7. **Show it.** Give the path to \`index.html\` in a \`\`\`filepath block, with one sentence on what it shows and what can change. Other formats: \`reformat\`.
+
+Exporting to MP4 is coming: until it is there, say the video plays in the app and the export arrives soon.
 `;
 
 /** Far future: the control plane rotates the token, core must never try to refresh it. */
@@ -155,6 +189,16 @@ export async function seedWorkdir(opts: SeedOptions): Promise<void> {
     const skillDir = path.join(opts.workDir, 'skills', MEDIA_SKILL_DIR);
     await fs.mkdir(skillDir, { recursive: true });
     await fs.writeFile(path.join(skillDir, 'SKILL.md'), MEDIA_SKILL);
+  }
+
+  if (opts.motionServer) {
+    const mcpFile = path.join(config, 'mcp.json');
+    const mcp = (await readJson(mcpFile)) ?? {};
+    const servers = (mcp.mcpServers && typeof mcp.mcpServers === 'object' ? mcp.mcpServers : {}) as Record<string, unknown>;
+    await writeJson(mcpFile, { ...mcp, mcpServers: { ...servers, [MOTION_SERVER_NAME]: { type: 'stdio', ...opts.motionServer } } });
+    const skillDir = path.join(opts.workDir, 'skills', MOTION_SKILL_DIR);
+    await fs.mkdir(skillDir, { recursive: true });
+    await fs.writeFile(path.join(skillDir, 'SKILL.md'), MOTION_SKILL);
   }
 
   // Ours, rewritten on every boot like the media skill.
