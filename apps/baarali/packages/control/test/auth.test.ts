@@ -34,6 +34,7 @@ async function setup(opts: { social?: Partial<Record<SocialProvider, { clientId:
   await db.query('SET search_path TO baarali');
   const store = new PgStore(db, PLANS);
   const sender = new LogSender();
+  const signUps: Array<{ id: string; refCode: string | null }> = [];
   const deps: AuthDeps = {
     publicUrl: PUBLIC,
     secret: 'test-secret-test-secret-test-secret-0123',
@@ -41,7 +42,10 @@ async function setup(opts: { social?: Partial<Record<SocialProvider, { clientId:
     db,
     sender,
     social: opts.social ?? {},
-    onUserCreated: (u) => store.upsertAccount({ id: u.id, email: u.email, planId: 'decouverte', createdAt: u.createdAt }),
+    onUserCreated: async (u, signUp) => {
+      signUps.push({ id: u.id, refCode: signUp.refCode });
+      await store.upsertAccount({ id: u.id, email: u.email, planId: 'decouverte', createdAt: u.createdAt });
+    },
     now: Date.now,
     spacesUrl: opts.spacesUrl,
   };
@@ -72,7 +76,7 @@ async function setup(opts: { social?: Partial<Record<SocialProvider, { clientId:
   const fetcher: client.CustomFetch = async (url, options) => app.request(url, options as RequestInit);
   // A fresh browser: same server, no cookie.
   const forgetCookies = () => jar.clear();
-  return { app, auth, store, sender, browser, post, fetcher, db, forgetCookies };
+  return { app, auth, store, sender, browser, post, fetcher, db, forgetCookies, signUps };
 }
 
 /** Core's registration, then an authorization URL with PKCE. */
@@ -158,6 +162,19 @@ describe('signing the app in, as core does', () => {
 
   // 07/10/2026: the phone app has its own screens: no browser, no Origin,
   // no cookie jar. The signed token comes back in a header, and only it.
+  it('tells who brought a new person, from the partner link’s cookie', async () => {
+    const { app, sender, signUps } = await setup();
+    const signUp = async (email: string, cookie?: string) => {
+      const headers = { 'content-type': 'application/json', 'fly-client-ip': '203.0.113.78', ...(cookie ? { cookie } : {}) };
+      await app.request(`${PUBLIC}/auth/v1/email-otp/send-verification-otp`, { method: 'POST', headers, body: JSON.stringify({ email, type: 'sign-in' }) });
+      const res = await app.request(`${PUBLIC}/auth/v1/sign-in/email-otp`, { method: 'POST', headers, body: JSON.stringify({ email, otp: sender.sent.at(-1)!.code }) });
+      expect(res.status).toBe(200);
+    };
+    await signUp('fan@example.test', 'theme=dark; baarali_ref=AWATECH');
+    await signUp('alone@example.test');
+    expect(signUps.map((s) => s.refCode)).toEqual(['AWATECH', null]);
+  });
+
   it('signs the phone app in with its own screens, by a session token', async () => {
     const { app, auth: server, sender } = await setup();
     const auth = (path: string, body: unknown) =>

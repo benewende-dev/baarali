@@ -1,19 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { AUTO_AUTHOR, INACTIVE_MS, noticeEmail, type DispatchDeps, type Notice, type NoticeTarget } from './notifications.js';
 import { WEEK_MS, type QuotaWindow } from './quota.js';
+import { dayWords, type Gift } from './partners.js';
 import type { Account } from './store.js';
 
 // Automatic messages (console mockup validated 07/10/2026): they leave on
 // their own when the situation arrives, each switched on or off from the
 // console. They travel like a notification for one person, so the bell, the
 // inbox, the email and its opt-out work the same; each leaves once per
-// period (claimAutoMessage). The gifted plan's end waits for the gifts.
+// period (claimAutoMessage).
 
-export const AUTO_KINDS = ['limit', 'media_low', 'inactive', 'welcome'] as const;
+export const AUTO_KINDS = ['limit', 'media_low', 'gift_ending', 'inactive', 'welcome'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
 
 /** As in the mockup: on, except the email to the inactive. */
-export const AUTO_DEFAULTS: Record<AutoKind, boolean> = { limit: true, media_low: true, inactive: false, welcome: true };
+export const AUTO_DEFAULTS: Record<AutoKind, boolean> = { limit: true, media_low: true, gift_ending: true, inactive: false, welcome: true };
 
 /** Below this many media credits, the person is told, once a week at most. */
 export const MEDIA_LOW = 20;
@@ -72,6 +73,17 @@ export function mediaLowText(balance: number): AutoText {
   };
 }
 
+export function giftEndingText(planName: string, backName: string, endsAt: number): AutoText {
+  return {
+    title: `Votre forfait ${planName} offert se termine`,
+    body: `Votre forfait ${planName} offert prend fin le ${dayWords(endsAt)}. Ensuite, vous revenez à ${backName}, sans rien payer.\n\nPour garder ${planName}, choisissez-le avant cette date.`,
+    button: 'Voir les forfaits',
+    target: 'plans',
+    app: true,
+    email: true,
+  };
+}
+
 export const INACTIVE_TEXT: AutoText = {
   title: 'Nous avons gardé votre place',
   body: 'Vos discussions, vos fichiers et vos agents vous attendent dans Baarali, tels que vous les avez laissés.\n\nReprenez quand vous voulez : une question suffit.',
@@ -93,6 +105,8 @@ export const WELCOME_TEXT: AutoText = {
 export class AutoMessages {
   private cached: { at: number; value: Record<AutoKind, boolean> } | null = null;
   private lastSweep = 0;
+  /** The welcome names the plan offered on sign-up, when there is one (partner-program.ts). */
+  welcomeGift?: (accountId: string) => Promise<string | null>;
 
   constructor(private readonly deps: DispatchDeps) {}
 
@@ -151,6 +165,11 @@ export class AutoMessages {
     return this.send('media_low', account, `week:${Math.floor(this.deps.now() / WEEK_MS)}`, mediaLowText(balance));
   }
 
+  /** Three days before an offered plan ends, once per gift. */
+  giftEnding(account: Account, gift: Gift, planName: string, backName: string): Promise<boolean> {
+    return this.send('gift_ending', account, `gift:${gift.id}`, giftEndingText(planName, backName, gift.endsAt));
+  }
+
   /** Welcome and the inactive: read from the account list, once an hour at most. */
   async sweep(force = false): Promise<void> {
     const now = this.deps.now();
@@ -160,7 +179,8 @@ export class AutoMessages {
     if (!on.welcome && !on.inactive) return;
     for (const s of await this.deps.store.listAccounts(now)) {
       if (on.welcome && s.account.createdAt > now - WELCOME_WINDOW_MS) {
-        await this.send('welcome', s.account, 'once', WELCOME_TEXT);
+        const gift = await this.welcomeGift?.(s.account.id);
+        await this.send('welcome', s.account, 'once', gift ? { ...WELCOME_TEXT, body: `${WELCOME_TEXT.body}\n\n${gift}` } : WELCOME_TEXT);
       } else if (on.inactive && (s.lastActiveAt ?? s.account.createdAt) < now - INACTIVE_MS) {
         await this.send('inactive', s.account, 'once', INACTIVE_TEXT);
       }

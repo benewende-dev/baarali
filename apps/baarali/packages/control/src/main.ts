@@ -13,6 +13,7 @@ import { PgStore } from './pg-store.js';
 import { LISTEN_PATH, createListenRelay } from './voice.js';
 import { MemoryStore, hashToken, type Account, type ControlStore } from './store.js';
 import { AutoMessages } from './auto-messages.js';
+import { PartnerProgram } from './partner-program.js';
 import { MemoryMailer, NoticeDispatcher, NoticeLinks, ResendMailer, type Mailer } from './notifications.js';
 
 // Entry point (roadmap §4): the owner, their instance token, the plan catalog
@@ -87,7 +88,11 @@ if (process.env.DATABASE_URL) {
       db,
       sender: codeSender(),
       social,
-      onUserCreated: (u) => pgStore.upsertAccount({ id: u.id, email: u.email, planId: 'decouverte', createdAt: u.createdAt }),
+      onUserCreated: async (u, signUp) => {
+        const account = { id: u.id, email: u.email, planId: 'decouverte', createdAt: u.createdAt };
+        await pgStore.upsertAccount(account);
+        if (signUp.refCode) await program.attach(account, signUp.refCode, 'link');
+      },
       now: Date.now,
       spacesUrl,
     };
@@ -164,7 +169,8 @@ const mailer: Mailer | undefined =
 const noticeLinks = process.env.BAARALI_AUTH_SECRET ? new NoticeLinks(process.env.BAARALI_AUTH_SECRET, publicUrl) : undefined;
 const dispatch = { store, now: Date.now, mailer: noticeLinks ? mailer : undefined, links: noticeLinks };
 const auto = new AutoMessages(dispatch);
-const notices = new NoticeDispatcher(dispatch, auto);
+const program = new PartnerProgram({ store, now: Date.now, auto });
+const notices = new NoticeDispatcher(dispatch, [auto, program]);
 // Scheduled ones leave on time while the machine is awake (app.ts sends them on waking too).
 setInterval(() => void notices.run(), 60_000).unref();
 console.log(`[control] notifications: app${mailer && noticeLinks ? ', email' : ''}`);
@@ -203,6 +209,7 @@ const app = createApp({
   noticeLinks,
   notices,
   auto,
+  program,
   fetch: globalThis.fetch,
   now: Date.now,
 });

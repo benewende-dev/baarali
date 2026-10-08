@@ -275,6 +275,81 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (kind, account_id, period)
   );
   `,
+  // 10 — the partner programme (07/10/2026): partners and their link's
+  // clicks, the people they bring, the plans offered to those people, and
+  // each payment's commission until it is paid out by mobile money.
+  `
+  CREATE TABLE baarali.partner_program (
+    id integer PRIMARY KEY CHECK (id = 1),
+    rules jsonb NOT NULL,
+    updated_at timestamptz NOT NULL
+  );
+
+  CREATE TABLE baarali.partners (
+    id text PRIMARY KEY,
+    name text NOT NULL,
+    code text NOT NULL UNIQUE,
+    network text,
+    city text,
+    account_id text UNIQUE REFERENCES baarali.accounts(id),
+    status text NOT NULL CHECK (status IN ('active', 'paused')),
+    created_at timestamptz NOT NULL,
+    created_by text NOT NULL,
+    payout_method text CHECK (payout_method IN ('orange', 'wave', 'moov', 'mtn')),
+    payout_number text
+  );
+
+  CREATE TABLE baarali.partner_clicks (
+    partner_id text NOT NULL REFERENCES baarali.partners(id),
+    day date NOT NULL,
+    clicks integer NOT NULL,
+    PRIMARY KEY (partner_id, day)
+  );
+
+  CREATE TABLE baarali.referrals (
+    account_id text PRIMARY KEY REFERENCES baarali.accounts(id),
+    partner_id text NOT NULL REFERENCES baarali.partners(id),
+    at timestamptz NOT NULL,
+    via text NOT NULL CHECK (via IN ('link', 'code'))
+  );
+  CREATE INDEX referrals_partner ON baarali.referrals (partner_id);
+
+  CREATE TABLE baarali.gifts (
+    id text PRIMARY KEY,
+    account_id text NOT NULL REFERENCES baarali.accounts(id),
+    plan_id text NOT NULL,
+    previous_plan_id text NOT NULL,
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz NOT NULL,
+    reason text NOT NULL,
+    ended_at timestamptz
+  );
+  CREATE INDEX gifts_open ON baarali.gifts (ends_at) WHERE ended_at IS NULL;
+
+  CREATE TABLE baarali.partner_payouts (
+    id text PRIMARY KEY,
+    partner_id text NOT NULL REFERENCES baarali.partners(id),
+    amount_xof bigint NOT NULL,
+    method text NOT NULL,
+    number text NOT NULL,
+    reference text NOT NULL,
+    at timestamptz NOT NULL,
+    by text NOT NULL
+  );
+
+  CREATE TABLE baarali.commissions (
+    id text PRIMARY KEY,
+    partner_id text NOT NULL REFERENCES baarali.partners(id),
+    account_id text NOT NULL REFERENCES baarali.accounts(id),
+    paid_at timestamptz NOT NULL,
+    amount_xof bigint NOT NULL,
+    rate numeric NOT NULL,
+    commission_xof bigint NOT NULL,
+    payable_at timestamptz NOT NULL,
+    payout_id text REFERENCES baarali.partner_payouts(id)
+  );
+  CREATE INDEX commissions_partner ON baarali.commissions (partner_id);
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

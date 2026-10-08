@@ -343,7 +343,9 @@ Décidé le 30/09/2026. La vidéo, la voix et la musique passent par **Pixazo**,
 
 - **Les messages automatiques** (07/10/2026) : ils partent seuls quand la situation arrive, chacun activé ou coupé depuis la console. Limite atteinte (dans l'app, une fois par session ou par semaine, avec le temps avant la suivante), crédits médias sous 20 (dans l'app, une fois par semaine au plus), client inactif depuis 14 jours (email, une seule fois, coupé par défaut) et bienvenue (app et email, le jour de l'inscription). Ils voyagent comme une notification pour une personne, donc la cloche, l'email et la désinscription marchent pareil ; la table `auto_message_sends` garantit un seul envoi par période. Ils restent hors de la liste « Envoyés ».
 
-Les codes promo, le parrainage et le message « forfait offert qui se termine » viendront avec Bonus et promos.
+- **Le programme partenaires** (07/10/2026) : des influenceurs et créateurs de la sous-région partagent leur lien `baarali.com/?p=CODE` ou leur code. Le lien pose un cookie sur tout le domaine (60 jours) ; à l'inscription, la personne est rattachée au partenaire (le premier garde le client), et le code peut aussi se saisir dans l'app dans les 7 jours (`POST /v1/codes/redeem`). Elle reçoit un forfait offert (Essentiel 7 jours par défaut), qui revient seul au forfait d'avant, avec un message 3 jours avant. Chaque paiement de cette personne pendant 12 mois rapporte au partenaire 20 %, 25 % dès 10 clients payants, 30 % dès 50 (40 % au plus : au-delà, un client qui consomme tout son quota coûte plus qu'il ne rapporte). Une commission est payable après 30 jours, par mobile money, dès 10 000 F CFA ; le paiement est noté avec son numéro de transaction. Les commissions naîtront avec le paiement des forfaits : `PartnerProgram.payment` attend la notification du paiement.
+
+L'espace du partenaire, la page publique et la saisie du code dans les apps suivent ; puis les codes promo et le parrainage entre clients.
 
 ### 3.6 La vérification : exécuté ≠ vérifié
 

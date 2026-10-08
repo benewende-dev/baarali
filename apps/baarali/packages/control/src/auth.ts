@@ -1,3 +1,4 @@
+import { refFromCookie } from './partners.js';
 import { oauthProvider } from '@better-auth/oauth-provider';
 import { betterAuth, type BetterAuthOptions, type BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthEndpoint, sessionMiddleware } from 'better-auth/api';
@@ -44,7 +45,7 @@ export interface AuthDeps {
   sender: CodeSender;
   social: Partial<Record<SocialProvider, SocialCredentials>>;
   /** A new person: their account is created on Découverte (architecture §3.5). */
-  onUserCreated: (user: { id: string; email: string | null; createdAt: number }) => Promise<void>;
+  onUserCreated: (user: { id: string; email: string | null; createdAt: number }, signUp: { refCode: string | null }) => Promise<void>;
   now: () => number;
   /**
    * The Spaces server's address (Harbor, apps/harbor), when we host one. Its
@@ -153,8 +154,10 @@ function authOptions(deps: AuthDeps) {
     databaseHooks: {
       user: {
         create: {
-          after: async (user: { id: string; email: string; createdAt: Date }) => {
-            await deps.onUserCreated({ id: user.id, email: realEmail(user.email), createdAt: user.createdAt.getTime() });
+          after: async (user: { id: string; email: string; createdAt: Date }, ctx) => {
+            // A partner's link leaves its code in a cookie (partners.ts): the person is theirs.
+            const cookie = ctx?.headers?.get('cookie') ?? ctx?.request?.headers.get('cookie');
+            await deps.onUserCreated({ id: user.id, email: realEmail(user.email), createdAt: user.createdAt.getTime() }, { refCode: refFromCookie(cookie) });
           },
         },
       },

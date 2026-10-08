@@ -1,6 +1,7 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import type { ModelSetting } from './model-access.js';
 import type { AutoKind } from './auto-messages.js';
+import type { Commission, Gift, Partner, Payout, ProgramRules, Referral } from './partners.js';
 import { AUTO_AUTHOR, type Delivery, type Notice, type NoticeEvent, type NoticeStats } from './notifications.js';
 import { createHash } from 'node:crypto';
 import type { ModelPolicy } from './models.js';
@@ -230,6 +231,30 @@ export interface ControlStore {
   claimAutoMessage(kind: AutoKind, accountId: string, period: string, at: number): Promise<boolean>;
   /** How many of each kind left, for the console. */
   autoMessageCounts(): Promise<Partial<Record<AutoKind, number>>>;
+  /** The partner programme's rules (partners.ts); null until the owner saved them. */
+  programRules(): Promise<ProgramRules | null>;
+  saveProgramRules(rules: ProgramRules, at: number): Promise<void>;
+  partners(): Promise<Partner[]>;
+  partnerByCode(code: string): Promise<Partner | null>;
+  partnerForAccount(accountId: string): Promise<Partner | null>;
+  /** Creates or updates; false when the code belongs to another partner. */
+  savePartner(partner: Partner): Promise<boolean>;
+  countPartnerClick(partnerId: string, day: string): Promise<void>;
+  /** False when the person already came through a partner: the first one keeps them. */
+  addReferral(referral: Referral): Promise<boolean>;
+  referralOf(accountId: string): Promise<Referral | null>;
+  /** Per partner: clicks and people signed up. */
+  partnerFigures(): Promise<Record<string, { clicks: number; signups: number }>>;
+  addGift(gift: Gift): Promise<void>;
+  /** Gifts not yet ended, soonest end first. */
+  openGifts(): Promise<Gift[]>;
+  endGift(id: string, at: number): Promise<boolean>;
+  /** False when that payment was counted already. */
+  addCommission(commission: Commission): Promise<boolean>;
+  commissions(partnerId?: string): Promise<Commission[]>;
+  /** Records the payout and marks those of its commissions not yet paid; returns how many. */
+  payCommissions(payout: Payout, commissionIds: string[]): Promise<number>;
+  payouts(partnerId?: string): Promise<Payout[]>;
 }
 
 export class MemoryStore implements ControlStore {
@@ -242,6 +267,13 @@ export class MemoryStore implements ControlStore {
   private readonly deliveries: Delivery[] = [];
   private readonly autoSwitches = new Map<AutoKind, boolean>();
   private readonly autoSends = new Set<string>();
+  private rules: ProgramRules | null = null;
+  private readonly partnerList: Partner[] = [];
+  private readonly clicks = new Map<string, number>();
+  private readonly referrals = new Map<string, Referral>();
+  private readonly giftList: Gift[] = [];
+  private readonly commissionList: Commission[] = [];
+  private readonly payoutList: Payout[] = [];
   private readonly models = new Map<string, ModelSetting>();
   private readonly states = new Map<string, QuotaState>();
   private readonly jobs = new Map<string, MediaJob>();
@@ -468,6 +500,80 @@ export class MemoryStore implements ControlStore {
       counts[kind] = (counts[kind] ?? 0) + 1;
     }
     return counts;
+  }
+  async programRules() {
+    return this.rules ? { ...this.rules } : null;
+  }
+  async saveProgramRules(rules: ProgramRules, _at: number) {
+    this.rules = { ...rules };
+  }
+  async partners() {
+    return this.partnerList.map((p) => ({ ...p })).sort((a, b) => a.createdAt - b.createdAt);
+  }
+  async partnerByCode(code: string) {
+    const p = this.partnerList.find((x) => x.code === code);
+    return p ? { ...p } : null;
+  }
+  async partnerForAccount(accountId: string) {
+    const p = this.partnerList.find((x) => x.accountId === accountId);
+    return p ? { ...p } : null;
+  }
+  async savePartner(partner: Partner) {
+    if (this.partnerList.some((p) => p.code === partner.code && p.id !== partner.id)) return false;
+    const i = this.partnerList.findIndex((p) => p.id === partner.id);
+    if (i >= 0) this.partnerList[i] = { ...partner };
+    else this.partnerList.push({ ...partner });
+    return true;
+  }
+  async countPartnerClick(partnerId: string, day: string) {
+    const key = `${partnerId}|${day}`;
+    this.clicks.set(key, (this.clicks.get(key) ?? 0) + 1);
+  }
+  async addReferral(referral: Referral) {
+    if (this.referrals.has(referral.accountId)) return false;
+    this.referrals.set(referral.accountId, { ...referral });
+    return true;
+  }
+  async referralOf(accountId: string) {
+    const r = this.referrals.get(accountId);
+    return r ? { ...r } : null;
+  }
+  async partnerFigures() {
+    const figures: Record<string, { clicks: number; signups: number }> = {};
+    const of = (id: string) => (figures[id] ??= { clicks: 0, signups: 0 });
+    for (const [key, n] of this.clicks) of(key.split('|')[0]).clicks += n;
+    for (const r of this.referrals.values()) of(r.partnerId).signups += 1;
+    return figures;
+  }
+  async addGift(gift: Gift) {
+    this.giftList.push({ ...gift });
+  }
+  async openGifts() {
+    return this.giftList.filter((g) => g.endedAt === null).sort((a, b) => a.endsAt - b.endsAt).map((g) => ({ ...g }));
+  }
+  async endGift(id: string, at: number) {
+    const g = this.giftList.find((x) => x.id === id && x.endedAt === null);
+    if (!g) return false;
+    g.endedAt = at;
+    return true;
+  }
+  async addCommission(commission: Commission) {
+    if (this.commissionList.some((c) => c.id === commission.id)) return false;
+    this.commissionList.push({ ...commission });
+    return true;
+  }
+  async commissions(partnerId?: string) {
+    return this.commissionList.filter((c) => !partnerId || c.partnerId === partnerId).map((c) => ({ ...c }));
+  }
+  async payCommissions(payout: Payout, commissionIds: string[]) {
+    const due = this.commissionList.filter((c) => c.partnerId === payout.partnerId && c.payoutId === null && commissionIds.includes(c.id));
+    if (!due.length) return 0;
+    for (const c of due) c.payoutId = payout.id;
+    this.payoutList.push({ ...payout });
+    return due.length;
+  }
+  async payouts(partnerId?: string) {
+    return this.payoutList.filter((p) => !partnerId || p.partnerId === partnerId).map((p) => ({ ...p })).sort((a, b) => b.at - a.at);
   }
   async notifications(limit: number) {
     return [...this.notices.values()]
