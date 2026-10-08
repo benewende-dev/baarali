@@ -10,7 +10,7 @@ import { mountAdminConsole } from './admin-console.js';
 import { AutoMessages } from './auto-messages.js';
 import { PartnerProgram } from './partner-program.js';
 import { partnerRoutes } from './partner-routes.js';
-import { dayWords, refCookie } from './partners.js';
+import { dayWords, REDEEM_WINDOW_MS, refCookie } from './partners.js';
 import { emailTarget, NOTICE_EVENTS, NoticeDispatcher, publicNotice, type Mailer, type NoticeLinks } from './notifications.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -285,6 +285,21 @@ export function createApp(deps: ControlDeps) {
 
   // A partner's code typed in the app, soon after signing up (partners.ts):
   // the phone app signs up without the site's cookie.
+  // Whether the app still offers the field: within the window, no partner yet.
+  // Once linked, the partner's name, so the account says who recommended it.
+  app.get('/v1/codes/partner', async (c) => {
+    const account = c.get('account');
+    const referral = await deps.store.referralOf(account.id);
+    const partner = referral ? (await deps.store.partners()).find((p) => p.id === referral.partnerId) : undefined;
+    const until = account.createdAt + REDEEM_WINDOW_MS;
+    const open = !referral && deps.now() < until;
+    // The plan a code brings, as attach() would offer it: to someone on the free plan only.
+    const rules = await program.rules();
+    const [current, gifted] = open && rules.giftPlanId ? await Promise.all([deps.store.plan(account.planId), deps.store.plan(rules.giftPlanId)]) : [null, null];
+    const gift = gifted && (!current || current.category === 'free') ? { plan: gifted.displayName, days: rules.giftDays } : null;
+    return c.json({ partner: partner?.name ?? null, can_redeem: open, until: open ? new Date(until).toISOString() : null, gift });
+  });
+
   app.post('/v1/codes/redeem', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { code?: unknown };
     const account = c.get('account');

@@ -1,6 +1,6 @@
 import { getAccessToken } from '../auth/tokens.js';
 import { API_URL } from '../config/env.js';
-import { AnnouncementSchema, MediaCreditsSchema, NoticeInboxSchema, PlanOffersSchema, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type NoticeEventKind, type NoticeInbox, type PlanOffers } from '@x/shared/dist/billing.js';
+import { AnnouncementSchema, MediaCreditsSchema, NoticeInboxSchema, PartnerCodeStateSchema, PlanOffersSchema, type PartnerCodeResult, type PartnerCodeState, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type NoticeEventKind, type NoticeInbox, type PlanOffers } from '@x/shared/dist/billing.js';
 import { getRowboatConfig } from '../config/rowboat.js';
 
 export async function getBillingInfo(): Promise<BillingInfo> {
@@ -166,6 +166,48 @@ export async function sendNotificationEvent(id: string, kind: NoticeEventKind): 
     return ((await response.json()) as { counted?: unknown }).counted === true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Whether the app still offers the partner code field, and who recommended
+ * Baarali once linked (control GET /v1/codes/partner, 08/10/2026). Null when
+ * the API serves none or cannot be reached: the field then stays hidden.
+ */
+export async function getPartnerCode(): Promise<PartnerCodeState | null> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/codes/partner`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { partner?: unknown; can_redeem?: unknown; until?: unknown; gift?: unknown };
+    return PartnerCodeStateSchema.parse({ partner: body.partner ?? null, canRedeem: body.can_redeem === true, until: body.until ?? null, gift: body.gift ?? null });
+  } catch {
+    return null;
+  }
+}
+
+/** A partner's code typed in the app: the control plane says why it is refused. */
+export async function redeemPartnerCode(code: string): Promise<PartnerCodeResult> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/codes/redeem`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ code }),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      partner?: unknown;
+      gift?: { plan?: unknown; ends_at?: unknown } | null;
+      error?: { message?: unknown };
+    };
+    if (!response.ok || typeof body.partner !== 'string') {
+      const message = typeof body.error?.message === 'string' ? body.error.message : 'The code could not be checked. Try again in a moment.';
+      return { ok: false, message };
+    }
+    const gift = body.gift && typeof body.gift.plan === 'string' && typeof body.gift.ends_at === 'string' ? { plan: body.gift.plan, endsAt: body.gift.ends_at } : null;
+    return { ok: true, partner: body.partner, gift };
+  } catch {
+    return { ok: false, message: 'The code could not be checked. Try again in a moment.' };
   }
 }
 

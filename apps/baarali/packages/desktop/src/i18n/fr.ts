@@ -3635,6 +3635,11 @@ export const FR: Dictionary = {
     "Always in your groups: write @baarali": "Toujours dans vos groupes : écrivez @baarali",
     "Nobody else in this org yet.": "Personne d’autre dans cette organisation pour l’instant.",
     "A link to share, once the group is created": "Un lien à partager, une fois le groupe créé",
+    // A creator's partner code, Mac and phone (08/10/2026).
+    "Partner code": "Code partenaire",
+    "Recommended by": "Recommandé par",
+    "AWATECH": "AWATECH",
+    "The code could not be checked. Try again in a moment.": "Le code n’a pas pu être vérifié. Réessayez dans un instant.",
   },
   // Lines about people (apps/x renderer lib/spaces-membership.ts): the names
   // stay as written. Neutral wording, a name says nothing of a gender.
@@ -3646,6 +3651,13 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
+    // A creator's partner code, Mac and phone (08/10/2026).
+    "Did a creator recommend Baarali? Enter their code before $1.": "Un créateur vous a recommandé Baarali ? Saisissez son code avant le $1.",
+    "Did a creator recommend Baarali? Enter their code before $1: $2 is yours for $3 days.": "Un créateur vous a recommandé Baarali ? Saisissez son code avant le $1 : $2 vous est offert pendant $3 jours.",
+    "Did a creator recommend Baarali? Their code gives you $1 for $2 days. Enter it before $3.": "Un créateur vous a recommandé Baarali ? Son code vous offre $1 pendant $2 jours. À saisir avant le $3.",
+    "Code from $1 applied.": "Code de $1 appliqué.",
+    "Code from $1 applied. $2 is yours until $3.": "Code de $1 appliqué. $2 vous est offert jusqu’au $3.",
+    "$1 is yours until $2.": "$1 vous est offert jusqu’au $2.",
     // Spaces, a new group (07/10/2026).
     "Agents of $1": "Agents de $1",
     "People of $1": "Personnes de $1",

@@ -151,7 +151,7 @@ import { invalidateKnowledgeIndex } from '@x/core/dist/knowledge/knowledge_index
 import { versionHistory, voice } from '@x/core';
 import { classifySchedule, processRowboatInstruction } from '@x/core/dist/knowledge/inline_tasks.js';
 import { editSlide, generateDeckOutline, generateSlide } from '@x/core/dist/knowledge/deck_outline.js';
-import { getAnnouncement, getBillingInfo, getMediaCredits, getNotifications, getPlanOffers, readAllNotifications, sendAnnouncementEvent, sendNotificationEvent } from '@x/core/dist/billing/billing.js';
+import { getAnnouncement, getBillingInfo, getMediaCredits, getNotifications, getPartnerCode, getPlanOffers, readAllNotifications, redeemPartnerCode, sendAnnouncementEvent, sendNotificationEvent } from '@x/core/dist/billing/billing.js';
 import { claimReferralCode, getCreditsState, maybeActivateCredit, subscribeCreditActivations } from '@x/core/dist/billing/credits.js';
 import { summarizeMeeting } from '@x/core/dist/knowledge/summarize_meeting.js';
 import { getAccessToken } from '@x/core/dist/auth/tokens.js';
@@ -3210,6 +3210,12 @@ export function setupIpcHandlers() {
     },
     'billing:readAllNotifications': async () => {
       return await readAllNotifications();
+    },
+    'billing:getPartnerCode': async () => {
+      return await getPartnerCode();
+    },
+    'billing:redeemPartnerCode': async (_event, args) => {
+      return await redeemPartnerCode(args.code);
     },
     // First-time-action credit rewards
     'credits:getState': async () => {

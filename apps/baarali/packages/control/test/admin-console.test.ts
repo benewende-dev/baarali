@@ -669,11 +669,15 @@ describe('partners', () => {
     // The partner's own account cannot use their code.
     expect(((await (await redeem('tok-owner', 'AWATECH')).json()) as { error: { code: string } }).error.code).toBe('own');
     expect(((await (await redeem('tok-awa', 'NOPE')).json()) as { error: { message: string } }).error.message).toBe('Ce code n’existe pas. Vérifiez l’orthographe.');
+    const partnerOf = async () => (await app.request('/v1/codes/partner', { headers: { authorization: 'Bearer tok-awa' } })).json();
+    expect(await partnerOf()).toMatchObject({ partner: null, can_redeem: true, gift: null });
     // No Essentiel in this catalogue: counted, nothing offered.
     const ok = await redeem('tok-awa', 'awatech');
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({ partner: 'Awa Tech', gift: null });
     expect((await store.referralOf(AWA.id))?.via).toBe('code');
+    expect(await partnerOf()).toEqual({ partner: 'Awa Tech', can_redeem: false, until: null, gift: null });
+    expect((await app.request('/v1/codes/partner')).status).toBe(401);
     expect(((await (await redeem('tok-awa', 'AWATECH')).json()) as { error: { code: string } }).error.code).toBe('already');
     expect((await app.request('/v1/codes/redeem', { method: 'POST' })).status).toBe(401);
 

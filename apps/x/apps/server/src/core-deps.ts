@@ -44,7 +44,7 @@ import { getPlannerConfig } from '@x/core/dist/todo/planner-task.js';
 import { readTodo, listArchived as listTodoArchived } from '@x/core/dist/todo/fileops.js';
 import type { HomeThreadsTracker } from '@x/core/dist/home/threads.js';
 import { fetchTask, listTasks, readRunIds as readTaskRunIds, createTask, patchTask, deleteTask } from '@x/core/dist/background-tasks/fileops.js';
-import { getAnnouncement, getBillingInfo, getMediaCredits, getNotifications, getPlanOffers, readAllNotifications, sendAnnouncementEvent, sendNotificationEvent } from '@x/core/dist/billing/billing.js';
+import { getAnnouncement, getBillingInfo, getMediaCredits, getNotifications, getPartnerCode, getPlanOffers, readAllNotifications, redeemPartnerCode, sendAnnouncementEvent, sendNotificationEvent } from '@x/core/dist/billing/billing.js';
 import * as versionHistory from '@x/core/dist/knowledge/version_history.js';
 import { editSlide, generateDeckOutline, generateSlide } from '@x/core/dist/knowledge/deck_outline.js';
 import { invalidateCopilotInstructionsCache } from '@x/core/dist/runtime/assembly/copilot/instructions.js';
@@ -339,6 +339,8 @@ export function createCoreRpcHandlers(opts?: { sessionsIndexReady?: Promise<void
     'billing:getNotifications': async () => getNotifications(),
     'billing:notificationEvent': async (args) => sendNotificationEvent(args.id, args.kind),
     'billing:readAllNotifications': async () => readAllNotifications(),
+    'billing:getPartnerCode': async () => getPartnerCode(),
+    'billing:redeemPartnerCode': async (args) => redeemPartnerCode(args.code),
     'credits:getState': async () => getCreditsState(),
     'notifications:getSettings': async () => loadNotificationSettings(),
     'turnLimits:getSettings': async () => loadTurnLimitsSettings(),

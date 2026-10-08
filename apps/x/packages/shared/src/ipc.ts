@@ -27,7 +27,7 @@ import { AutoRouteDecision, AutoRouteRequest } from './auto-route.js';
 import { FindRequest, FindResult } from './find.js';
 import { AppSummarySchema, RegistryRecordSchema, RowboatAppManifestSchema } from './rowboat-app.js';
 import { BrowserStateSchema, DisplayMediaRequestSchema, HttpAuthRequestSchema } from './browser-control.js';
-import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, NoticeEventKindSchema, NoticeInboxSchema, PlanOffersSchema } from './billing.js';
+import { AnnouncementEventKindSchema, AnnouncementSchema, BillingInfoSchema, MediaCreditsSchema, NoticeEventKindSchema, NoticeInboxSchema, PartnerCodeResultSchema, PartnerCodeStateSchema, PlanOffersSchema } from './billing.js';
 import { CreditActivatedEventSchema, CreditsStateSchema, ReferralClaimResultSchema } from './credits.js';
 import { GmailThreadSchema } from './blocks.js';
 import { PermissionDecision, ApprovalPolicy, CodingAgent, type CodeRunFeedEvent } from './code-mode.js';
@@ -3752,6 +3752,16 @@ export const ipcSchemas = {
     req: z.null(),
     // How many were marked read.
     res: z.number(),
+  },
+  // A creator's partner code (Baarali, 08/10/2026): whether the field shows,
+  // then the code typed. Null state: the API serves none or is unreachable.
+  'billing:getPartnerCode': {
+    req: z.null(),
+    res: PartnerCodeStateSchema.nullable(),
+  },
+  'billing:redeemPartnerCode': {
+    req: z.object({ code: z.string() }),
+    res: PartnerCodeResultSchema,
   },
   // First-time-action credit rewards (see shared/src/credits.ts)
   'credits:getState': {
