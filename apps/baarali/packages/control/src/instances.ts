@@ -66,6 +66,14 @@ const WAKE_TIMEOUT_S = 60;
 const AWAKE_MS = 30_000;
 /** After a refusal of Fly's API, how long before asking it again. */
 const RATE_LIMITED_MS = 5_000;
+/**
+ * Unused this long, a running instance on an old image is moved to the new
+ * one (08/10/2026): a machine never left to sleep — an app open all day —
+ * stayed on v13 while v18 was out, without the tools of the day.
+ */
+export const IDLE_UPDATE_MS = 10 * 60_000;
+/** Updates per sweep: Fly's API stays well under its rate limit. */
+const IDLE_UPDATES_PER_SWEEP = 3;
 
 /**
  * The generation of the keys new and updated machines run with. The first
@@ -81,8 +89,51 @@ export class Instances {
   private readonly waking = new Map<string, Promise<void>>();
   /** Disks already at the configured size and backups, since this process started. */
   private readonly settledDisks = new Set<string>();
+  /** When each account last did something (used); unknown counts as when this process started. */
+  private readonly lastUse = new Map<string, number>();
+  private readonly startedAt: number;
 
-  constructor(private readonly deps: InstancesDeps) {}
+  constructor(private readonly deps: InstancesDeps) {
+    this.startedAt = deps.now();
+  }
+
+  /**
+   * The agent is at work: a model call, a media, video or voice job (app.ts).
+   * The app's own requests do not count: it speaks to the instance in POST
+   * RPCs even to read, so an app left open would never be idle.
+   */
+  used(accountId: string): void {
+    this.lastUse.set(accountId, this.deps.now());
+  }
+
+  /**
+   * Moves running instances on an old image, unused for IDLE_UPDATE_MS, to
+   * the current one. Asleep ones are left to their next wake (check), which
+   * moves them without booting them for nothing. Returns how many moved.
+   */
+  async updateIdle(): Promise<number> {
+    const { fly, store } = this.deps;
+    if (!fly) return 0;
+    const now = this.deps.now();
+    let moved = 0;
+    for (const record of await store.allInstances()) {
+      if (moved >= IDLE_UPDATES_PER_SWEEP) break;
+      if (!record.machineId || !this.outdatedRecord(record) || this.building.has(record.accountId)) continue;
+      if (now - (this.lastUse.get(record.accountId) ?? this.startedAt) < IDLE_UPDATE_MS) continue;
+      try {
+        if ((await fly.machine(record.app, record.machineId)).state !== 'started') continue;
+        await this.moveToImage(record);
+        // Booting again: the next request asks Fly rather than trusting the last look.
+        this.awakeUntil.delete(record.machineId);
+        moved++;
+        console.log(`[instances] ${record.machineId} idle, moved to ${this.deps.config?.image}`);
+      } catch (err) {
+        console.error(`[instances] idle update of ${record.machineId} failed; trying again later`, err);
+        if (err instanceof FlyApiError && err.status === 429) break;
+      }
+    }
+    return moved;
+  }
 
   private derive(purpose: string, accountId: string, keys: number): string {
     return createHmac('sha256', this.deps.secret).update(`${purpose}:v${keys}:${accountId}`).digest('base64url');

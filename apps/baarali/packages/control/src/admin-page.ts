@@ -627,7 +627,7 @@ async function loadOverview() {
   const items = [];
   for (const i of o.attention.failedInstances) items.push(el("div", { class: "it" }, el("span", { class: "pill bad" }, "Instance"), el("p", {}, "L'instance de " + (i.email || i.id) + " est en échec", el("br"), el("small", {}, "Ouvre Instances pour la mettre à jour ou la redémarrer"))));
   for (const c of o.attention.atLimit) items.push(el("div", { class: "it" }, el("span", { class: "pill warn" }, "Limite"), el("p", {}, (c.email || c.id) + " a atteint sa limite", el("br"), el("small", {}, "Bonne occasion de proposer un forfait au-dessus"))));
-  if (o.attention.outdatedInstances) items.push(el("div", { class: "it" }, el("span", { class: "pill blue" }, "Instances"), el("p", {}, o.attention.outdatedInstances + " instance(s) sur une ancienne version", el("br"), el("small", {}, "Elles passent à la nouvelle à leur prochain réveil"))));
+  if (o.attention.outdatedInstances) items.push(el("div", { class: "it" }, el("span", { class: "pill blue" }, "Instances"), el("p", {}, o.attention.outdatedInstances + " instance(s) sur une ancienne version", el("br"), el("small", {}, "Elles passent à la nouvelle à leur prochain réveil, ou après 10 minutes sans activité de l’agent"))));
   if (o.attention.suspended) items.push(el("div", { class: "it" }, el("span", { class: "pill bad" }, "Suspendus"), el("p", {}, o.attention.suspended + " compte(s) suspendu(s)")));
   $("attention").replaceChildren(...(items.length ? items : [el("p", { class: "empty" }, "Rien à signaler.")]));
   const max = Math.max(1, ...o.plans.map((p) => p.count));
