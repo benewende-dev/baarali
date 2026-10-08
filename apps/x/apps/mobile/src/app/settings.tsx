@@ -6,6 +6,7 @@ import { billing as billingShared } from '@x/shared';
 
 import { phoneLang } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
+import { dayWords, giftProgress, type PartnerState } from '@/lib/partner-code';
 import * as analytics from '@/lib/analytics';
 import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
@@ -22,10 +23,13 @@ export default function SettingsScreen() {
   const { rpc, pairing, unpair, status } = useConnection();
   const models = useModels();
   const [info, setInfo] = useState<Info | null>(null);
+  // A creator's partner code (08/10/2026): who recommended Baarali, the offered days.
+  const [partner, setPartner] = useState<PartnerState | null>(null);
 
   useFocusEffect(useCallback(() => {
     if (!rpc) return;
     void rpc.call('billing:getInfo', null).then(setInfo, () => setInfo(null));
+    void rpc.call('billing:getPartnerCode', null).then(setPartner, () => setPartner(null));
     void models.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rpc]));
@@ -34,6 +38,9 @@ export default function SettingsScreen() {
   // Baarali's week rides the « monthly » bucket, as on the desktop's gauge.
   const bucket = info?.monthly;
   const used = bucket && bucket.sanctionedCredits > 0 ? Math.min(1, bucket.usedCredits / bucket.sanctionedCredits) : 0;
+
+  const running = partner?.running ?? null;
+  const progress = running ? giftProgress(running) : null;
 
   const group = { marginHorizontal: 16, borderRadius: 14, borderCurve: 'continuous' as const, backgroundColor: colors.background, overflow: 'hidden' as const };
   const head = { marginHorizontal: 20, marginTop: 18, marginBottom: 6, fontSize: 13, fontWeight: '600' as const, color: colors.secondaryLabel };
@@ -49,7 +56,17 @@ export default function SettingsScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: colors.secondaryBackground }} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[group, { padding: 14, gap: 10, marginTop: 8 }]}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: colors.label }}>{info?.userEmail ?? '—'}</Text>
-        <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>{plan?.displayName ?? '—'}</Text>
+        <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>
+          {running ? `${running.plan} · free until ${dayWords(running.endsAt)}` : (plan?.displayName ?? '—')}
+        </Text>
+        {running && progress ? (
+          <View style={{ gap: 5 }}>
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.secondaryBackground, overflow: 'hidden' }}>
+              <View style={{ width: `${Math.round((progress.today / progress.total) * 100)}%`, height: '100%', backgroundColor: colors.accent }} />
+            </View>
+            <Text style={{ fontSize: 13, color: colors.secondaryLabel, fontVariant: ['tabular-nums'] }}>{`Day ${progress.today} of ${progress.total}`}</Text>
+          </View>
+        ) : null}
         {bucket ? (
           <View style={{ gap: 5 }}>
             <View style={{ flexDirection: 'row' }}>
@@ -69,6 +86,8 @@ export default function SettingsScreen() {
 
       <Text style={head}>Baarali</Text>
       <View style={group}>
+        {partner?.partner ? <SRow label="Recommended by" value={partner.partner} /> : null}
+        {partner?.canRedeem && !partner.partner ? <SRow label="Partner code" value="›" onPress={() => router.push('/partner-code')} /> : null}
         <SRow label="Default model" value={models.display?.name ?? 'Automatic'} />
         <SRow label="Notifications" onPress={() => router.push('/notifications')} />
       </View>

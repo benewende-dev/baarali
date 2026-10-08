@@ -1,7 +1,8 @@
 // The partner programme (decided 07/10/2026, mockup validated the same day):
 // creators and influencers of the sub-region share their link or their code;
 // each person who signs up through it is theirs, and every payment that
-// person makes in the next 12 months earns the partner a share. The share
+// person makes in the 12 months from their first one earns the partner a
+// share (decided 08/10/2026: twelve months paid, not twelve after sign-up). The share
 // grows with the number of paying clients (base, silver, gold). Payable after
 // a hold, by mobile money, once above a threshold. The person who came gets a
 // gift: a plan offered for a few days.
@@ -107,7 +108,7 @@ export interface ProgramRules {
   silverFrom: number;
   goldRate: number;
   goldFrom: number;
-  /** A person's payments count this many months after they signed up. */
+  /** A person's payments count this many months from their first payment. */
   months: number;
   /** A commission becomes payable this long after the payment: refunds and fraud come first. */
   holdDays: number;
@@ -192,18 +193,19 @@ export interface PaymentFacts {
 /**
  * The partner's share of one payment, or null when it earns nothing: no
  * partner, a paused one, their own payment, or past the months that count.
- * `paying`: the partner's paying clients before this payment.
+ * `paying`: the partner's paying clients before this payment, and when this
+ * client first paid (null: this is their first payment).
  */
 export function commissionFor(
   rules: ProgramRules,
   partner: Partner,
   referral: Referral,
   payment: PaymentFacts,
-  paying: { count: number; includes: boolean },
+  paying: { count: number; includes: boolean; firstPaidAt: number | null },
 ): Commission | null {
   if (partner.status !== 'active' || partner.id !== referral.partnerId) return null;
   if (partner.accountId === payment.accountId) return null;
-  if (payment.at < referral.at || payment.at >= addMonths(referral.at, rules.months)) return null;
+  if (payment.at < referral.at || payment.at >= addMonths(paying.firstPaidAt ?? payment.at, rules.months)) return null;
   const amountXof = toXof(payment.amount, payment.currency);
   if (amountXof === null || amountXof <= 0) return null;
   const rate = rateOf(rules, tierOf(rules, paying.count + (paying.includes ? 0 : 1)));

@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 import { useBilling } from "@/hooks/useBilling"
 import { useRowboatConfig } from "@/hooks/use-rowboat-config"
 import { CreditRewards } from "@/components/settings/credit-rewards"
+import { PartnerCode } from "@/components/settings/partner-code"
 import { toast } from "sonner"
 import { getBillingPlanData, type BillingUsageBucket, type PlanOffer } from "@x/shared/dist/billing.js"
 import { openPlans } from '@/lib/plans-window'
@@ -271,6 +272,13 @@ export function AccountSettings({ dialogOpen, onOpenUsage }: AccountSettingsProp
       </div>
 
       <Separator />
+
+      <PartnerCode
+        enabled={isRowboatConnected && dialogOpen}
+        offers={offers}
+        currentPlanName={currentPlan?.displayName ?? null}
+        onApplied={() => void refreshBilling()}
+      />
 
       {/* Earn Credits Section */}
       <CreditRewards store={billing?.store ?? null} />

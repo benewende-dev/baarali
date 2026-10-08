@@ -133,8 +133,8 @@ const PUBLIC_WORDS = {
       ['Soyez payé', 'Chaque début de mois, par Orange Money, Wave, Moov ou MTN.'],
     ],
     gift: (plan: string, days: number) => `Vos abonnés reçoivent ${plan} offert ${days} jours à l’inscription.`,
-    facts: (hold: number, min: string, cookie: number) =>
-      `Une commission devient payable ${hold} jours après le paiement du client, dès ${min}. Votre lien garde le visiteur ${cookie} jours. Comptent les forfaits et les packs de crédits médias, hors taxes ; un client remboursé ne compte pas.`,
+    facts: (months: number, hold: number, min: string, cookie: number) =>
+      `Les ${months} mois comptent à partir du premier paiement du client. Une commission devient payable ${hold} jours après le paiement du client, dès ${min}. Votre lien garde le visiteur ${cookie} jours. Comptent les forfaits et les packs de crédits médias, hors taxes ; un client remboursé ne compte pas.`,
     rulesTitle: 'Les règles, en clair',
     expect: 'Ce que nous attendons',
     expectList: [
@@ -187,8 +187,8 @@ const PUBLIC_WORDS = {
       ['Get paid', 'At the start of each month, by Orange Money, Wave, Moov or MTN.'],
     ],
     gift: (plan: string, days: number) => `Your audience gets ${plan} free for ${days} days when they sign up.`,
-    facts: (hold: number, min: string, cookie: number) =>
-      `A commission becomes payable ${hold} days after the client’s payment, from ${min}. Your link remembers the visitor for ${cookie} days. Plans and media credit packs count, excluding taxes; a refunded client does not.`,
+    facts: (months: number, hold: number, min: string, cookie: number) =>
+      `The ${months} months count from the client’s first payment. A commission becomes payable ${hold} days after the client’s payment, from ${min}. Your link remembers the visitor for ${cookie} days. Plans and media credit packs count, excluding taxes; a refunded client does not.`,
     rulesTitle: 'The rules, plainly',
     expect: 'What we expect',
     expectList: [
@@ -295,7 +295,7 @@ form.apply .hp { position:absolute; left:-9999px; width:1px; height:1px; overflo
   <section class="block">
     <h2>${escape(t.tiersTitle)}</h2>
     <div class="tiers">${tiers.map(([name, rate, from]) => `<div class="card"><small>${escape(name)}</small><b>${escape(pct(rate))}</b><small>${escape(from)}</small></div>`).join('')}</div>
-    <p class="facts">${escape(t.facts(r.holdDays, cfa(r.payoutMinXof), r.cookieDays))}</p>
+    <p class="facts">${escape(t.facts(r.months, r.holdDays, cfa(r.payoutMinXof), r.cookieDays))}</p>
     ${data.giftPlan ? `<p class="gift">🎁 ${escape(t.gift(data.giftPlan, r.giftDays))}</p>` : ''}
   </section>
   <section class="block">
@@ -516,7 +516,7 @@ async function load() {
   $("pay-hint").textContent = "Chaque début de mois, dès " + cfa(r.payoutMinXof) + " prêts. Seul vous voyez ce numéro, et nous.";
   $("method").value = p.payoutMethod || "";
   $("number").value = p.payoutNumber || "";
-  $("counts").textContent = "Les forfaits et les packs de crédits médias de vos clients, pendant " + r.months + " mois après leur inscription, hors taxes. Une commission devient payable " + r.holdDays + " jours après le paiement. Un client remboursé ne compte pas. Vous ne pouvez pas être votre propre client.";
+  $("counts").textContent = "Les forfaits et les packs de crédits médias de vos clients, pendant " + r.months + " mois à partir de leur premier paiement, hors taxes. Une commission devient payable " + r.holdDays + " jours après le paiement. Un client remboursé ne compte pas. Vous ne pouvez pas être votre propre client.";
 }
 $("pay").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -553,7 +553,7 @@ export function partnerWelcomeMail(p: { name: string; code: string }, to: string
     `Bonjour ${p.name},`,
     `Bienvenue dans le programme partenaires de Baarali. Voici votre lien : ${link}`,
     `Votre code, à saisir dans l’app dans les 7 jours après l’inscription : ${p.code}.${giftPlan ? ` Vos abonnés reçoivent ${giftPlan} offert ${rules.giftDays} jours.` : ''}`,
-    `Chaque paiement de vos clients vous rapporte ${pct(rules.baseRate)}, puis ${pct(rules.silverRate)} dès ${rules.silverFrom} clients payants et ${pct(rules.goldRate)} dès ${rules.goldFrom}, pendant ${rules.months} mois.`,
+    `Chaque paiement de vos clients vous rapporte ${pct(rules.baseRate)}, puis ${pct(rules.silverRate)} dès ${rules.silverFrom} clients payants et ${pct(rules.goldRate)} dès ${rules.goldFrom}, pendant ${rules.months} mois à partir de leur premier paiement.`,
     `Suivez vos clics, vos clients et vos gains dans votre espace : ${space}. Connectez-vous avec cet email (${to}), puis indiquez votre numéro de mobile money pour être payé.`,
     'Une règle simple : dites toujours que c’est un partenariat, et montrez ce que Baarali fait vraiment.',
     `À très vite,\nL’équipe Baarali`,

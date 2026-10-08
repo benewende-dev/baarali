@@ -10,7 +10,7 @@ import { mountAdminConsole } from './admin-console.js';
 import { AutoMessages } from './auto-messages.js';
 import { PartnerProgram } from './partner-program.js';
 import { partnerRoutes } from './partner-routes.js';
-import { dayWords, refCookie } from './partners.js';
+import { dayWords, REDEEM_WINDOW_MS, refCookie } from './partners.js';
 import { emailTarget, NOTICE_EVENTS, NoticeDispatcher, publicNotice, type Mailer, type NoticeLinks } from './notifications.js';
 import { asset } from './assets.js';
 import { AUTH_BASE_PATH, type BaaraliAuth } from './auth.js';
@@ -91,6 +91,9 @@ export function accountResolver(store: ControlStore, auth?: BaaraliAuth) {
     return userId ? store.accountForUser(userId) : null;
   };
 }
+
+/** A code is checked as it is typed: enough for typing, not for guessing. */
+const CODE_CHECKS_PER_MINUTE = 30;
 
 const REDEEM_WORDS = {
   unknown: 'Ce code n’existe pas. Vérifiez l’orthographe.',
@@ -285,6 +288,48 @@ export function createApp(deps: ControlDeps) {
 
   // A partner's code typed in the app, soon after signing up (partners.ts):
   // the phone app signs up without the site's cookie.
+  // Whether the app still offers the field: within the window, no partner yet.
+  // Once linked, the partner's name, so the account says who recommended it.
+  app.get('/v1/codes/partner', async (c) => {
+    const account = c.get('account');
+    const referral = await deps.store.referralOf(account.id);
+    const partner = referral ? (await deps.store.partners()).find((p) => p.id === referral.partnerId) : undefined;
+    const until = account.createdAt + REDEEM_WINDOW_MS;
+    const open = !referral && deps.now() < until;
+    // The plan a code brings, as attach() would offer it: to someone on the free plan only.
+    const rules = await program.rules();
+    const [current, gifted] = open && rules.giftPlanId ? await Promise.all([deps.store.plan(account.planId), deps.store.plan(rules.giftPlanId)]) : [null, null];
+    const gift = gifted && (!current || current.category === 'free') ? { plan: gifted.displayName, plan_id: gifted.id, days: rules.giftDays } : null;
+    // The plan offered, while it runs: the account shows its days.
+    const running = await program.openGiftOf(account.id);
+    const runningPlan = running ? await deps.store.plan(running.planId) : null;
+    return c.json({
+      partner: partner?.name ?? null,
+      can_redeem: open,
+      until: open ? new Date(until).toISOString() : null,
+      gift,
+      running: running && account.planId === running.planId
+        ? { plan: runningPlan?.displayName ?? running.planId, starts_at: new Date(running.startsAt).toISOString(), ends_at: new Date(running.endsAt).toISOString() }
+        : null,
+    });
+  });
+
+  // A code checked as it is typed: who it belongs to, before it is applied.
+  // Partners' names are public (their link shows them); still, a few a minute.
+  const checks = new Map<string, number[]>();
+  app.get('/v1/codes/check', async (c) => {
+    const account = c.get('account');
+    const now = deps.now();
+    const times = (checks.get(account.id) ?? []).filter((t) => now - t < 60_000);
+    if (times.length >= CODE_CHECKS_PER_MINUTE) return c.json({ error: { code: 'rate_limited', message: 'Trop d’essais. Réessayez dans une minute.' } }, 429);
+    checks.set(account.id, [...times, now]);
+    if (checks.size > 5000) checks.clear();
+    const result = await program.check(account, c.req.query('code'), 'code');
+    if (!result.ok) return c.json({ error: { code: result.reason, message: REDEEM_WORDS[result.reason] } }, 400);
+    const { partner } = result;
+    return c.json({ partner: { name: partner.name, network: partner.network, city: partner.city } });
+  });
+
   app.post('/v1/codes/redeem', async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as { code?: unknown };
     const account = c.get('account');

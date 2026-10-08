@@ -179,3 +179,38 @@ export type NoticeInbox = z.infer<typeof NoticeInboxSchema>;
 
 export const NoticeEventKindSchema = z.enum(['read', 'click']);
 export type NoticeEventKind = z.infer<typeof NoticeEventKindSchema>;
+
+// A creator's partner code, typed in the app soon after signing up (control
+// GET /v1/codes/partner and POST /v1/codes/redeem, Baarali, 08/10/2026).
+export const PartnerCodeStateSchema = z.object({
+  /** Who recommended Baarali to this person; null: nobody yet. */
+  partner: z.string().nullable(),
+  /** Whether a code can still be typed: within the days after signing up. */
+  canRedeem: z.boolean(),
+  /** Until when, when it can. */
+  until: z.string().nullable(),
+  /** The plan a code brings this person, for how many days; null: none. */
+  gift: z.object({ plan: z.string(), planId: z.string(), days: z.number() }).nullable(),
+  /** The offered plan while it runs: the account shows its days. */
+  running: z.object({ plan: z.string(), startsAt: z.string(), endsAt: z.string() }).nullable(),
+});
+export type PartnerCodeState = z.infer<typeof PartnerCodeStateSchema>;
+
+/** A code checked as it is typed: whose it is, or why it would not take. */
+export const PartnerCodeCheckSchema = z.union([
+  z.object({ ok: z.literal(true), name: z.string(), network: z.string().nullable(), city: z.string().nullable() }),
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export type PartnerCodeCheck = z.infer<typeof PartnerCodeCheckSchema>;
+
+export const PartnerCodeResultSchema = z.union([
+  z.object({
+    ok: z.literal(true),
+    partner: z.string(),
+    /** The plan offered with the code, and until when; null: none. */
+    gift: z.object({ plan: z.string(), endsAt: z.string() }).nullable(),
+  }),
+  // The control plane's own words (unknown code, too late…), or ours when it cannot be reached.
+  z.object({ ok: z.literal(false), message: z.string() }),
+]);
+export type PartnerCodeResult = z.infer<typeof PartnerCodeResultSchema>;

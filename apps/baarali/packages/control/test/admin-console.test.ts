@@ -8,6 +8,7 @@ import { createGateway } from '../src/gateway.js';
 import { Instances } from '../src/instances.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
 import { AUTO_KINDS } from '../src/auto-messages.js';
+import { DEFAULT_RULES } from '../src/partners.js';
 import { OFFERS } from '../src/catalog.js';
 import { MemoryMailer, NoticeLinks } from '../src/notifications.js';
 
@@ -652,6 +653,18 @@ describe('partners', () => {
     expect(journal.data[0].detail).toBe('Partenaire ajouté : Awa Tech (AWATECH)');
   });
 
+  it('tells the app what a code brings, and the offered plan while it runs', async () => {
+    const { post, app, store } = setup();
+    await create(post, { name: 'Awa Tech', code: 'AWATECH', network: 'TikTok', city: 'Ouagadougou' });
+    await store.saveProgramRules({ ...DEFAULT_RULES, giftPlanId: 'pro-100', giftDays: 7 }, T0);
+    const get = async (path: string) => (await app.request(path, { headers: { authorization: 'Bearer tok-awa' } })).json();
+    expect(await get('/v1/codes/partner')).toMatchObject({ can_redeem: true, gift: { plan: 'Pro', plan_id: 'pro-100', days: 7 }, running: null });
+    expect(await get('/v1/codes/check?code=awatech')).toEqual({ partner: { name: 'Awa Tech', network: 'TikTok', city: 'Ouagadougou' } });
+    const ok = await app.request('/v1/codes/redeem', { method: 'POST', headers: { authorization: 'Bearer tok-awa', 'content-type': 'application/json' }, body: '{"code":"AWATECH"}' });
+    expect(await ok.json()).toMatchObject({ partner: 'Awa Tech', gift: { plan: 'Pro' } });
+    expect(await get('/v1/codes/partner')).toMatchObject({ partner: 'Awa Tech', can_redeem: false, gift: null, running: { plan: 'Pro', starts_at: expect.any(String), ends_at: expect.any(String) } });
+  });
+
   it('changes the rules within what the plans can pay, and writes it down', async () => {
     const { post } = setup();
     const form = { basePct: 20, silverPct: 25, silverFrom: 10, goldPct: 30, goldFrom: 50, months: 12, holdDays: 30, payoutMinXof: 10000, giftPlanId: null, giftDays: 7, cookieDays: 60 };
@@ -669,11 +682,21 @@ describe('partners', () => {
     // The partner's own account cannot use their code.
     expect(((await (await redeem('tok-owner', 'AWATECH')).json()) as { error: { code: string } }).error.code).toBe('own');
     expect(((await (await redeem('tok-awa', 'NOPE')).json()) as { error: { message: string } }).error.message).toBe('Ce code n’existe pas. Vérifiez l’orthographe.');
+    const partnerOf = async () => (await app.request('/v1/codes/partner', { headers: { authorization: 'Bearer tok-awa' } })).json();
+    expect(await partnerOf()).toMatchObject({ partner: null, can_redeem: true, gift: null, running: null });
+    const check = async (token: string, code: string) => (await app.request(`/v1/codes/check?code=${code}`, { headers: { authorization: `Bearer ${token}` } })).json();
+    expect(await check('tok-awa', 'awatech')).toEqual({ partner: { name: 'Awa Tech', network: null, city: null } });
+    expect(await check('tok-awa', 'NOPE')).toMatchObject({ error: { code: 'unknown' } });
+    expect(await check('tok-owner', 'AWATECH')).toMatchObject({ error: { code: 'own' } });
+    // Checking takes nothing: the code is still free to apply.
+    expect(await store.referralOf(AWA.id)).toBeNull();
     // No Essentiel in this catalogue: counted, nothing offered.
     const ok = await redeem('tok-awa', 'awatech');
     expect(ok.status).toBe(200);
     expect(await ok.json()).toEqual({ partner: 'Awa Tech', gift: null });
     expect((await store.referralOf(AWA.id))?.via).toBe('code');
+    expect(await partnerOf()).toEqual({ partner: 'Awa Tech', can_redeem: false, until: null, gift: null, running: null });
+    expect((await app.request('/v1/codes/partner')).status).toBe(401);
     expect(((await (await redeem('tok-awa', 'AWATECH')).json()) as { error: { code: string } }).error.code).toBe('already');
     expect((await app.request('/v1/codes/redeem', { method: 'POST' })).status).toBe(401);
 
