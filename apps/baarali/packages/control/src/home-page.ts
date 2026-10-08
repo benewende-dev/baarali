@@ -464,7 +464,27 @@ function brandImg(list: Brand[], name: string, size: number): string {
   return b ? `<img class="mark" src="${b.src}" alt="" width="${size}" height="${size}">` : '';
 }
 
-export function homePage(data: HomeData, opts: { lang: string | null; nonce: string }): string {
+/** Who sent the visitor, from a partner's link (partners.ts): a bar above the page. */
+export interface Referral {
+  partner: string;
+  /** The offered plan and its days, when there is one. */
+  gift: { plan: string; days: number } | null;
+}
+
+function referralBar(r: Referral, lang: Lang): string {
+  const text =
+    lang === 'fr'
+      ? r.gift
+        ? `<b>Offert par ${escape(r.partner)} :</b> ${escape(r.gift.plan)} gratuit pendant ${r.gift.days} jours à l’inscription.`
+        : `Vous venez de la part de <b>${escape(r.partner)}</b>. Bienvenue !`
+      : r.gift
+        ? `<b>From ${escape(r.partner)}:</b> ${escape(r.gift.plan)} free for ${r.gift.days} days when you sign up.`
+        : `<b>${escape(r.partner)}</b> sent you. Welcome!`;
+  const cta = lang === 'fr' ? 'Créer mon compte' : 'Create my account';
+  return `<div class="refbar" role="note"><div class="wrap"><span aria-hidden="true">🎁</span><span>${text}</span><a href="/auth/v1/sign-in">${cta}</a></div></div>`;
+}
+
+export function homePage(data: HomeData, opts: { lang: string | null; nonce: string; referral?: Referral | null }): string {
   const lang = pickLang(opts.lang);
   const t = STRINGS[lang];
   const s = t.sim;
@@ -1060,10 +1080,14 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
   *, *::before, *::after { animation:none !important; transition:none !important; }
   html { scroll-behavior:auto; }
 }
+.refbar { background:var(--blue-soft); border-bottom:1px solid var(--blue-line); color:var(--ink); font-size:14.5px; }
+.refbar .wrap { display:flex; align-items:center; gap:10px; min-height:48px; flex-wrap:wrap; padding-block:8px; }
+.refbar a { margin-left:auto; background:var(--blue-deep); color:#fff; text-decoration:none; font-weight:650; border-radius:999px; padding:7px 14px; font-size:14px; }
 ${LOGO_ALIVE_CSS}
 </style>
 </head>
 <body>
+${opts.referral ? referralBar(opts.referral, lang) : ''}
 <header class="top">
   <div class="wrap">
     <a class="brand" href="/">${logoTileLive(32)}${logoWord(25)}</a>

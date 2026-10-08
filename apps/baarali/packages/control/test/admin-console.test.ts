@@ -703,3 +703,73 @@ describe('partners', () => {
     expect(journal.data[0].detail).toBe('Paiement partenaire : 13119 F à Awa Tech par Wave (WV-778)');
   });
 });
+
+describe('the partner programme’s pages', () => {
+  const apply = (app: ReturnType<typeof setup>['app'], b: Record<string, unknown>, ip = '203.0.113.9') =>
+    app.request('/partenaires/candidature', { method: 'POST', headers: { 'content-type': 'application/json', 'fly-client-ip': ip }, body: JSON.stringify(b) });
+  const form = { name: 'Fatou Digital', email: 'Fatou@Example.test', network: 'Instagram', profile: 'https://instagram.com/fatou', audience: 's', city: 'Dakar', phone: '', message: 'Des tutos.' };
+
+  it('shows the rules to creators and takes their application, once, from people only', async () => {
+    const { app, store } = setup();
+    const page = await (await app.request('/partenaires')).text();
+    expect(page).toContain('jusqu’à 30 %');
+    expect(page).toContain('pendant 12 mois');
+    expect((await apply(app, form)).status).toBe(201);
+    expect((await apply(app, form)).status).toBe(409);
+    expect(((await (await apply(app, { ...form, email: 'x@y.test', profile: 'instagram' })).json()) as { error: { message: string } }).error.message).toMatch(/https/);
+    expect((await apply(app, { ...form, email: 'robot@x.test', website: 'spam.example' })).status).toBe(200);
+    expect((await store.partnerApplications(10)).map((a) => [a.email, a.status])).toEqual([['fatou@example.test', 'new']]);
+    for (let i = 0; i < 5; i++) await apply(app, { ...form, email: `n${i}@x.test` }, '198.51.100.7');
+    expect((await apply(app, { ...form, email: 'n9@x.test' }, '198.51.100.7')).status).toBe(429);
+  });
+
+  it('accepts an application into a partner, who gets their link by email and their space at first sign-in', async () => {
+    const { app, as, post, store, mailer } = setup();
+    await apply(app, { ...form, email: 'awa@example.test' });
+    const list = (await (await as('boss', '/admin/api/partners')).json()) as { applications: Array<{ id: string; email: string }> };
+    const [application] = list.applications;
+    const res = await post('boss', '/admin/api/partners', { name: 'Fatou Digital', code: 'FATOU', network: 'Instagram', accountEmail: 'newcomer@example.test', applicationId: application.id });
+    expect(await res.json()).toMatchObject({ code: 'FATOU', emailed: true });
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([['awa@example.test', 'Votre lien partenaire Baarali']]);
+    expect(mailer.outbox[0].text).toContain('https://baarali.test/?p=FATOU');
+    expect(mailer.outbox[0].text).toContain('https://app.baarali.test/partenaire');
+    expect(((await (await as('boss', '/admin/api/partners')).json()) as { applications: unknown[] }).applications).toEqual([]);
+    expect((await post('boss', '/admin/api/partners', { name: 'Again', code: 'AGAIN', applicationId: application.id })).status).toBe(404);
+
+    // Not yet linked: newcomer@ has no account. Awa signs in with an email of her own: no partner for her.
+    expect(((await (await as('awa', '/partenaire/api')).json()) as { partner: unknown }).partner).toBeNull();
+    const fatou = (await store.partnerByCode('FATOU'))!;
+    await store.savePartner({ ...fatou, email: 'awa@example.test' });
+    // Her sign-in with that email, proved, links her account and opens her space.
+    const space = (await (await as('awa', '/partenaire/api')).json()) as { partner: { code: string }; tier: string; months: unknown[] };
+    expect(space).toMatchObject({ partner: { code: 'FATOU' }, tier: 'base', months: [] });
+    expect((await store.partnerByCode('FATOU'))?.accountId).toBe(AWA.id);
+  });
+
+  it('keeps the space behind the sign-in, and writes down where the money goes', async () => {
+    const { app, as, post, store } = setup();
+    expect((await app.request('/partenaire', { redirect: 'manual' })).headers.get('location')).toBe('/auth/v1/sign-in#partenaire');
+    expect((await app.request('/partenaire/api')).status).toBe(401);
+    expect((await as('awa', '/partenaire')).status).toBe(200);
+    await post('boss', '/admin/api/partners', { name: 'Awa Tech', code: 'AWATECH', accountEmail: 'awa@example.test' });
+    const pay = (headers: Record<string, string>, body: unknown) => as('awa', '/partenaire/api/paiement', { method: 'POST', write: false, headers, body: JSON.stringify(body) });
+    expect((await pay({}, { method: 'wave', number: '+225 07 00 00 48' })).status).toBe(403);
+    expect((await pay({ 'x-baarali-partner': '1' }, { method: 'paypal', number: '1' })).status).toBe(400);
+    expect((await pay({ 'x-baarali-partner': '1' }, { method: 'wave', number: '+225 07 00 00 48' })).status).toBe(200);
+    expect(await store.partnerByCode('AWATECH')).toMatchObject({ payoutMethod: 'wave', payoutNumber: '+225 07 00 00 48' });
+    const journal = (await (await as('boss', '/admin/api/journal')).json()) as { data: Array<{ detail: string; actor: string }> };
+    expect(journal.data[0]).toMatchObject({ detail: 'Paiement de Awa Tech : Wave +225 07 00 00 48', actor: 'partenaire awa@example.test' });
+  });
+
+  it('greets a visitor sent by a partner, unless the partner is paused', async () => {
+    const { app, post, store } = setup();
+    await post('boss', '/admin/api/partners', { name: 'Awa Tech', code: 'AWATECH' });
+    const home = await (await app.request('/?p=AWATECH')).text();
+    expect(home).toContain('Vous venez de la part de <b>Awa Tech</b>');
+    expect(await (await app.request('/')).text()).not.toContain('class="refbar"');
+    await store.savePartner({ ...(await store.partnerByCode('AWATECH'))!, status: 'paused' });
+    const paused = await app.request('/?p=AWATECH');
+    expect(paused.headers.get('set-cookie')).toBeNull();
+    expect(await paused.text()).not.toContain('class="refbar"');
+  });
+});

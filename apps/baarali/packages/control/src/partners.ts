@@ -25,6 +25,8 @@ export interface Partner {
   city: string | null;
   /** Their own Baarali account, which opens their partner space; null until linked. */
   accountId: string | null;
+  /** Their email: a sign-in with it, proved, links their account (partner-routes.ts). */
+  email: string | null;
   /** Paused: the link still works for the visitor, but earns nothing until checked. */
   status: PartnerStatus;
   createdAt: number;
@@ -78,6 +80,24 @@ export interface Payout {
   reference: string;
   at: number;
   by: string;
+}
+
+/** A creator who applied from the public page; the console accepts or sets it aside. */
+export interface PartnerApplication {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  network: string;
+  profile: string;
+  /** xs < 5 000, s < 50 000, m < 500 000, l above (partner-page.ts). */
+  audience: string;
+  city: string | null;
+  message: string | null;
+  createdAt: number;
+  status: 'new' | 'accepted' | 'declined';
+  decidedAt: number | null;
+  decidedBy: string | null;
 }
 
 export interface ProgramRules {

@@ -306,13 +306,13 @@ describe.each([
     expect(await store.programRules()).toEqual(rules);
 
     const awa = {
-      id: 'ptn_awa', name: 'Awa', code: 'AWA', network: 'TikTok', city: null, accountId: ME.id, status: 'active' as const,
+      id: 'ptn_awa', name: 'Awa', code: 'AWA', network: 'TikTok', city: null, accountId: ME.id, email: 'awa@x.test', status: 'active' as const,
       createdAt: T0, createdBy: 'boss', payoutMethod: 'wave' as const, payoutNumber: '+225 07 00 00 00',
     };
     expect(await store.savePartner(awa)).toBe(true);
     expect(await store.savePartner({ ...awa, id: 'ptn_copy' })).toBe(false);
     expect(await store.savePartner({ ...awa, name: 'Awa Tech', status: 'paused' })).toBe(true);
-    expect(await store.partnerByCode('AWA')).toMatchObject({ name: 'Awa Tech', status: 'paused', payoutMethod: 'wave' });
+    expect(await store.partnerByCode('AWA')).toMatchObject({ name: 'Awa Tech', status: 'paused', payoutMethod: 'wave', email: 'awa@x.test' });
     expect((await store.partnerForAccount(ME.id))?.id).toBe('ptn_awa');
     expect(await store.partnerByCode('NOPE')).toBeNull();
     expect((await store.partners()).map((p) => p.id)).toEqual(['ptn_awa']);
@@ -345,6 +345,20 @@ describe.each([
     expect(await store.commissions('ptn_awa')).toEqual([{ ...c, payoutId: 'po_1' }, { ...c, id: 'pay_2', payoutId: 'po_1' }]);
     expect(await store.commissions('ptn_other')).toEqual([]);
     expect(await store.payouts()).toEqual([payout]);
+
+    const application = {
+      id: 'app_1', name: 'Fatou', email: 'fatou@x.test', phone: null, network: 'Instagram', profile: 'https://instagram.com/fatou', audience: 's',
+      city: 'Dakar', message: null, createdAt: T0, status: 'new' as const, decidedAt: null, decidedBy: null,
+    };
+    expect(await store.addPartnerApplication(application)).toBe(true);
+    expect(await store.addPartnerApplication({ ...application, id: 'app_2', createdAt: T0 + 1 })).toBe(false);
+    expect(await store.addPartnerApplication({ ...application, id: 'app_3', email: 'kader@x.test', createdAt: T0 + 2 })).toBe(true);
+    expect((await store.partnerApplications(10)).map((a) => a.id)).toEqual(['app_3', 'app_1']);
+    expect(await store.decidePartnerApplication('app_1', 'accepted', T0 + 5, 'boss')).toBe(true);
+    expect(await store.decidePartnerApplication('app_1', 'declined', T0 + 6, 'boss')).toBe(false);
+    expect((await store.partnerApplications(10)).find((a) => a.id === 'app_1')).toEqual({ ...application, status: 'accepted', decidedAt: T0 + 5, decidedBy: 'boss' });
+    // Answered: the same email may apply again.
+    expect(await store.addPartnerApplication({ ...application, id: 'app_4', createdAt: T0 + 7 })).toBe(true);
   });
 
   it('sends an automatic message once per period, keeps its switches, and leaves it out of the console list', async () => {

@@ -1,7 +1,7 @@
 import type { Announcement, AnnouncementEvent, AnnouncementStats } from './announcements.js';
 import type { ModelSetting } from './model-access.js';
 import type { AutoKind } from './auto-messages.js';
-import type { Commission, Gift, Partner, Payout, ProgramRules, Referral } from './partners.js';
+import type { Commission, Gift, Partner, PartnerApplication, Payout, ProgramRules, Referral } from './partners.js';
 import { AUTO_AUTHOR, type Delivery, type Notice, type NoticeEvent, type NoticeStats } from './notifications.js';
 import { createHash } from 'node:crypto';
 import type { ModelPolicy } from './models.js';
@@ -255,6 +255,12 @@ export interface ControlStore {
   /** Records the payout and marks those of its commissions not yet paid; returns how many. */
   payCommissions(payout: Payout, commissionIds: string[]): Promise<number>;
   payouts(partnerId?: string): Promise<Payout[]>;
+  /** False when the same email already waits for an answer. */
+  addPartnerApplication(application: PartnerApplication): Promise<boolean>;
+  /** Newest first. */
+  partnerApplications(limit: number): Promise<PartnerApplication[]>;
+  /** Only an application still waiting; false otherwise. */
+  decidePartnerApplication(id: string, status: 'accepted' | 'declined', at: number, by: string): Promise<boolean>;
 }
 
 export class MemoryStore implements ControlStore {
@@ -274,6 +280,7 @@ export class MemoryStore implements ControlStore {
   private readonly giftList: Gift[] = [];
   private readonly commissionList: Commission[] = [];
   private readonly payoutList: Payout[] = [];
+  private readonly applications: PartnerApplication[] = [];
   private readonly models = new Map<string, ModelSetting>();
   private readonly states = new Map<string, QuotaState>();
   private readonly jobs = new Map<string, MediaJob>();
@@ -574,6 +581,20 @@ export class MemoryStore implements ControlStore {
   }
   async payouts(partnerId?: string) {
     return this.payoutList.filter((p) => !partnerId || p.partnerId === partnerId).map((p) => ({ ...p })).sort((a, b) => b.at - a.at);
+  }
+  async addPartnerApplication(a: PartnerApplication) {
+    if (this.applications.some((x) => x.status === 'new' && x.email === a.email)) return false;
+    this.applications.push({ ...a });
+    return true;
+  }
+  async partnerApplications(limit: number) {
+    return [...this.applications].reverse().sort((a, b) => b.createdAt - a.createdAt).slice(0, limit).map((a) => ({ ...a }));
+  }
+  async decidePartnerApplication(id: string, status: 'accepted' | 'declined', at: number, by: string) {
+    const a = this.applications.find((x) => x.id === id && x.status === 'new');
+    if (!a) return false;
+    Object.assign(a, { status, decidedAt: at, decidedBy: by });
+    return true;
   }
   async notifications(limit: number) {
     return [...this.notices.values()]

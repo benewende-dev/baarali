@@ -9,6 +9,7 @@ import { ANNOUNCEMENT_EVENTS, bannerFor, publicBanner, reaches } from './announc
 import { mountAdminConsole } from './admin-console.js';
 import { AutoMessages } from './auto-messages.js';
 import { PartnerProgram } from './partner-program.js';
+import { partnerRoutes } from './partner-routes.js';
 import { dayWords, refCookie } from './partners.js';
 import { emailTarget, NOTICE_EVENTS, NoticeDispatcher, publicNotice, type Mailer, type NoticeLinks } from './notifications.js';
 import { asset } from './assets.js';
@@ -137,8 +138,13 @@ export function createApp(deps: ControlDeps) {
       if (c.req.query('intent') === 'upgrade') return c.redirect(PRICING_PATH, 302);
       // A partner's link: counted, remembered for the sign-up (partners.ts).
       const partner = c.req.query('p') ? await program.click(c.req.query('p')) : null;
-      const page = html((nonce) => homePage(home, { lang: c.req.header('accept-language') ?? null, nonce }));
-      if (partner) page.headers.set('set-cookie', refCookie(partner.code, await program.rules(), deps.publicUrl));
+      const rules = await program.rules();
+      const gifted = partner && rules.giftPlanId ? await deps.store.plan(rules.giftPlanId) : null;
+      // A paused partner's link still sends people here, but earns nothing and offers nothing.
+      const active = partner?.status === 'active' ? partner : null;
+      const referral = active ? { partner: active.name, gift: gifted ? { plan: gifted.displayName, days: rules.giftDays } : null } : null;
+      const page = html((nonce) => homePage(home, { lang: c.req.header('accept-language') ?? null, nonce, referral }));
+      if (active) page.headers.set('set-cookie', refCookie(active.code, rules, deps.publicUrl));
       return page;
     });
     app.get(PRICING_PATH, (c) => html((nonce) => pricingPage(home, { lang: c.req.header('accept-language') ?? null, nonce })));
@@ -165,6 +171,8 @@ export function createApp(deps: ControlDeps) {
     const auth = deps.auth;
     app.all(`${AUTH_BASE_PATH}/*`, (c) => auth.handle(c.req.raw));
   }
+
+  partnerRoutes(app, { store: deps.store, program, auth: deps.auth, home: deps.home, publicUrl: deps.publicUrl, now: deps.now });
 
   const accountFor = accountResolver(deps.store, deps.auth);
 
@@ -441,6 +449,7 @@ export function createApp(deps: ControlDeps) {
     notices: dispatch,
     auto,
     program,
+    publicUrl: deps.publicUrl,
   });
 
   app.post('/v1/admin/media-credits', async (c) => {
