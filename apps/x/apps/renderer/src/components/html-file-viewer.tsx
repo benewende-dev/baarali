@@ -1,6 +1,8 @@
 import { useFileViewerSource } from './file-viewer-source'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertCircleIcon, ExternalLinkIcon, FileTextIcon, Loader2Icon } from 'lucide-react'
+import { MotionStudio } from './motion-studio'
+import { motionProject } from '@/lib/motion-project'
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024
 
@@ -15,7 +17,12 @@ interface HtmlFileViewerProps {
   path: string
 }
 
+// BAARALI(2026-10-09): a motion project opens in the Studio Motion (motion-studio.tsx).
 export function HtmlFileViewer({ path }: HtmlFileViewerProps) {
+  return motionProject(path) ? <MotionStudio key={path} path={path} /> : <HtmlPageViewer path={path} />
+}
+
+function HtmlPageViewer({ path }: HtmlFileViewerProps) {
   const source = useFileViewerSource()
   const [state, setState] = useState<ViewerState>({ kind: 'loading' })
   const [iframeLoaded, setIframeLoaded] = useState(false)
