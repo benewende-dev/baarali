@@ -438,7 +438,11 @@ export function createMotionTools(deps: MotionToolsDeps) {
           }
           if (data.status === 'done') {
             const file = await api(`/renders/${encodeURIComponent(id)}/file`);
-            if (!file.ok) return text(`${intro}The export is done but its file could not be fetched (${file.status}); render it again.`, true);
+            if (!file.ok) {
+              const code = ((await readJson(file)).error as Record<string, unknown> | undefined)?.code;
+              if (code === 'lost') return text(`${intro}The export finished but its file was lost before it reached the workspace. It was refunded, minutes and credits: render it again, at no extra cost.`, true);
+              return text(`${intro}The export is done but its file could not be fetched (${file.status}); render it again.`, true);
+            }
             const out = path.join(dir, EXPORTS_DIR, `${path.basename(dir)}${format === 'mp4' ? '' : `-${format}`}.${EXPORT_EXTENSIONS[format]}`);
             await fs.mkdir(path.dirname(out), { recursive: true });
             await fs.writeFile(out, Buffer.from(await file.arrayBuffer()));

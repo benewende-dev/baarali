@@ -50,7 +50,13 @@ export function createApp(deps: { queue: RenderQueue; secret: string }) {
       return c.json({ error: 'Expected a JSON body' }, 400);
     }
     const q = c.req.query();
-    const r = await deps.queue.submit({ id: q.id, format: q.format, fps: q.fps === undefined ? undefined : Number(q.fps), files });
+    const r = await deps.queue.submit({
+      id: q.id,
+      format: q.format,
+      fps: q.fps === undefined ? undefined : Number(q.fps),
+      seconds: q.seconds === undefined ? undefined : Number(q.seconds),
+      files,
+    });
     if (!r.ok) return c.json({ error: r.message }, r.status);
     return c.json(view(r.job), 202);
   });

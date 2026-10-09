@@ -369,18 +369,22 @@ export class PgStore implements ControlStore {
   async motionRender(id: string): Promise<MotionRender | null> {
     const { rows } = await this.db.query<{
       id: string; account_id: string; at: Date | string; format: string; fps: number; seconds: number; included: number; credits: number;
-      charge_ref: string; status: MotionRender['status']; machine: string | null; refunded: boolean; error: string | null;
+      charge_ref: string; status: MotionRender['status']; machine: string | null; refunded: boolean; error: string | null; delivered_at: Date | string | null;
     }>('SELECT * FROM baarali.motion_renders WHERE id = $1', [id]);
     const r = rows[0];
     if (!r) return null;
     return {
       id: r.id, accountId: r.account_id, at: new Date(r.at).getTime(), format: r.format, fps: num(r.fps), seconds: num(r.seconds),
       included: num(r.included), credits: num(r.credits), chargeRef: r.charge_ref, status: r.status, machine: r.machine, refunded: r.refunded, error: r.error,
+      deliveredAt: r.delivered_at === null ? null : new Date(r.delivered_at).getTime(),
     };
   }
 
   async saveMotionRender(r: MotionRender) {
-    await this.db.query('UPDATE baarali.motion_renders SET status = $2, machine = $3, refunded = $4, error = $5 WHERE id = $1', [r.id, r.status, r.machine, r.refunded, r.error]);
+    await this.db.query(
+      'UPDATE baarali.motion_renders SET status = $2, machine = $3, refunded = $4, error = $5, delivered_at = $6 WHERE id = $1',
+      [r.id, r.status, r.machine, r.refunded, r.error, r.deliveredAt === null ? null : new Date(r.deliveredAt)],
+    );
   }
 
   async motionUsage(accountId: string, since: number) {

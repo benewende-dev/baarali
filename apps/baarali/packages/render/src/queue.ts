@@ -82,6 +82,11 @@ export class RenderQueue {
     if (fps !== 30 && fps !== 60) return { ok: false, status: 400, message: 'fps is 30 or 60' };
     const project = checkProject(b.files);
     if (!project.ok) return { ok: false, status: 400, message: project.message };
+    // The control plane charged the duration the instance read: a project
+    // saying otherwise is refused here, before a single frame is rendered.
+    if (b.seconds !== undefined && (typeof b.seconds !== 'number' || Math.ceil(b.seconds) !== Math.ceil(project.seconds))) {
+      return { ok: false, status: 400, message: `The composition lasts ${project.seconds} s, not the ${String(b.seconds)} s announced` };
+    }
 
     const job: Job = {
       id: b.id,

@@ -123,6 +123,22 @@ describe('render service', () => {
     expect((await call(...post(body({ id: 'x' })))).status).toBe(400);
     expect((await call('/jobs/new?id=job-f-0001&format=mp4', { method: 'POST', body: '{' })).status).toBe(400);
   });
+
+  it('refuses a project whose duration is not the one announced, before rendering it', async () => {
+    let rendered = 0;
+    const { call, queue } = await setup(async (task) => {
+      rendered++;
+      await fs.writeFile(task.out, 'x');
+    });
+    const wrong = await call(...post(body({ id: 'job-lie-0001', seconds: 2 })));
+    expect(wrong.status).toBe(400);
+    expect((await wrong.json()).error).toBe('The composition lasts 6 s, not the 2 s announced');
+    expect(queue.get('job-lie-0001')).toBeNull();
+    // Whole seconds are what is counted: 5.4 s announced for 6 s is the same export.
+    expect((await call(...post(body({ id: 'job-ok-0001', seconds: 5.4 })))).status).toBe(202);
+    await until(() => queue.get('job-ok-0001')?.status === 'done');
+    expect(rendered).toBe(1);
+  });
 });
 
 describe('capture browsers', () => {
