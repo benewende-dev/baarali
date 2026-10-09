@@ -10,7 +10,6 @@ import { Bell,
   ArrowUpRight,
   CalendarClock,
   SquareCheckBig,
-  FolderKanban,
   Blocks,
   MessageCircle,
   Library,
@@ -33,7 +32,7 @@ import { Bell,
   Trash2,
   Users,
   Video,
-  type LucideIcon,
+  type LucideIcon, Code2
 } from "lucide-react"
 import {
   AlertDialog,
@@ -946,6 +945,14 @@ export function DockSidebar({
           },
         },
       ] : []),
+      // Baarali (09/10/2026): Projects is « Code », right under Chat, as in the sidebar.
+      {
+        item: {
+          key: 'workspaces', label: 'Code', icon: Code2, tourId: 'nav-workspaces',
+          running: activeNav === 'workspaces' || activeNav === 'code',
+          onClick: () => { closeFlyouts(); knowledgeActions.openWorkspaceAt() },
+        },
+      },
       ...(SPACES_ENABLED && (!switcherOnly || totalSpaces > 0) ? [{
         item: {
           key: 'spaces', label: 'Spaces', icon: Users, tourId: 'nav-spaces',
@@ -996,13 +1003,6 @@ export function DockSidebar({
           key: 'home', label: 'Todo', icon: SquareCheckBig, tourId: 'nav-home',
           running: activeNav === 'home',
           onClick: () => { closeFlyouts(); onOpenHome?.() },
-        },
-      },
-      {
-        item: {
-          key: 'workspaces', label: 'Projects', icon: FolderKanban, tourId: 'nav-workspaces',
-          running: activeNav === 'workspaces' || activeNav === 'code',
-          onClick: () => { closeFlyouts(); knowledgeActions.openWorkspaceAt() },
         },
       },
       {

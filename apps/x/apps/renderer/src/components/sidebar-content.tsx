@@ -1,6 +1,7 @@
 "use client"
 
 import { SidebarChatContextMenu } from "./sidebar-chat-context-menu"
+import { useSidebarRows, type SidebarPage } from "@/lib/sidebar-layout"
 import * as React from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -12,7 +13,7 @@ import {
   CalendarClock,
   Library,
   ChevronRight,
-  FolderKanban,
+  Code2,
   AlertTriangle,
   Blocks,
   SquareCheckBig,
@@ -522,6 +523,7 @@ export function SidebarContentPanel({
   const [emailThreads, setEmailThreads] = useState<SidebarEmailThread[]>([])
   const [meetings, setMeetings] = useState<UpcomingMeeting[]>([])
   const [chatsExpanded, setChatsExpanded] = useState(true)
+  const sidebarRows = useSidebarRows()
   useEffect(() => {
     let cancelled = false
     const loadEmail = async () => {
@@ -834,6 +836,309 @@ export function SidebarContentPanel({
     ? (recordingMeeting?.summary ?? 'Recording…')
     : (previewMeeting ? `${previewMeeting.summary} · ${formatMeetingTime(previewMeeting)}` : null)
 
+  // Baarali (09/10/2026): the pages follow a layout, the founder's order by
+  // default and the admin console's once published (@x/shared sidebar-layout).
+  const pageLabel = (row: { label: string | null }, fallback: string): React.ReactNode =>
+    row.label ? <span data-no-translate>{row.label}</span> : fallback
+  const renderPage = (row: { id: SidebarPage; label: string | null }): React.ReactNode => {
+    switch (row.id) {
+      case 'chat':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton
+        isActive={activeNav === 'assistant'}
+        onClick={() => {
+          if (onOpenAssistant) onOpenAssistant()
+          else if (lastChat && onOpenRun) onOpenRun(lastChat.id)
+          else onNewChat?.()
+        }}
+      >
+        <MessagesSquare className="size-4 shrink-0" />
+        <span className="flex-1 truncate font-medium">{row.label ? <span data-no-translate>{row.label}</span> : 'Chat'}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'coworkers':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton isActive={activeNav === 'baarasseurs'} onClick={() => onOpenBaarasseurs?.()}>
+        <UsersRound className="size-4 shrink-0" />
+        <span className="flex-1 truncate font-medium">{pageLabel(row, 'Coworkers')}</span>
+        {baarasseursUnread > 0 && (
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground" data-no-translate>
+            {baarasseursUnread > 99 ? '99+' : baarasseursUnread}
+          </span>
+        )}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'code':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton
+        data-tour-id="nav-workspaces"
+        isActive={activeNav === 'workspaces' || activeNav === 'code'}
+        onClick={() => knowledgeActions.openWorkspaceAt()}
+      >
+        <Code2 className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{pageLabel(row, 'Code')}</span>
+        {hasWorkingProjectSession && (
+          <span role="status" aria-label="Project session working" className="code-working-dot size-2 shrink-0 rounded-full bg-[var(--rowboat-git)]" />
+        )}
+        <UnreadBadge badge={{ unread: unreadProjectCount, forYou: unreadProjectCount }} direct />
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'email':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton
+        data-tour-id="nav-email"
+        isActive={activeNav === 'email'}
+        onClick={() => onOpenEmail?.()}
+        className={previewEmail ? 'h-auto items-start py-1' : undefined}
+      >
+        <Mail className={cn('size-4 shrink-0', previewEmail && 'mt-0.5')} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate">{pageLabel(row, 'Email')}</span>
+          {previewEmail && (
+            <span className="truncate text-[11px] text-muted-foreground">
+              {formatEmailFrom(previewEmail.from)} · {previewEmail.subject}
+            </span>
+          )}
+        </div>
+        {unreadEmailCount > 0 && (
+          <span className="shrink-0 self-center rounded-full bg-sidebar-accent px-1.5 text-[10px] font-medium text-sidebar-accent-foreground tabular-nums">
+            {unreadEmailCount}
+          </span>
+        )}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'meetings':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton
+        data-tour-id="nav-meetings"
+        isActive={activeNav === 'meetings'}
+        onClick={onOpenMeetings}
+        className={meetingSublabel ? 'h-auto items-start py-1' : undefined}
+      >
+        <Mic className={cn('size-4 shrink-0', meetingSublabel && 'mt-1', meetingIsRecording && 'text-red-500')} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate">{pageLabel(row, 'Meetings')}</span>
+          {meetingSublabel && (
+            <span className={cn(
+              'truncate text-[11px]',
+              meetingIsRecording ? 'text-red-500' : 'text-muted-foreground',
+            )}>
+              {meetingSublabel}
+            </span>
+          )}
+        </div>
+      </SidebarMenuButton>
+      {meetingIsRecording ? (
+        <div className="absolute inset-y-0 right-1 flex items-center gap-1.5">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+          </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Stop recording"
+                disabled={meetingIsBusy}
+                onClick={(e) => { e.stopPropagation(); onToggleMeetingRecording?.() }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="flex aspect-square w-5 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {meetingIsBusy ? <LoaderIcon className="size-4 animate-spin" /> : <Square className="size-3.5 fill-current" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {meetingRecordingState === 'connecting' ? 'Starting…' : meetingRecordingState === 'stopping' ? 'Stopping…' : 'Stop recording'}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      ) : previewMeeting ? (
+        <div className="absolute inset-y-0 right-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label="Take notes"
+                onClick={(e) => { e.stopPropagation(); triggerMeetingCapture(previewMeeting, false) }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="flex aspect-square w-5 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <Mic className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Take notes</TooltipContent>
+          </Tooltip>
+          {previewMeeting.conferenceLink && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Join & take notes"
+                  onClick={(e) => { e.stopPropagation(); triggerMeetingCapture(previewMeeting, true) }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="flex aspect-square w-5 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                >
+                  <Video className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Join & take notes</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      ) : null}
+    </SidebarMenuItem>
+        )
+      case 'todo':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton data-tour-id="nav-home" isActive={activeNav === 'home'} onClick={onOpenHome}>
+        <SquareCheckBig className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{pageLabel(row, 'Todo')}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'routines':
+        return (
+          <React.Fragment key={row.id}>
+<SidebarMenuItem>
+      <SidebarMenuButton
+        data-tour-id="nav-agents"
+        isActive={activeNav === 'agents'}
+        onClick={onOpenBgTasks}
+        className={bgAgentsLabel ? 'h-auto items-start py-1' : undefined}
+      >
+        <CalendarClock className={cn('size-4 shrink-0', bgAgentsLabel && 'mt-0.5')} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate">{pageLabel(row, 'Scheduled tasks')}</span>
+          {bgAgentsLabel && (
+            <span className={cn(
+              'truncate text-[11px]',
+              bgTaskSummaries.some((t) => t.lastRunError) ? 'text-destructive' : 'text-muted-foreground',
+            )}>
+              {bgAgentsLabel}
+            </span>
+          )}
+        </div>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+    {pinnedApps.map(({ folder, name }) => (
+      <SidebarMenuItem key={folder}>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <SidebarMenuButton onClick={() => onOpenApp?.(folder)} className="pl-7">
+              <AppWindow className="size-4 shrink-0 text-muted-foreground" />
+              <span className="flex-1 truncate">{name}</span>
+            </SidebarMenuButton>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => unpinApp(folder)}>
+              <PanelLeftClose className="mr-2 size-3.5" />
+              Remove from sidebar
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      </SidebarMenuItem>
+    ))}
+    {/* Baarali (03/10/2026): no « More » fold any longer; the sidebar has
+        room for every page since Connectors and the usage left it. */}
+    {/* Connectors moved to the composer's + menu (03/10/2026); an account
+        that needs attention still shows here, until it is fixed. */}
+    {hasOauthError && (
+    <SidebarMenuItem>
+      <SidebarMenuButton ref={connectorsButtonRef} data-tour-id="nav-connectors" onClick={() => setConnectionsSettingsOpen(true)}>
+        <Plug className="size-4 shrink-0" />
+        <span className="flex-1 truncate">Connectors</span>
+        <AlertTriangle aria-label="A connected account needs attention" className="size-3.5 shrink-0 text-amber-500/90" />
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+    )}
+          </React.Fragment>
+        )
+      case 'apps':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton
+        data-tour-id="nav-apps"
+        isActive={activeNav === 'apps'}
+        onClick={onOpenApps}
+      >
+        <Blocks className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{pageLabel(row, 'Apps')}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'prompts':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton isActive={activeNav === 'prompts'} onClick={onOpenPrompts}>
+        <NotebookPen className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{pageLabel(row, 'Prompts')}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'library':
+        return (
+<SidebarMenuItem key={row.id}>
+      <SidebarMenuButton
+        data-tour-id="nav-knowledge"
+        isActive={activeNav === 'knowledge'}
+        onClick={() => knowledgeActions.openKnowledgeView()}
+        className={knowledgeUpdatedLabel ? 'h-auto items-start py-1' : undefined}
+      >
+        <Library className={cn('size-4 shrink-0', knowledgeUpdatedLabel && 'mt-0.5')} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate">{pageLabel(row, 'Library')}</span>
+          {knowledgeUpdatedLabel && (
+            <span className="truncate text-[11px] text-muted-foreground">{knowledgeUpdatedLabel}</span>
+          )}
+        </div>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+        )
+      case 'spaces':
+        return null
+    }
+  }
+  const sidebarBlocks: React.ReactNode[] = []
+  let menuRun: React.ReactNode[] = []
+  const flushMenu = () => {
+    if (!menuRun.length) return
+    sidebarBlocks.push(
+      <SidebarGroup key={`menu-${sidebarBlocks.length}`} className="flex flex-col py-1">
+        <SidebarGroupContent>
+          <SidebarMenu>{menuRun}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>,
+    )
+    menuRun = []
+  }
+  for (const row of sidebarRows) {
+    if (row.id === 'separator') {
+      flushMenu()
+      sidebarBlocks.push(<div key={`sep-${sidebarBlocks.length}`} className="mx-3 my-2 border-t border-border" />)
+    } else if (row.id === 'spaces') {
+      flushMenu()
+      if (SPACES_ENABLED) {
+        sidebarBlocks.push(
+          <SpacesSidebarSection key="spaces" label={row.label} active={activeNav === 'spaces'} activeSpace={activeSpace}
+            onOpenSpace={(orgId, spaceId) => onOpenSpace?.(orgId, spaceId)} />,
+        )
+      }
+    } else {
+      menuRun.push(renderPage(row))
+    }
+  }
+  flushMenu()
+
   return (
     <Sidebar className="rowboat-sidebar border-r-0" {...props}>
       <SidebarHeader className="titlebar-drag-region gap-0 pb-0">
@@ -854,263 +1159,9 @@ export function SidebarContentPanel({
         </div>
       </SidebarHeader>
       <SidebarContent className="gap-0">
-        {/* Ordered to mirror the dock: Assistant, Projects, Spaces, then the
-            destinations, then Chats. Same glyphs as the dock tiles. */}
-        <SidebarGroup className="flex flex-col pb-2 pt-2">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={activeNav === 'assistant'}
-                  onClick={() => {
-                    if (onOpenAssistant) onOpenAssistant()
-                    else if (lastChat && onOpenRun) onOpenRun(lastChat.id)
-                    else onNewChat?.()
-                  }}
-                >
-                  <MessagesSquare className="size-4 shrink-0" />
-                  <span className="flex-1 truncate font-medium" data-no-translate>Chat</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {/* Baarali (06/10/2026): the baarasseurs, between the chat and the
-                  team spaces, as the founder placed them. */}
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeNav === 'baarasseurs'} onClick={() => onOpenBaarasseurs?.()}>
-                  <UsersRound className="size-4 shrink-0" />
-                  <span className="flex-1 truncate font-medium" data-no-translate>Baarasseurs</span>
-                  {baarasseursUnread > 0 && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground" data-no-translate>
-                      {baarasseursUnread > 99 ? '99+' : baarasseursUnread}
-                    </span>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Server shortcuts under the Spaces heading. */}
-        {SPACES_ENABLED && (
-          <>
-            <SpacesSidebarSection active={activeNav === 'spaces'} activeSpace={activeSpace}
-              onOpenSpace={(orgId, spaceId) => onOpenSpace?.(orgId, spaceId)} />
-            <div className="mx-3 my-2 border-t border-border" />
-          </>
-        )}
-
-        {/* Primary navigation */}
-        <SidebarGroup className="flex flex-col">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  data-tour-id="nav-email"
-                  isActive={activeNav === 'email'}
-                  onClick={() => onOpenEmail?.()}
-                  className={previewEmail ? 'h-auto items-start py-1' : undefined}
-                >
-                  <Mail className={cn('size-4 shrink-0', previewEmail && 'mt-0.5')} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Email</span>
-                    {previewEmail && (
-                      <span className="truncate text-[11px] text-muted-foreground">
-                        {formatEmailFrom(previewEmail.from)} · {previewEmail.subject}
-                      </span>
-                    )}
-                  </div>
-                  {unreadEmailCount > 0 && (
-                    <span className="shrink-0 self-center rounded-full bg-sidebar-accent px-1.5 text-[10px] font-medium text-sidebar-accent-foreground tabular-nums">
-                      {unreadEmailCount}
-                    </span>
-                  )}
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  data-tour-id="nav-meetings"
-                  isActive={activeNav === 'meetings'}
-                  onClick={onOpenMeetings}
-                  className={meetingSublabel ? 'h-auto items-start py-1' : undefined}
-                >
-                  <Mic className={cn('size-4 shrink-0', meetingSublabel && 'mt-1', meetingIsRecording && 'text-red-500')} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Meetings</span>
-                    {meetingSublabel && (
-                      <span className={cn(
-                        'truncate text-[11px]',
-                        meetingIsRecording ? 'text-red-500' : 'text-muted-foreground',
-                      )}>
-                        {meetingSublabel}
-                      </span>
-                    )}
-                  </div>
-                </SidebarMenuButton>
-                {meetingIsRecording ? (
-                  <div className="absolute inset-y-0 right-1 flex items-center gap-1.5">
-                    <span className="relative flex size-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                      <span className="relative inline-flex size-2 rounded-full bg-red-500" />
-                    </span>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Stop recording"
-                          disabled={meetingIsBusy}
-                          onClick={(e) => { e.stopPropagation(); onToggleMeetingRecording?.() }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          className="flex aspect-square w-5 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                        >
-                          {meetingIsBusy ? <LoaderIcon className="size-4 animate-spin" /> : <Square className="size-3.5 fill-current" />}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        {meetingRecordingState === 'connecting' ? 'Starting…' : meetingRecordingState === 'stopping' ? 'Stopping…' : 'Stop recording'}
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                ) : previewMeeting ? (
-                  <div className="absolute inset-y-0 right-1 flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Take notes"
-                          onClick={(e) => { e.stopPropagation(); triggerMeetingCapture(previewMeeting, false) }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          className="flex aspect-square w-5 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                        >
-                          <Mic className="size-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">Take notes</TooltipContent>
-                    </Tooltip>
-                    {previewMeeting.conferenceLink && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label="Join & take notes"
-                            onClick={(e) => { e.stopPropagation(); triggerMeetingCapture(previewMeeting, true) }}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            className="flex aspect-square w-5 items-center justify-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                          >
-                            <Video className="size-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Join & take notes</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                ) : null}
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton data-tour-id="nav-home" isActive={activeNav === 'home'} onClick={onOpenHome}>
-                  <SquareCheckBig className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">Todo</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  data-tour-id="nav-workspaces"
-                  isActive={activeNav === 'workspaces' || activeNav === 'code'}
-                  onClick={() => knowledgeActions.openWorkspaceAt()}
-                >
-                  <FolderKanban className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">Projects</span>
-                  {hasWorkingProjectSession && (
-                    <span role="status" aria-label="Project session working" className="code-working-dot size-2 shrink-0 rounded-full bg-[var(--rowboat-git)]" />
-                  )}
-                  <UnreadBadge badge={{ unread: unreadProjectCount, forYou: unreadProjectCount }} direct />
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  data-tour-id="nav-agents"
-                  isActive={activeNav === 'agents'}
-                  onClick={onOpenBgTasks}
-                  className={bgAgentsLabel ? 'h-auto items-start py-1' : undefined}
-                >
-                  <CalendarClock className={cn('size-4 shrink-0', bgAgentsLabel && 'mt-0.5')} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Scheduled tasks</span>
-                    {bgAgentsLabel && (
-                      <span className={cn(
-                        'truncate text-[11px]',
-                        bgTaskSummaries.some((t) => t.lastRunError) ? 'text-destructive' : 'text-muted-foreground',
-                      )}>
-                        {bgAgentsLabel}
-                      </span>
-                    )}
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {pinnedApps.map(({ folder, name }) => (
-                <SidebarMenuItem key={folder}>
-                  <ContextMenu>
-                    <ContextMenuTrigger asChild>
-                      <SidebarMenuButton onClick={() => onOpenApp?.(folder)} className="pl-7">
-                        <AppWindow className="size-4 shrink-0 text-muted-foreground" />
-                        <span className="flex-1 truncate">{name}</span>
-                      </SidebarMenuButton>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => unpinApp(folder)}>
-                        <PanelLeftClose className="mr-2 size-3.5" />
-                        Remove from sidebar
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                </SidebarMenuItem>
-              ))}
-              {/* Baarali (03/10/2026): no « More » fold any longer; the sidebar has
-                  room for every page since Connectors and the usage left it. */}
-              {/* Connectors moved to the composer's + menu (03/10/2026); an account
-                  that needs attention still shows here, until it is fixed. */}
-              {hasOauthError && (
-              <SidebarMenuItem>
-                <SidebarMenuButton ref={connectorsButtonRef} data-tour-id="nav-connectors" onClick={() => setConnectionsSettingsOpen(true)}>
-                  <Plug className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">Connectors</span>
-                  <AlertTriangle aria-label="A connected account needs attention" className="size-3.5 shrink-0 text-amber-500/90" />
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              )}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  data-tour-id="nav-apps"
-                  isActive={activeNav === 'apps'}
-                  onClick={onOpenApps}
-                >
-                  <Blocks className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">Apps</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeNav === 'prompts'} onClick={onOpenPrompts}>
-                  <NotebookPen className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">Prompts</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  data-tour-id="nav-knowledge"
-                  isActive={activeNav === 'knowledge'}
-                  onClick={() => knowledgeActions.openKnowledgeView()}
-                  className={knowledgeUpdatedLabel ? 'h-auto items-start py-1' : undefined}
-                >
-                  <Library className={cn('size-4 shrink-0', knowledgeUpdatedLabel && 'mt-0.5')} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Library</span>
-                    {knowledgeUpdatedLabel && (
-                      <span className="truncate text-[11px] text-muted-foreground">{knowledgeUpdatedLabel}</span>
-                    )}
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Baarali (09/10/2026): the pages in the published order (renderPage). */}
+        <div className="pt-1" />
+        {sidebarBlocks}
 
         <div className="mx-3 my-2 border-t border-border" />
 
