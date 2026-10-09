@@ -33,6 +33,7 @@ import {
   Video,
   CircleAlert,
   X,
+  SquarePen,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -1120,6 +1121,17 @@ export function SidebarContentPanel({
       </SidebarGroup>,
     )
     menuRun = []
+  }
+  // BAARALI(2026-10-09): « New chat » first, between the logo and Chat (asked by the founder).
+  if (onNewChat) {
+    menuRun.push(
+      <SidebarMenuItem key="new-chat">
+        <SidebarMenuButton onClick={() => onNewChat()}>
+          <SquarePen className="size-4 shrink-0" />
+          <span className="flex-1 truncate font-medium">New chat</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>,
+    )
   }
   for (const row of sidebarRows) {
     if (row.id === 'separator') {

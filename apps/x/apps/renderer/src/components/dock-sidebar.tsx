@@ -930,6 +930,14 @@ export function DockSidebar({
       // The top section: Assistant (resumes the most recent chat, falling
       // back to a fresh one — white tile), then Projects and Spaces, then a
       // divider before the destinations.
+      // BAARALI(2026-10-09): « New chat » above Chat, as in the sidebar.
+      ...(onNewChat ? [{
+        item: {
+          key: 'new-chat', label: 'New chat', icon: SquarePen,
+          running: false,
+          onClick: () => { closeFlyouts(); onNewChat() },
+        },
+      }] : []),
       ...(onOpenRun || onNewChat ? [
         {
           item: {
