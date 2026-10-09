@@ -339,7 +339,8 @@ export async function checkComposition(html: string, projectDir: string): Promis
       if (isMusic(clip) && !clip.automated) add('warning', 'music_not_mixed', `The music ${clip.id ?? clip.src} plays at full level under the voice.`, 'Call mix: it lowers the music while the voice speaks.');
     }
   }
-  if (/\.animate\(/.test(html) && !/\bfill\s*:\s*['"]both['"]/.test(html)) {
+  // The kit's hfEl chooses the fill itself (motion-kit.ts).
+  if (/\.animate\(/.test(html) && !/\bfill\s*:\s*['"]both['"]/.test(html) && !/function hfEl\(/.test(html)) {
     add('warning', 'waapi_fill', 'Animations without fill:"both" lose their state when seeked.', 'Create every animation with fill:"both" (hfEl does).');
   }
   for (const m of html.matchAll(/\b(?:src|href)="([^"]+)"/g)) {
@@ -452,7 +453,24 @@ export function createMotionTools(deps: MotionToolsDeps) {
         // A logo moved away: the brand's initial stands in.
       }
     }
-    const { html, duration } = compose(meta.template, { format: meta.format, title: meta.title, brand, values: meta.values, logoSrc, speed: meta.speed });
+    // A picture slot names a workspace image: it goes with the project too.
+    const values = { ...meta.values };
+    for (const slot of TEMPLATES.find((t) => t.id === meta.template)?.slots ?? []) {
+      if (!slot.image) continue;
+      const given = values[slot.key]?.trim();
+      values[slot.key] = '';
+      if (!given) continue;
+      const src = path.resolve(deps.workDir, given);
+      if (!src.startsWith(deps.workDir + path.sep) || !/\.(png|jpe?g|webp|svg|gif)$/i.test(src)) continue;
+      try {
+        const name = `${slot.key}${path.extname(src).toLowerCase()}`;
+        await fs.copyFile(src, path.join(dir, 'assets', name));
+        values[slot.key] = `assets/${name}`;
+      } catch {
+        // Moved away: the template does without it.
+      }
+    }
+    const { html, duration } = compose(meta.template, { format: meta.format, title: meta.title, brand, values, logoSrc, speed: meta.speed });
     await fs.writeFile(path.join(dir, 'index.html'), html);
     await fs.writeFile(path.join(dir, 'project.json'), JSON.stringify(meta, null, 2) + '\n');
     return { dir, duration };
@@ -507,7 +525,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
 
     if (name === 'list_templates') {
       return text(TEMPLATES.map((t) =>
-        `- ${t.id} — ${t.name}: ${t.use} ${t.duration} s${t.transparent ? ', transparent background' : ''}.\n  slots: ${t.slots.map((s) => `${s.key}${s.list ? ' (one per line)' : ''} e.g. "${s.example.replace(/\n/g, ' / ')}"`).join('; ')}`,
+        `- ${t.id} — ${t.name}: ${t.use} ${t.duration} s${t.transparent ? ', transparent background' : ''}.\n  slots: ${t.slots.map((s) => (s.image ? `${s.key} (the workspace path of an image, optional)` : `${s.key}${s.list ? ' (one per line)' : ''} e.g. "${s.example.replace(/\n/g, ' / ')}"`)).join('; ')}`,
       ).join('\n'));
     }
 
