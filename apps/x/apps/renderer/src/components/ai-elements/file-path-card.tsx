@@ -9,6 +9,8 @@ import { useSidebarSection } from '@/contexts/sidebar-context'
 import { isImageFilePath } from '@/lib/file-utils'
 import { canOpenInApp } from '@/lib/file-types'
 import { wikiLabel } from '@/lib/wiki-links'
+import { motionProjectName } from '@/lib/motion-project'
+import { MotionFileCard } from './motion-file-card'
 
 const AUDIO_EXTENSIONS = new Set(['.wav', '.mp3', '.m4a', '.ogg', '.flac', '.aac'])
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico'])
@@ -107,7 +109,7 @@ function OpenFileActions({ filePath, onOpen }: { filePath: string; onOpen: () =>
 }
 
 // Shared card shell used by all variants
-function CardShell({
+export function CardShell({
   icon,
   title,
   subtitle,
@@ -404,6 +406,11 @@ export function FilePathCard({ filePath }: { filePath: string }) {
 
   if (trimmed.startsWith('knowledge/')) {
     return <KnowledgeFileCard filePath={trimmed} />
+  }
+
+  // BAARALI(2026-10-09): a motion project opens the Studio Motion (motion-file-card.tsx).
+  if (motionProjectName(trimmed)) {
+    return <MotionFileCard filePath={trimmed} />
   }
 
   const ext = getExtension(trimmed)
