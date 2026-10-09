@@ -24,13 +24,30 @@ import { serverLandingSpaceId } from '@/lib/spaces-navigation'
 import { AddServerDialog } from '@/components/spaces/add-server-dialog'
 
 /** Server shortcuts; conversation navigation lives inside each server. */
-export function SpacesSidebarSection({ active, activeSpace, onOpenSpace }: {
+const FOLDED_KEY = 'baarali.spacesFolded'
+
+/** Baarali (09/10/2026): the section folds, as validated; the choice is kept. */
+function useFolded(): [boolean, () => void] {
+    const [folded, setFolded] = useState(() => {
+        try { return localStorage.getItem(FOLDED_KEY) === '1' } catch { return false }
+    })
+    const toggle = () => setFolded((v) => {
+        try { localStorage.setItem(FOLDED_KEY, v ? '0' : '1') } catch { /* kept for this session */ }
+        return !v
+    })
+    return [folded, toggle]
+}
+
+export function SpacesSidebarSection({ active, activeSpace, onOpenSpace, label }: {
     active: boolean
     activeSpace?: SpaceSelection
     onOpenSpace: (orgId: string, spaceId: string) => void
+    /** The name the admin console gave the section; null keeps « Spaces ». */
+    label?: string | null
 }) {
     const { orgs } = useSpacesOrgs()
     const [addingServer, setAddingServer] = useState(false)
+    const [folded, toggleFolded] = useFolded()
     const unread = useSpacesUnreadCounts()
     const serverBadges = new Map<string, SpaceBadge>()
     for (const org of orgs) {
@@ -44,16 +61,25 @@ export function SpacesSidebarSection({ active, activeSpace, onOpenSpace }: {
     }
     return <SidebarGroup className="pt-0">
         <SidebarGroupContent>
-            <div data-tour-id="nav-spaces" className="flex h-8 items-center gap-2.5 px-2.5">
-                <Users className="size-4 shrink-0 text-sidebar-foreground" />
-                <h2 className="flex-1 text-sm text-sidebar-foreground">Spaces</h2>
-                <button type="button" aria-label="Add server" title="Add server"
-                    className="flex size-5 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-                    onClick={() => setAddingServer(true)}>
-                    <Plus className="size-4" />
+            <div data-tour-id="nav-spaces" className="flex h-8 items-center gap-1.5 pl-1 pr-2.5">
+                <button type="button" aria-expanded={!folded} aria-label={folded ? 'Show servers' : 'Hide servers'}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                    onClick={toggleFolded}>
+                    <ChevronRight className={cn('size-3 shrink-0 text-muted-foreground transition-transform', !folded && 'rotate-90')} />
+                    <Users className="size-4 shrink-0 text-sidebar-foreground" />
+                    <h2 className="min-w-0 flex-1 truncate text-sm text-sidebar-foreground">{label ? <span data-no-translate>{label}</span> : 'Spaces'}</h2>
                 </button>
+                {folded ? (
+                    orgs.length > 0 && <span className="text-xs tabular-nums text-muted-foreground" data-no-translate>{orgs.length}</span>
+                ) : (
+                    <button type="button" aria-label="Add server" title="Add server"
+                        className="flex size-5 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                        onClick={() => setAddingServer(true)}>
+                        <Plus className="size-4" />
+                    </button>
+                )}
             </div>
-            <SidebarMenu>
+            {!folded && <SidebarMenu>
                 {orgs.map((org) => <SidebarMenuItem key={org.id}>
                     <SidebarMenuButton className="pl-6" isActive={active && activeSpace?.orgId === org.id}
                         title={org.name} onClick={() => onOpenSpace(org.id, serverLandingSpaceId(org))}>
@@ -62,7 +88,7 @@ export function SpacesSidebarSection({ active, activeSpace, onOpenSpace }: {
                         <UnreadBadge badge={serverBadges.get(org.id)!} />
                     </SidebarMenuButton>
                 </SidebarMenuItem>)}
-            </SidebarMenu>
+            </SidebarMenu>}
             {addingServer && <AddServerDialog onClose={() => setAddingServer(false)} onChoose={(kind) => {
                 setAddingServer(false)
                 openServerDialog({ kind })

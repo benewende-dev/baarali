@@ -5107,21 +5107,21 @@ function App() {
       case 'home': return 'Todo'
       case 'chat': return 'Chat'
       case 'chat-history': return 'Chat history'
-      case 'code': return 'Projects'
+      case 'code': return 'Code'
       case 'email': return 'Email'
       case 'meetings': return 'Meetings'
       case 'live-notes': return 'Live notes'
       case 'bg-tasks': return 'Background tasks'
       case 'apps': return 'Apps'
       case 'prompts': return 'Prompts'
-      case 'baarasseurs': return 'Baarasseurs'
+      case 'baarasseurs': return 'Coworkers'
       case 'spaces': {
         const org = spacesOrgs.find((o) => o.id === currentViewState.orgId)
         if (org && currentViewState.view === 'activity') return 'Activity'
         const space = org ? findSpace(org, currentViewState.spaceId) : undefined
         return org && space ? spaceDisplayName(org, space) : 'Spaces'
       }
-      case 'workspace': return 'Projects'
+      case 'workspace': return 'Code'
       case 'knowledge-view': return 'Brain'
       case 'graph': return 'Graph View'
       case 'suggested-topics': return 'Suggested Topics'

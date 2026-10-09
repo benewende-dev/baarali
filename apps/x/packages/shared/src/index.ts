@@ -41,3 +41,4 @@ export * as spaces from './spaces.js';
 export * as autoRoute from './auto-route.js';
 export * as find from './find.js';
 export { PrefixLogger };
+export * as sidebarLayout from './sidebar-layout.js';
