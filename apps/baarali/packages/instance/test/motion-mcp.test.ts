@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkComposition, createMotionTools, projectSlug } from '../src/motion-mcp.js';
+import { checkComposition, createMotionTools, previewTimes, projectSlug } from '../src/motion-mcp.js';
 import { FORMATS, TEMPLATES } from '../src/motion-templates.js';
 
 async function setup() {
@@ -137,6 +137,58 @@ describe('motion tools', () => {
     // The folder without its exports nor project.json.
     const sent = (JSON.parse(post.init.body as string).files as Array<{ path: string }>).map((f) => f.path).sort();
     expect(sent).toEqual(['assets/clip.mp4', 'index.html']);
+  });
+
+  it('looks at one frame per scene, once it has landed', () => {
+    const scenes = (n: number) =>
+      `<div id="root" data-composition-id="m" data-start="0" data-duration="${n * 2}" data-width="1080" data-height="1920">` +
+      Array.from({ length: n }, (_, i) => `<section class="clip" id="s${i}" data-start="${i * 2}" data-duration="2" data-track-index="0"></section>`).join('') +
+      '<audio class="clip" id="musique" data-start="0" data-duration="4" data-track-index="2" src="assets/m.mp3"></audio></div>';
+    expect(previewTimes(scenes(3))).toEqual([1.4, 3.4, 5.4]);
+    expect(previewTimes(scenes(11))).toEqual([1.4, 5.4, 9.4, 13.4, 17.4, 21.4]);
+    expect(previewTimes('<div data-composition-id="m" data-duration="10"></div>')).toEqual([1.5, 4, 6.5, 9]);
+  });
+
+  it('previews a project: frames saved, the review given, the sound left home', async () => {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-motion-'));
+    const seen: Array<{ url: string; init: RequestInit }> = [];
+    let reply: () => Response = () => Response.json({ stills: [{ t: 1.4, data: Buffer.from('JPEG1').toString('base64') }, { t: 3, data: Buffer.from('JPEG2').toString('base64') }], review: 'Frame 1.4: the price is cut off (right) → reduce font-size.\nVerdict: fix first' });
+    const tools = createMotionTools({
+      workDir,
+      now: () => 0,
+      control: {
+        url: 'https://c.test',
+        token: 'tok',
+        sleep: async () => {},
+        fetch: (async (url: string, init: RequestInit = {}) => {
+          seen.push({ url: String(url), init });
+          return reply();
+        }) as typeof fetch,
+      },
+    });
+    await tools.run('new_project', { template: 'annonce-choc', title: 'Promo week-end' });
+    const dir = path.join(workDir, 'motion/promo-week-end');
+    await fs.writeFile(path.join(dir, 'assets/voix.mp3'), 'MP3');
+    await fs.mkdir(path.join(dir, 'previews'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'previews/old.jpg'), 'OLD');
+    const r = await tools.run('preview', { project: 'motion/promo-week-end', at: [1.4, 3, 1.4] });
+    expect(r.isError).toBeUndefined();
+    expect(textOf(r)).toContain('the price is cut off');
+    expect(textOf(r)).toContain('1.4 s → motion/promo-week-end/previews/1_4s.jpg');
+    expect(r.structuredContent).toMatchObject({ preview: { stills: [{ t: 1.4, file: 'motion/promo-week-end/previews/1_4s.jpg' }, { t: 3 }], review: expect.stringContaining('Verdict') } });
+    expect((await fs.readdir(path.join(dir, 'previews'))).sort()).toEqual(['1_4s.jpg', '3_0s.jpg']);
+    expect(await fs.readFile(path.join(dir, 'previews/1_4s.jpg'), 'utf8')).toBe('JPEG1');
+    expect(seen[0].url).toBe('https://c.test/v1/motion/review?times=1.4%2C3&brief=Promo+week-end');
+    const sent = (JSON.parse(seen[0].init.body as string).files as Array<{ path: string }>).map((f) => f.path);
+    expect(sent).toEqual(['index.html']);
+
+    // The defaults, then the refusals in words.
+    await tools.run('preview', { project: 'motion/promo-week-end' });
+    expect(new URL(seen[1].url).searchParams.get('times')!.split(',').length).toBeGreaterThan(1);
+    reply = () => Response.json({ error: { code: 'preview_busy' } }, { status: 503 });
+    expect(textOf(await tools.run('preview', { project: 'motion/promo-week-end' }))).toContain('again in a minute');
+    reply = () => Response.json({ stills: [{ t: 2, data: '' }], review: null });
+    expect(textOf(await tools.run('preview', { project: 'motion/promo-week-end' }))).toContain('the review could not be made');
   });
 
   it('says when an export waits, fails, or cannot be paid', async () => {

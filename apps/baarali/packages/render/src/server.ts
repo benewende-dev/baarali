@@ -4,8 +4,10 @@ import fs from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
+import { createMiddleware } from 'hono/factory';
 import { MAX_PROJECT_BYTES } from './project.js';
 import { CONTENT_TYPES, type Job, type RenderQueue } from './queue.js';
+import type { StillsDesk } from './stills.js';
 
 // baarali-render's HTTP API. Only the control plane calls it, over Flycast,
 // with the shared secret: the control plane counts the minutes and the
@@ -27,16 +29,36 @@ const view = (j: Job) => ({
   error: j.error,
 });
 
-export function createApp(deps: { queue: RenderQueue; secret: string }) {
+export function createApp(deps: { queue: RenderQueue; secret: string; stills?: StillsDesk }) {
   const app = new Hono();
   const expected = Buffer.from(`Bearer ${deps.secret}`);
 
-  app.get('/health', (c) => c.json({ ok: true, busy: deps.queue.busy }));
+  app.get('/health', (c) => c.json({ ok: true, busy: deps.queue.busy || !!deps.stills?.busy }));
 
-  app.use('/jobs/*', async (c, next) => {
+  const authorized = createMiddleware(async (c, next) => {
     const given = Buffer.from(c.req.header('authorization') ?? '');
     if (given.length !== expected.length || !timingSafeEqual(given, expected)) return c.json({ error: 'unauthorized' }, 401);
     await next();
+  });
+  app.use('/jobs/*', authorized);
+  app.use('/stills', authorized);
+
+  // The agent's preview (stills.ts): a few frames, answered at once.
+  app.post('/stills', bodyLimit({ maxSize: Math.ceil(MAX_PROJECT_BYTES * 1.4), onError: (c) => c.json({ error: 'The project is too large' }, 413) }), async (c) => {
+    if (!deps.stills) return c.json({ error: 'Stills are not available' }, 503);
+    let files: unknown;
+    try {
+      files = ((await c.req.json()) as { files?: unknown }).files;
+    } catch {
+      return c.json({ error: 'Expected a JSON body' }, 400);
+    }
+    try {
+      const r = await deps.stills.take(files, c.req.query('times'));
+      return r.ok ? c.json({ stills: r.stills }) : c.json({ error: r.message }, r.status);
+    } catch (err) {
+      console.error('[render] stills', err);
+      return c.json({ error: 'The stills failed' }, 500);
+    }
   });
 
   // base64 grows a file by a third.

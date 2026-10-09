@@ -190,6 +190,7 @@ const app = createApp({
   render: process.env.BAARALI_RENDER_SECRET
     ? { url: (process.env.BAARALI_RENDER_URL ?? 'http://baarali-render.flycast').replace(/\/+$/, ''), secret: process.env.BAARALI_RENDER_SECRET }
     : undefined,
+  motionReviewModel: process.env.MOTION_REVIEW_MODEL || undefined,
   // Optional: without it, reading aloud answers 503 and listening is refused.
   deepgramKey,
   elevenLabs: process.env.ELEVENLABS_API_KEY

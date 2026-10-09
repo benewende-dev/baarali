@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';
 import process from 'node:process';
 import { serve } from '@hono/node-server';
-import { hyperframesRenderer } from './hyperframes.js';
+import { hyperframesRenderer, hyperframesStills } from './hyperframes.js';
 import { RenderQueue } from './queue.js';
 import { createApp } from './server.js';
+import { StillsDesk } from './stills.js';
 
 // baarali-render on Fly (Studio Motion step 2, decided 08/10/2026): Chrome,
 // FFmpeg and the HyperFrames producer, reached by the control plane only.
@@ -25,6 +26,7 @@ const queue = new RenderQueue({
   ttlMs: 2 * 60 * 60 * 1000,
   now: Date.now,
 });
+const stills = new StillsDesk({ root, stiller: hyperframesStills() });
 setInterval(() => void queue.sweep().catch((err) => console.error('[render] sweep', err)), 5 * 60 * 1000).unref();
 
 // The machine stops itself once idle, never in the middle of a render: Fly's
@@ -35,19 +37,20 @@ setInterval(() => void queue.sweep().catch((err) => console.error('[render] swee
 const IDLE_MS = 10 * 60 * 1000;
 let lastActivity = Date.now();
 setInterval(() => {
-  if (queue.busy) lastActivity = Date.now();
+  if (queue.busy || stills.busy) lastActivity = Date.now();
   else if (Date.now() - lastActivity > IDLE_MS) {
     console.log('[render] idle, stopping');
     process.exit(0);
   }
 }, 30_000).unref();
 
-const app = createApp({ queue, secret });
+const app = createApp({ queue, secret, stills });
 const port = Number(process.env.PORT ?? '8080');
 serve({
   fetch: (req: Request) => {
     // Fly's health checks are not work: they must not keep the machine up.
-    if (new URL(req.url).pathname.startsWith('/jobs')) lastActivity = Date.now();
+    const p = new URL(req.url).pathname;
+    if (p.startsWith('/jobs') || p === '/stills') lastActivity = Date.now();
     return app.fetch(req);
   },
   port,
