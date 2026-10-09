@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { compose, contrast, DEFAULT_BRAND, FORMATS, PALETTE_LIMIT, TEMPLATES, type BrandKit, type Format } from './motion-templates.js';
 import type { ToolDef, ToolResult } from './media-mcp.js';
+import { CAPTIONS_FILE, captionsBlock, findVoice, injectCaptions, POSITIONS, rootOf, type CaptionsFile, type CaptionWord, type Position } from './motion-captions.js';
 
 // The Studio Motion's tools (decided 08/10/2026): an MCP server the instance
 // registers beside baarali-media, so every chat — the assistant, each
@@ -140,6 +141,22 @@ export const MOTION_TOOLS: ToolDef[] = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'captions',
+    description:
+      "Add word-by-word captions synced to the voice of a motion project: two lines at a time, the spoken word lit in the brand's highlight colour, figures and the brand name always highlighted. Transcribes the project's voice-over (its <audio> clip, or a <video> with data-has-audio) once, with each word's time, and keeps the words in the project's captions.json. To correct a word (a name, a price), edit its `text` in captions.json and call captions again: free, no new transcription. Transcription is counted in the usage, about 0.01 $ a minute of voice.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The project folder, e.g. motion/promo-week-end.' },
+        audio: { type: 'string', description: 'The voice to caption, if not the project’s own <audio> clip: a file in the project (assets/voix.mp3) or in the workspace. Up to 25 MB.' },
+        at: { type: 'number', description: 'When that voice starts in the video, in seconds. Default: the start of its clip, or 0.' },
+        position: { type: 'string', enum: [...POSITIONS], description: 'bottom (default, above the networks’ buttons), middle or top.' },
+        retranscribe: { type: 'boolean', description: 'Transcribe again even though captions.json exists (the voice changed).' },
+      },
+      required: ['project'],
+    },
+  },
+  {
     name: 'check',
     description:
       'Check a motion project before showing or rendering it: the composition root, the timed clips, the media files, and the animation rules (Web Animations or CSS only; GSAP is not allowed). Returns the problems with how to fix each.',
@@ -150,6 +167,23 @@ export const MOTION_TOOLS: ToolDef[] = [
     },
   },
 ];
+
+/** What Deepgram's pre-recorded API reads, by extension. */
+const AUDIO_TYPES: Record<string, string> = {
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.opus': 'audio/ogg',
+  '.webm': 'video/webm', '.mp4': 'video/mp4', '.mov': 'video/quicktime',
+};
+/** As the control plane's /v1/voice/transcribe. */
+const MAX_VOICE_BYTES = 25 * 1024 * 1024;
+
+/** The words of a captions.json the agent may have edited: the well-formed ones, in time order. */
+function cleanWords(raw: unknown): CaptionWord[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((w): w is CaptionWord => !!w && typeof w === 'object' && typeof (w as CaptionWord).text === 'string' && Number.isFinite((w as CaptionWord).start) && Number.isFinite((w as CaptionWord).end))
+    .map((w) => ({ text: w.text.slice(0, 60), start: w.start, end: w.end }))
+    .sort((a, b) => a.start - b.start);
+}
 
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError } : {}) });
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -385,6 +419,86 @@ export function createMotionTools(deps: MotionToolsDeps) {
       return text(`Created ${rel(made.dir)}/index.html in ${format}. Hand edits made to ${rel(dir)} were not carried over.`);
     }
 
+    if (name === 'captions') {
+      const dir = projectDir(args.project);
+      if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
+      let html: string;
+      try {
+        html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+      } catch {
+        return text(`No index.html in ${rel(dir)}.`, true);
+      }
+      const root = rootOf(html);
+      if (!root) return text('The composition root has no data-width, data-height or data-duration: call check and fix it first.', true);
+      let existing: CaptionsFile | null = null;
+      try {
+        existing = JSON.parse(await fs.readFile(path.join(dir, CAPTIONS_FILE), 'utf8')) as CaptionsFile;
+      } catch {
+        existing = null;
+      }
+      if (args.position !== undefined && !POSITIONS.includes(args.position as Position)) return text(`Position is one of ${POSITIONS.join(', ')}.`, true);
+      const position = (args.position as Position | undefined) ?? (existing && POSITIONS.includes(existing.position) ? existing.position : 'bottom');
+
+      let file: CaptionsFile;
+      const reuse = existing && cleanWords(existing.words).length > 0 && args.audio === undefined && args.retranscribe !== true;
+      if (reuse) {
+        file = { audio: String(existing!.audio ?? ''), at: Number.isFinite(existing!.at) ? existing!.at : 0, position, words: cleanWords(existing!.words) };
+      } else {
+        // The voice: the one named, else the composition's own.
+        const own = findVoice(html);
+        let voicePath: string;
+        let at: number;
+        if (typeof args.audio === 'string' && args.audio.trim()) {
+          const named = args.audio.trim();
+          const inProject = path.resolve(dir, named);
+          voicePath = inProject.startsWith(dir + path.sep) ? inProject : path.resolve(deps.workDir, named);
+          if (!voicePath.startsWith(deps.workDir + path.sep)) return text('The voice must be a file in the workspace.', true);
+          const sameClip = own && path.resolve(dir, own.src) === voicePath ? own.at : null;
+          at = typeof args.at === 'number' && Number.isFinite(args.at) ? args.at : (sameClip ?? 0);
+        } else if (own) {
+          voicePath = path.resolve(dir, own.src);
+          at = typeof args.at === 'number' && Number.isFinite(args.at) ? args.at : own.at;
+        } else {
+          return text('This project has no voice to caption: add the voice-over as an <audio> clip (copied into assets/), or give `audio`. For text without a voice, the sous-titres template times the words evenly.', true);
+        }
+        const type = AUDIO_TYPES[path.extname(voicePath).toLowerCase()];
+        if (!type) return text(`Captions read ${Object.keys(AUDIO_TYPES).join(', ')} files.`, true);
+        let bytes: Buffer;
+        try {
+          bytes = await fs.readFile(voicePath);
+        } catch {
+          return text(`No file at ${path.relative(deps.workDir, voicePath)}.`, true);
+        }
+        if (bytes.length > MAX_VOICE_BYTES) return text('The voice file is over 25 MB: give the voice-over alone (an mp3), not the whole footage.', true);
+        if (!deps.control) return text('Transcription is not available here.', true);
+        const res = await deps.control.fetch(`${deps.control.url}/v1/voice/transcribe?words=true`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${deps.control.token}`, 'content-type': type },
+          body: new Uint8Array(bytes),
+        });
+        const data = (await res.json().catch(() => ({}))) as { words?: unknown; error?: { code?: string; message?: string } };
+        if (!res.ok) {
+          if (data.error?.code === 'quota_reached') return text('Not transcribed: the usage limit of the plan is reached for now. Say so to the user.', true);
+          return text(`The transcription failed (${data.error?.message ?? res.status}). Try again in a moment.`, true);
+        }
+        const words = cleanWords(data.words);
+        if (words.length === 0) return text('No speech was heard in this voice: check that it is the right file and that it has sound.', true);
+        file = { audio: path.relative(dir, voicePath), at, position, words };
+      }
+
+      const brand = await readBrand();
+      await fs.writeFile(path.join(dir, 'index.html'), injectCaptions(html, captionsBlock(file, { ...root, brandName: brand.name })));
+      await fs.writeFile(path.join(dir, CAPTIONS_FILE), JSON.stringify(file, null, 2) + '\n');
+      const spoken = file.words[file.words.length - 1].end - file.words[0].start;
+      const beyond = file.words.filter((w) => w.start + file.at >= root.duration).length;
+      return text([
+        `${reuse ? 'Captions rebuilt from' : 'Captions added:'} ${file.words.length} words over ${spoken.toFixed(1)} s, synced to ${file.audio} (from ${file.at} s in the video), ${position}.`,
+        beyond ? `${beyond} words fall after the end of the video (${root.duration} s) and are not shown: lengthen data-duration on the root, then call captions again.` : '',
+        `The words are in ${rel(dir)}/${CAPTIONS_FILE}. Read them: the transcription may misspell names, places or prices. Correct a word by editing its "text" there, then call captions again (free).`,
+        'Call check, then show the project.',
+      ].filter(Boolean).join('\n'));
+    }
+
     if (name === 'check') {
       const dir = projectDir(args.project);
       if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
@@ -482,7 +596,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       const walk = async (sub: string) => {
         for (const entry of await fs.readdir(path.join(dir, sub), { withFileTypes: true })) {
           const relPath = sub ? `${sub}/${entry.name}` : entry.name;
-          if (entry.name.startsWith('.') || (!sub && (entry.name === EXPORTS_DIR || entry.name === 'project.json'))) continue;
+          if (entry.name.startsWith('.') || (!sub && (entry.name === EXPORTS_DIR || entry.name === 'project.json' || entry.name === CAPTIONS_FILE))) continue;
           if (entry.isDirectory()) await walk(relPath);
           else if (entry.isFile()) {
             const bytes = await fs.readFile(path.join(dir, relPath));
