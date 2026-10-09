@@ -187,10 +187,12 @@ export function speakerFor(deps: VoiceDeps, plan: Plan, voiceId: string, text: s
 export const MAX_RECORDING_BYTES = 25 * 1024 * 1024;
 
 /**
- * `POST /v1/voice/transcribe`: a whole recording (m4a, wav, webm, ogg, mp3…)
- * in the body, its type in Content-Type; `{ transcript }` back. Deepgram's
- * pre-recorded API, which reads any container, unlike the live socket; the
- * quota counts the audio's duration at the live price.
+ * `POST /v1/voice/transcribe`: a whole recording (m4a, wav, webm, ogg, mp3,
+ * mp4…) in the body, its type in Content-Type; `{ transcript }` back, and
+ * with `?words=true` each word with its start and end in seconds (Studio
+ * Motion's captions). Deepgram's pre-recorded API, which reads any
+ * container, unlike the live socket; the quota counts the audio's duration
+ * at the live price, words or not.
  */
 export async function transcribe(deps: VoiceDeps, account: Account, req: Request): Promise<Response> {
   const audio = new Uint8Array(await req.arrayBuffer());
@@ -217,12 +219,20 @@ export async function transcribe(deps: VoiceDeps, account: Account, req: Request
     }
     const result = (await res.json()) as {
       metadata?: { duration?: number };
-      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string }> }> };
+      results?: { channels?: Array<{ alternatives?: Array<{ transcript?: string; words?: Array<{ word?: string; punctuated_word?: string; start?: number; end?: number }> }> }> };
     };
     const seconds = typeof result.metadata?.duration === 'number' ? result.metadata.duration : 0;
     credits = sttCredits(seconds * 1000, 1);
-    const transcript = (result.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? '').trim();
-    return new Response(JSON.stringify({ transcript }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const best = result.results?.channels?.[0]?.alternatives?.[0];
+    const transcript = (best?.transcript ?? '').trim();
+    const body: { transcript: string; words?: Array<{ text: string; start: number; end: number }> } = { transcript };
+    if (new URL(req.url).searchParams.get('words') === 'true') {
+      body.words = (best?.words ?? []).flatMap((w) => {
+        const text = (w.punctuated_word ?? w.word ?? '').trim();
+        return text && typeof w.start === 'number' && typeof w.end === 'number' ? [{ text, start: w.start, end: w.end }] : [];
+      });
+    }
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
   } catch (err) {
     console.error('[voice] transcribe', err);
     return errorResponse(502, { code: 'upstream_unreachable', message: 'Voice provider unreachable' });

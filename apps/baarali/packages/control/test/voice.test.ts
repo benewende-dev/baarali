@@ -167,8 +167,8 @@ describe('voice, a whole recording', () => {
         return answer();
       }) as typeof fetch,
     });
-    const send = (bytes: number, token = 'me') =>
-      app.request('/v1/voice/transcribe', {
+    const send = (bytes: number, token = 'me', query = '') =>
+      app.request(`/v1/voice/transcribe${query}`, {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'audio/mp4' },
         body: new Uint8Array(bytes),
@@ -186,6 +186,26 @@ describe('voice, a whole recording', () => {
     expect(calls[0].url).toContain('/v1/listen?model=nova-3&language=multi');
     expect(calls[0]).toMatchObject({ type: 'audio/mp4', auth: 'Token dg-key', bytes: 1000 });
     expect(s.usage.at(-1)).toMatchObject({ path: '/voice/transcribe', credits: sttCredits(30_000, 1) });
+  });
+
+  it('gives each word with its times when asked, for the captions, at the same price', async () => {
+    const { s, send } = setup(() =>
+      Response.json({
+        metadata: { duration: 30 },
+        results: { channels: [{ alternatives: [{ transcript: 'Bonjour à vous', words: [
+          { word: 'bonjour', punctuated_word: 'Bonjour', start: 0.1, end: 0.5 },
+          { word: 'à', start: 0.5, end: 0.6 },
+          { word: 'vous', punctuated_word: 'vous.', start: 0.6, end: 0.9 },
+          { word: '', start: 1, end: 1.1 },
+        ] }] }] },
+      }),
+    );
+    const res = await send(1000, 'me', '?words=true');
+    expect(await res.json()).toEqual({
+      transcript: 'Bonjour à vous',
+      words: [{ text: 'Bonjour', start: 0.1, end: 0.5 }, { text: 'à', start: 0.5, end: 0.6 }, { text: 'vous.', start: 0.6, end: 0.9 }],
+    });
+    expect(s.usage.at(-1)).toMatchObject({ credits: sttCredits(30_000, 1) });
   });
 
   it('refuses empty audio, no token, no Deepgram, and passes on a refusal unbilled', async () => {

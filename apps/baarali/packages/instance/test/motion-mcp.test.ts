@@ -195,3 +195,71 @@ describe('motion tools', () => {
     expect(projectSlug('…')).toBe('motion');
   });
 });
+
+describe('captions tool', () => {
+  async function captioned() {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-motion-'));
+    const calls: Array<{ url: string; type: string; bytes: number }> = [];
+    let answer = () =>
+      Response.json({ transcript: 'x', words: [{ text: 'Livraison', start: 0.2, end: 0.7 }, { text: 'offerte', start: 0.7, end: 1.1 }, { text: 'à', start: 1.1, end: 1.2 }, { text: 'Ouaga.', start: 1.2, end: 1.8 }] });
+    const tools = createMotionTools({
+      workDir,
+      now: () => 0,
+      control: {
+        url: 'https://c.test',
+        token: 'tok',
+        sleep: async () => {},
+        fetch: (async (url: string, init: RequestInit = {}) => {
+          calls.push({ url: String(url), type: (init.headers as Record<string, string>)['content-type'], bytes: (init.body as Uint8Array).length });
+          return answer();
+        }) as typeof fetch,
+      },
+    });
+    await tools.run('new_project', { template: 'logo-anime', title: 'Pub' });
+    const dir = path.join(workDir, 'motion/pub');
+    await fs.writeFile(path.join(dir, 'assets/voix.mp3'), 'VOICE');
+    const html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    await fs.writeFile(path.join(dir, 'index.html'), html.replace('data-no-timeline>', 'data-no-timeline>\n  <audio id="voix" class="clip" src="assets/voix.mp3" data-start="0.5" data-duration="3" data-track-index="5"></audio>'));
+    return { workDir, dir, tools, calls, setAnswer: (a: () => Response) => (answer = a) };
+  }
+
+  it('transcribes the project voice once, lays the captions, and rebuilds them free after a correction', async () => {
+    const { dir, tools, calls } = await captioned();
+    const out = textOf(await tools.run('captions', { project: 'motion/pub' }));
+    expect(out).toContain('Captions added: 4 words over 1.6 s, synced to assets/voix.mp3 (from 0.5 s in the video), bottom.');
+    expect(calls).toEqual([{ url: 'https://c.test/v1/voice/transcribe?words=true', type: 'audio/mpeg', bytes: 5 }]);
+    const file = JSON.parse(await fs.readFile(path.join(dir, 'captions.json'), 'utf8'));
+    expect(file).toMatchObject({ audio: 'assets/voix.mp3', at: 0.5, position: 'bottom' });
+    let html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    expect(html).toContain('id="baarali-captions"');
+    expect(html).toContain('>Ouaga.</span>');
+    expect((await checkComposition(html, dir)).filter((f) => f.severity === 'error')).toEqual([]);
+
+    // The agent corrects a word and moves them up: no new transcription.
+    file.words[3].text = 'Ouagadougou.';
+    await fs.writeFile(path.join(dir, 'captions.json'), JSON.stringify(file));
+    expect(textOf(await tools.run('captions', { project: 'motion/pub', position: 'top' }))).toContain('Captions rebuilt from 4 words');
+    expect(calls).toHaveLength(1);
+    html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    expect(html).toContain('>Ouagadougou.</span>');
+    expect(html).not.toContain('>Ouaga.</span>');
+    expect(html).toContain('top:11cqh');
+    expect(html.split('id="baarali-captions"')).toHaveLength(2);
+  });
+
+  it('says what is missing, and when nothing was heard or the limit is reached', async () => {
+    const { dir, tools, setAnswer } = await captioned();
+    expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: 'assets/none.mp3' }))).toContain('No file at motion/pub/assets/none.mp3');
+    expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: 'assets/voix.flac' }))).toContain('Captions read');
+    expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: '../../../etc/passwd' }))).toContain('in the workspace');
+    expect(textOf(await tools.run('captions', { project: 'motion/pub', position: 'side' }))).toContain('Position is one of');
+    setAnswer(() => Response.json({ transcript: '', words: [] }));
+    expect(textOf(await tools.run('captions', { project: 'motion/pub' }))).toContain('No speech was heard');
+    setAnswer(() => Response.json({ error: { code: 'quota_reached' } }, { status: 429 }));
+    expect(textOf(await tools.run('captions', { project: 'motion/pub' }))).toContain('usage limit of the plan is reached');
+    // No voice at all.
+    const html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    await fs.writeFile(path.join(dir, 'index.html'), html.replace(/<audio[^>]*><\/audio>/, ''));
+    expect(textOf(await tools.run('captions', { project: 'motion/pub' }))).toContain('no voice to caption');
+  });
+});
