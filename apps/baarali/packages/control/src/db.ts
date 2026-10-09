@@ -402,6 +402,11 @@ export const MIGRATIONS: string[] = [
     published_by text NOT NULL
   );
   `,
+  // 14 — When an export's file reached the instance (09/10/2026): a file
+  // lost before then is refunded instead of being paid a second time.
+  `
+  ALTER TABLE baarali.motion_renders ADD COLUMN delivered_at timestamptz;
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

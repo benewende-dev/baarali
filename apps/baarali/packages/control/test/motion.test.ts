@@ -75,7 +75,7 @@ describe('/v1/motion', () => {
     expect(res.status).toBe(202);
     const body = await res.json();
     expect(body).toMatchObject({ status: 'rendering', seconds: 10, included_seconds: 10, credits: 0, allowance: { total_seconds: 1800, used_seconds: 10 }, balance: 0 });
-    expect(seen[0].url).toMatch(/^http:\/\/render\.test\/jobs\/new\?id=mr_[0-9a-f]{32}&format=mp4&fps=30$/);
+    expect(seen[0].url).toMatch(/^http:\/\/render\.test\/jobs\/new\?id=mr_[0-9a-f]{32}&format=mp4&fps=30&seconds=10$/);
     expect(seen[0].init.headers).toMatchObject({ authorization: 'Bearer rs', 'content-length': String(project.length) });
     expect(seen[0].body).toBe(project);
     expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 10, extra: 0 });
@@ -129,6 +129,35 @@ describe('/v1/motion', () => {
     expect(await file.text()).toBe('VIDEO');
     expect((await call(`/v1/motion/renders/${id}`, {}, 'other')).status).toBe(404);
     expect((await call(`/v1/motion/renders/${id}/file`, {}, 'other')).status).toBe(404);
+  });
+
+  it('refunds a finished file lost before it was fetched, never one already delivered', async () => {
+    let kept = true;
+    const { submit, call, store } = setup((s) => {
+      if (s.url.includes('/jobs/new')) return accepted(10);
+      if (s.url.endsWith('/file')) return kept ? new Response('VIDEO', { headers: { 'content-type': 'video/mp4' } }) : json({ error: 'not_found' }, 404);
+      return json({ status: 'done', bytes: 5 });
+    });
+    // The render machine stopped before the instance came for the file.
+    const lost = (await (await submit('seconds=10')).json()).id;
+    await call(`/v1/motion/renders/${lost}`);
+    kept = false;
+    const gone = await call(`/v1/motion/renders/${lost}/file`);
+    expect(gone.status).toBe(410);
+    expect((await gone.json()).error.code).toBe('lost');
+    expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 0, extra: 0 });
+    expect(await (await call(`/v1/motion/renders/${lost}`)).json()).toMatchObject({ status: 'failed' });
+
+    // Fetched once, then expired: the person has the video, nothing comes back.
+    kept = true;
+    const delivered = (await (await submit('seconds=10')).json()).id;
+    await call(`/v1/motion/renders/${delivered}`);
+    expect(await (await call(`/v1/motion/renders/${delivered}/file`)).text()).toBe('VIDEO');
+    kept = false;
+    const expired = await call(`/v1/motion/renders/${delivered}/file`);
+    expect(expired.status).toBe(410);
+    expect((await expired.json()).error.code).toBe('expired');
+    expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 10, extra: 0 });
   });
 
   it('gives back minutes and credits once when the render fails, with its reason', async () => {

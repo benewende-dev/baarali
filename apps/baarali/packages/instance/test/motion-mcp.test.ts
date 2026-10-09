@@ -144,6 +144,7 @@ describe('motion tools', () => {
     let now = 0;
     let answer: Response = Response.json({});
     let status: Record<string, unknown> = { status: 'rendering', progress: 0.25 };
+    let fileAnswer = () => new Response('GIF');
     const tools = createMotionTools({
       workDir,
       now: () => now,
@@ -151,7 +152,7 @@ describe('motion tools', () => {
         url: 'https://c.test',
         token: 'tok',
         sleep: async (ms) => void (now += ms),
-        fetch: (async (url: string) => (url.includes('/renders?') ? answer : Response.json(status))) as typeof fetch,
+        fetch: (async (url: string) => (url.includes('/renders?') ? answer : url.endsWith('/file') ? fileAnswer() : Response.json(status))) as typeof fetch,
       },
     });
     await tools.run('new_project', { template: 'logo-anime', title: 'Intro' });
@@ -167,6 +168,12 @@ describe('motion tools', () => {
     const failed = await tools.run('render_status', { id: 'mr_2', project: 'motion/intro', format: 'gif' });
     expect(failed.isError).toBe(true);
     expect(textOf(failed)).toContain('The export failed: GSAP is not allowed. Its minutes and credits were given back.');
+    // Finished, but the render machine stopped before the file was fetched: refunded.
+    status = { status: 'done' };
+    fileAnswer = () => Response.json({ error: { code: 'lost' } }, { status: 410 });
+    const lost = await tools.run('render_status', { id: 'mr_2', project: 'motion/intro', format: 'gif' });
+    expect(lost.isError).toBe(true);
+    expect(textOf(lost)).toContain('was lost before it reached the workspace. It was refunded, minutes and credits: render it again, at no extra cost.');
     // An error found by check stops the export before anything is sent.
     await fs.writeFile(path.join(workDir, 'motion/intro/index.html'), '<div>no root</div>');
     expect(textOf(await tools.run('render', { project: 'motion/intro' }))).toContain('Not exported: fix these first.');

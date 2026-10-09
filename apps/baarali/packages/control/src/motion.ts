@@ -174,7 +174,7 @@ export async function createRender(deps: MotionDeps, account: Account, req: Requ
   const at = deps.now();
   const id = `mr_${randomUUID().replace(/-/g, '')}`;
   const reserved = await deps.store.reserveMotionRender(
-    { id, accountId: account.id, at, format, fps, seconds: billed, chargeRef: `motion:${id}`, status: 'rendering', machine: null, refunded: false, error: null },
+    { id, accountId: account.id, at, format, fps, seconds: billed, chargeRef: `motion:${id}`, status: 'rendering', machine: null, refunded: false, error: null, deliveredAt: null },
     allowance.window.start,
     splitFor(billed, allowance.total_seconds),
   );
@@ -189,7 +189,8 @@ export async function createRender(deps: MotionDeps, account: Account, req: Requ
 
   let res: Response;
   try {
-    res = await deps.fetch(`${deps.render.url}/jobs/new?${new URLSearchParams({ id, format, fps: String(fps) })}`, {
+    // The duration as the instance read it: the service refuses a project that says otherwise, before rendering anything.
+    res = await deps.fetch(`${deps.render.url}/jobs/new?${new URLSearchParams({ id, format, fps: String(fps), seconds: String(seconds) })}`, {
       method: 'POST',
       headers: { ...renderHeaders(deps, null), 'content-type': 'application/json', 'content-length': String(length) },
       body: req.body,
@@ -250,7 +251,12 @@ export async function getRender(deps: MotionDeps, account: Account, id: string):
   return Response.json(view(render, { progress: typeof job.progress === 'number' ? job.progress : 0, queued: job.status === 'queued' }));
 }
 
-/** The file, streamed from the render machine; kept there two hours. */
+/**
+ * The file, streamed from the render machine, which keeps it two hours or
+ * until it stops (10 idle minutes). A file lost before it ever reached the
+ * instance is refunded, minutes and credits: the person never pays twice
+ * for one video. Once delivered, the instance has its copy.
+ */
 export async function renderFile(deps: MotionDeps, account: Account, id: string): Promise<Response> {
   const render = await deps.store.motionRender(id);
   if (!render || render.accountId !== account.id || render.status !== 'done' || !deps.render) return error(404, 'not_found', 'No such export');
@@ -260,7 +266,14 @@ export async function renderFile(deps: MotionDeps, account: Account, id: string)
   } catch {
     return error(502, 'render_unavailable', 'The render service is unreachable');
   }
-  if (!res.ok || !res.body) return error(410, 'expired', 'The file is no longer kept; render it again');
+  if (!res.ok || !res.body) {
+    if (render.deliveredAt === null) {
+      await fail(deps, render, 'The file was lost before it was fetched');
+      return error(410, 'lost', 'The file was lost before it reached you; this export was refunded, render it again');
+    }
+    return error(410, 'expired', 'The file is no longer kept; render it again');
+  }
+  if (render.deliveredAt === null) await deps.store.saveMotionRender({ ...render, deliveredAt: deps.now() });
   const headers: Record<string, string> = { 'content-type': res.headers.get('content-type') ?? 'application/octet-stream' };
   const size = res.headers.get('content-length');
   if (size) headers['content-length'] = size;

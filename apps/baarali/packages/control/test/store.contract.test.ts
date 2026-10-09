@@ -47,7 +47,7 @@ describe.each([
   it('reserves an export from the month minutes, then credits, and refunds it whole', async () => {
     const store = await make();
     await store.applyMediaEntry({ accountId: ME.id, at: T0, kind: 'topup', credits: 5, reference: 'pay-m' });
-    const base = { accountId: ME.id, at: T0, format: 'mp4', fps: 30, status: 'rendering' as const, machine: null, refunded: false, error: null };
+    const base = { accountId: ME.id, at: T0, format: 'mp4', fps: 30, status: 'rendering' as const, machine: null, refunded: false, error: null, deliveredAt: null };
     const split = (seconds: number) => (used: { included: number; extra: number }) => {
       const included = Math.max(0, Math.min(seconds, 100 - used.included));
       return { included, credits: Math.ceil((seconds - included) / 20) };
@@ -66,7 +66,10 @@ describe.each([
     const failed = { ...(await store.motionRender('mr_b'))!, status: 'failed' as const, refunded: true, error: 'GSAP', machine: 'm1' };
     await store.saveMotionRender(failed);
     expect(await store.motionRender('mr_b')).toEqual(failed);
-    expect(await store.motionUsage(ME.id, T0 - 1000)).toEqual({ included: 80, extra: 0 });
+    expect(await store.motionUsage(ME.id, T0 - 1000)).toEqual({ included: 80, extra: 0 });    // When the file reached the instance, kept to the millisecond.
+    const delivered = { ...(await store.motionRender('mr_a'))!, status: 'done' as const, deliveredAt: T0 + 5_000 };
+    await store.saveMotionRender(delivered);
+    expect(await store.motionRender('mr_a')).toEqual(delivered);
   });
 
   it('keeps one published sidebar, replaced, then removed', async () => {

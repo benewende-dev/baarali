@@ -85,6 +85,11 @@ export interface MotionRender {
   /** A refunded export gives back its credits and its minutes. */
   refunded: boolean;
   error: string | null;
+  /**
+   * When its file first reached the instance. A finished file lost before
+   * then (its render machine stopped) is refunded, never charged twice.
+   */
+  deliveredAt: number | null;
 }
 
 /** What a period's exports already used: seconds from the plan, and seconds paid in credits. */
@@ -425,7 +430,7 @@ export class MemoryStore implements ControlStore {
   }
   async saveMotionRender(r: MotionRender) {
     const old = this.renders.get(r.id);
-    if (old) this.renders.set(r.id, { ...old, status: r.status, machine: r.machine, refunded: r.refunded, error: r.error });
+    if (old) this.renders.set(r.id, { ...old, status: r.status, machine: r.machine, refunded: r.refunded, error: r.error, deliveredAt: r.deliveredAt });
   }
   async motionUsage(accountId: string, since: number) {
     return this.motionUsageOf(accountId, since);
