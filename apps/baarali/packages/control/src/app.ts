@@ -1,4 +1,5 @@
 import { createRender, getRender, motionAllowance, renderFile, type MotionDeps } from './motion.js';
+import { reviewMotion } from './motion-review.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -65,6 +66,8 @@ export type ControlDeps = ProxyDeps & {
   program?: PartnerProgram;
   /** The Studio Motion render service (motion.ts); unset: exports answer 503. */
   render?: MotionDeps['render'];
+  /** The vision model of the agent's preview (motion-review.ts); unset: REVIEW_MODEL. */
+  motionReviewModel?: string;
 };
 
 type Env = { Variables: { account: Account } };
@@ -435,6 +438,7 @@ export function createApp(deps: ControlDeps) {
   app.post('/v1/motion/renders', (c) => createRender(deps, c.get('account'), c.req.raw));
   app.get('/v1/motion/renders/:id', (c) => getRender(deps, c.get('account'), c.req.param('id')));
   app.get('/v1/motion/renders/:id/file', (c) => renderFile(deps, c.get('account'), c.req.param('id')));
+  app.post('/v1/motion/review', (c) => reviewMotion({ ...deps, model: deps.motionReviewModel }, c.get('account'), c.req.raw));
 
   // Devices (security §2): only a signed-in person adds one, with the
   // access token of their sign-in, never an instance with its own token.

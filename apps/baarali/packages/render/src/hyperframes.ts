@@ -3,9 +3,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { lintProject } from '@hyperframes/lint';
-import { createRenderJob, executeRenderJob } from '@hyperframes/producer';
+import { captureFrameToBuffer, closeCaptureSession, createCaptureSession, createFileServer, createRenderJob, executeRenderJob, initializeSession } from '@hyperframes/producer';
 import { RefusedError, type Renderer } from './queue.js';
 import { usesGsap } from './project.js';
+import { STILL_SIDE, type Stiller } from './stills.js';
 
 /**
  * Capture browsers per render (RENDER_WORKERS). Measured 08/10/2026 on
@@ -69,6 +70,37 @@ export function hyperframesRenderer(opts: { ffmpeg: string }): Renderer {
       }
     } finally {
       await fs.rm(target, { force: true });
+    }
+  };
+}
+
+/**
+ * The agent's preview stills (stills.ts): the same page and capture as an
+ * export, scaled down in the browser to STILL_SIDE, JPEG.
+ */
+export function hyperframesStills(): Stiller {
+  return async ({ dir, times, width, height }) => {
+    const fps = { num: 30, den: 1 };
+    const server = await createFileServer({ projectDir: dir, fps });
+    try {
+      const session = await createCaptureSession(server.url, path.join(dir, '.frames'), {
+        width,
+        height,
+        fps,
+        format: 'jpeg',
+        quality: 80,
+        deviceScaleFactor: Math.min(1, STILL_SIDE / Math.max(width, height)),
+      });
+      try {
+        await initializeSession(session);
+        const out: Buffer[] = [];
+        for (const t of times) out.push((await captureFrameToBuffer(session, Math.round(t * 30), t)).buffer);
+        return out;
+      } finally {
+        await closeCaptureSession(session);
+      }
+    } finally {
+      server.close();
     }
   };
 }

@@ -40,6 +40,56 @@ const RENDER_POLL_MS = 4_000;
 /** As the render service. */
 const MAX_EXPORT_BYTES = 150 * 1024 * 1024;
 const EXPORTS_DIR = 'exports';
+const PREVIEWS_DIR = 'previews';
+export const MAX_PREVIEW_FRAMES = 6;
+/**
+ * The core's MCP client gives up on a tool after 60 s. A cold render
+ * machine, its browser and the review fit in it most of the time; past this,
+ * the agent is told to call again on the machine now warm.
+ */
+const PREVIEW_TIMEOUT_MS = 55_000;
+/** The page needs no sound to be seen: the voice and the music stay home. */
+const SOUND_FILES = /\.(mp3|wav|m4a|aac|ogg|opus|flac)$/i;
+
+/**
+ * When to look at a composition: once per scene, at 70 % of it (its
+ * entrances have landed, its exit has not started), evenly chosen when there
+ * are more scenes than frames; without scenes, across the whole video.
+ */
+export function previewTimes(html: string, max = MAX_PREVIEW_FRAMES): number[] {
+  const root = /<[a-z]+\b[^>]*\bdata-composition-id\s*=[^>]*>/i.exec(html)?.[0] ?? '';
+  const duration = Number(/\bdata-duration\s*=\s*["']?([\d.]+)/i.exec(root)?.[1]) || 0;
+  const scenes: number[] = [];
+  for (const m of html.matchAll(/<(section|div)\b([^>]*\bclass="[^"]*\bclip\b[^"]*"[^>]*)>/gi)) {
+    const start = Number(/\bdata-start="([\d.]+)"/.exec(m[2])?.[1]);
+    const length = Number(/\bdata-duration="([\d.]+)"/.exec(m[2])?.[1]);
+    if (Number.isFinite(start) && length > 0) scenes.push(Math.round((start + length * 0.7) * 10) / 10);
+  }
+  const unique = [...new Set(scenes)].sort((a, b) => a - b);
+  if (unique.length === 0) return duration > 0 ? [0.15, 0.4, 0.65, 0.9].map((f) => Math.round(duration * f * 10) / 10) : [0];
+  if (unique.length <= max) return unique;
+  return Array.from({ length: max }, (_, i) => unique[Math.round((i * (unique.length - 1)) / (max - 1))]);
+}
+
+/** A project folder as the render service receives it, without its exports, previews and sidecar files. */
+async function packProject(dir: string, opts: { sound: boolean }): Promise<{ files: Array<{ path: string; data: string }>; total: number }> {
+  const files: Array<{ path: string; data: string }> = [];
+  let total = 0;
+  const walk = async (sub: string) => {
+    for (const entry of await fs.readdir(path.join(dir, sub), { withFileTypes: true })) {
+      const relPath = sub ? `${sub}/${entry.name}` : entry.name;
+      if (entry.name.startsWith('.') || (!sub && [EXPORTS_DIR, PREVIEWS_DIR, 'project.json', CAPTIONS_FILE].includes(entry.name))) continue;
+      if (entry.isDirectory()) await walk(relPath);
+      else if (entry.isFile() && (opts.sound || !SOUND_FILES.test(entry.name))) {
+        const bytes = await fs.readFile(path.join(dir, relPath));
+        total += bytes.length;
+        files.push({ path: relPath, data: bytes.toString('base64') });
+      }
+    }
+  };
+  await walk('');
+  return { files, total };
+}
 
 export const MOTION_TOOLS: ToolDef[] = [
   {
@@ -173,6 +223,20 @@ export const MOTION_TOOLS: ToolDef[] = [
         under_voice: { type: 'number', description: 'The share of that level kept under the voice, 0–1. Default 0.25 (−12 dB): the voice clearly in front.' },
         fade_out: { type: 'number', description: 'Seconds of fade at the end of the music. Default 1.5 when it plays to the end of the video, else 0.5.' },
         retranscribe: { type: 'boolean', description: 'Transcribe the voice again (it changed but kept its file name).' },
+      },
+      required: ['project'],
+    },
+  },
+  {
+    name: 'preview',
+    description:
+      "See the video before the user does: takes still frames of a motion project (by default one per scene, once its entrances have landed) and has an art director review them — text cut off or too small, overlaps, misalignment, a pointer off its target, empty or crowded frames. Returns the review in words, with how to fix each defect, and saves the frames in the project's previews/ folder. Call it after building or changing a project and fix what it names before showing the video. Free; counted in the usage like a short model call.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The project folder, e.g. motion/promo-week-end.' },
+        at: { type: 'array', items: { type: 'number' }, description: `Up to ${MAX_PREVIEW_FRAMES} times to look at, in seconds. Default: one per scene, at 70 % of it.` },
+        brief: { type: 'string', description: 'What the video is meant to be, in one sentence (the user’s request): the review judges it against that.' },
       },
       required: ['project'],
     },
@@ -606,6 +670,73 @@ export function createMotionTools(deps: MotionToolsDeps) {
       ].join('\n'), { mix: { music: music.id ?? music.src, level, underVoice, fadeOut, passages, transcribed } });
     }
 
+    if (name === 'preview') {
+      const dir = projectDir(args.project);
+      if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
+      if (!deps.control) return text('Preview is not available here.', true);
+      let html: string;
+      try {
+        html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+      } catch {
+        return text(`No index.html in ${rel(dir)}.`, true);
+      }
+      const errors = (await checkComposition(html, dir)).filter((f) => f.severity === 'error');
+      if (errors.length > 0) return text(`Fix these first, then preview:\n${errors.map((f) => `- ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n')}`, true);
+      const asked = Array.isArray(args.at) ? args.at.filter((t): t is number => typeof t === 'number' && Number.isFinite(t) && t >= 0) : [];
+      const times = (asked.length > 0 ? [...new Set(asked)] : previewTimes(html)).slice(0, MAX_PREVIEW_FRAMES);
+      let brief = typeof args.brief === 'string' ? args.brief.trim() : '';
+      if (!brief) {
+        try {
+          brief = String((JSON.parse(await fs.readFile(path.join(dir, 'project.json'), 'utf8')) as ProjectMeta).title ?? '');
+        } catch {
+          // Made by hand: judged on its own.
+        }
+      }
+      const { files, total } = await packProject(dir, { sound: false });
+      if (total > MAX_EXPORT_BYTES) return text(`The project is ${Math.round(total / 1024 / 1024)} MB without its sound; previews take 150 MB at most. Use lighter footage.`, true);
+
+      const body = JSON.stringify({ files });
+      const query = new URLSearchParams({ times: times.join(','), ...(brief ? { brief: brief.slice(0, 600) } : {}) });
+      let res: Response;
+      try {
+        res = await deps.control.fetch(`${deps.control.url}/v1/motion/review?${query}`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${deps.control.token}`, 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) },
+          body,
+          signal: AbortSignal.timeout(PREVIEW_TIMEOUT_MS),
+        });
+      } catch {
+        return text('The preview took too long (the render machine was starting). Call preview again: it is warm now.', true);
+      }
+      const data = (await res.json().catch(() => ({}))) as { stills?: Array<{ t: number; data: string }>; review?: string | null; error?: { code?: string; message?: string } };
+      if (!res.ok || !Array.isArray(data.stills)) {
+        const code = data.error?.code;
+        if (code === 'quota_reached') return text('No preview: the usage limit of the plan is reached for now.', true);
+        if (code === 'preview_busy') return text('The preview machine is busy: call preview again in a minute.', true);
+        if (code === 'too_many_previews') return text('Enough previews for this hour: show the video to the user as it is now.', true);
+        return text(`No preview: ${data.error?.message ?? `error ${res.status}`}.`, true);
+      }
+
+      // The latest look only: earlier frames would mislead.
+      const out = path.join(dir, PREVIEWS_DIR);
+      await fs.rm(out, { recursive: true, force: true });
+      await fs.mkdir(out, { recursive: true });
+      const saved: Array<{ t: number; file: string }> = [];
+      for (const still of data.stills) {
+        const file = path.join(out, `${still.t.toFixed(1).replace('.', '_')}s.jpg`);
+        await fs.writeFile(file, Buffer.from(still.data, 'base64'));
+        saved.push({ t: still.t, file: rel(file) });
+      }
+      const frames = saved.map((s) => `${s.t} s → ${s.file}`).join('\n');
+      const review = typeof data.review === 'string' ? data.review : null;
+      return answer([
+        `Looked at ${saved.length} frame(s) of ${rel(dir)}:\n${frames}`,
+        review
+          ? `The art director's review:\n${review}\n\nFix each defect it names in index.html (one it gets wrong, such as a frame caught mid-transition, can be left), then call preview again on the same times. Two rounds at most, then show the video.`
+          : 'The frames are saved, but the review could not be made this time. If you can read images, look at them; otherwise call preview once more.',
+      ].join('\n\n'), { preview: { stills: saved, review } });
+    }
+
     if (name === 'check') {
       const dir = projectDir(args.project);
       if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
@@ -704,21 +835,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       const fps = args.fps === 60 ? 60 : 30;
 
       // The folder as it is, without its earlier exports.
-      const files: Array<{ path: string; data: string }> = [];
-      let total = 0;
-      const walk = async (sub: string) => {
-        for (const entry of await fs.readdir(path.join(dir, sub), { withFileTypes: true })) {
-          const relPath = sub ? `${sub}/${entry.name}` : entry.name;
-          if (entry.name.startsWith('.') || (!sub && (entry.name === EXPORTS_DIR || entry.name === 'project.json' || entry.name === CAPTIONS_FILE))) continue;
-          if (entry.isDirectory()) await walk(relPath);
-          else if (entry.isFile()) {
-            const bytes = await fs.readFile(path.join(dir, relPath));
-            total += bytes.length;
-            files.push({ path: relPath, data: bytes.toString('base64') });
-          }
-        }
-      };
-      await walk('');
+      const { files, total } = await packProject(dir, { sound: true });
       if (total > MAX_EXPORT_BYTES) return text(`The project is ${Math.round(total / 1024 / 1024)} MB; exports take 150 MB at most. Use shorter or lighter footage.`, true);
 
       const body = JSON.stringify({ files });
