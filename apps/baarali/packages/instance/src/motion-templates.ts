@@ -102,6 +102,19 @@ function logoMark(ctx: Ctx, cls: string, id: string): string {
   return `<span id="${id}" class="${cls} tile">${initial}</span>`;
 }
 
+/** Words with their highlight: *between stars*, over one word or several. */
+function starred(ws: string[]): Array<{ w: string; hot: boolean }> {
+  let open = false;
+  return ws.map((raw) => {
+    const starts = raw.startsWith('*');
+    const ends = /\*[.,!?;:]*$/.test(raw) && (raw.length > 1 || open);
+    const hot = open || starts;
+    if (starts && !ends) open = true;
+    else if (ends) open = false;
+    return { w: raw.replace(/\*/g, ''), hot };
+  });
+}
+
 const wordSpans = (text: string, cls: string) => words(text).map((w) => `<span class="${cls}">${escapeHtml(w)}</span>`).join(' ');
 
 export const TEMPLATES: Template[] = [
@@ -535,6 +548,273 @@ export const TEMPLATES: Template[] = [
     },
   },
 
+  {
+    id: 'revelation-produit',
+    name: 'Révélation produit',
+    use: 'A physical product revealed on a studio background (cosmetics, drink, clothing, phone): a title, the product as the hero with a light sweep, three strengths drawn to it, then the price landing and the call to action. Best with a cut-out product photo.',
+    duration: 12,
+    slots: [
+      { key: 'title', label: 'Titre', example: 'Le soin de vos mains.' },
+      { key: 'image', label: 'Photo du produit (détourée de préférence)', example: '', image: true },
+      { key: 'name', label: 'Nom du produit', example: 'Beurre de karité pur' },
+      { key: 'features', label: 'Atouts', example: 'Karité pur\nSans parfum\nFait à Bobo', list: true },
+      { key: 'price', label: 'Prix', example: '3 500 FCFA' },
+      { key: 'cta', label: 'Appel à l’action', example: 'Commander sur WhatsApp' },
+    ],
+    body: (v, ctx) => {
+      const features = lines(v.features).slice(0, 3);
+      const [amount, ...unit] = v.price.trim().split(/\s+(?=[^\d\s]+$)/);
+      const hero = v.image
+        ? `<img class="rp-img" id="rp-hero" src="${escapeHtml(v.image)}" alt="">`
+        : `<div class="rp-card" id="rp-hero">${logoMark(ctx, 'mark', 'rp-logo')}<b>${escapeHtml(v.name)}</b></div>`;
+      return {
+        html: `
+  <section id="s-rp" class="clip scene" data-start="0" data-duration="12" data-track-index="1">
+    <h1 class="rp-title" id="rp-title">${escapeHtml(v.title)}</h1>
+    <div class="rp-stage" id="rp-stage"><div class="rp-floor"></div><div class="rp-float">${hero}</div></div>
+    <ul class="rp-feats">${features.map((f) => `<li><i></i><span>${escapeHtml(f)}</span></li>`).join('')}</ul>
+    <div class="rp-price" id="rp-price"><b>${escapeHtml(amount ?? v.price)}</b>${unit.length ? `<small>${escapeHtml(unit.join(' '))}</small>` : ''}</div>
+    <div class="rp-cta" id="rp-cta">${escapeHtml(v.cta)}</div>
+  </section>`,
+        css: `
+  .rp-title{position:absolute;left:8cqw;right:8cqw;top:7cqh;margin:0;font:800 8.4cqmin/1.05 var(--display);letter-spacing:-.035em;text-wrap:balance}
+  .rp-stage{position:absolute;left:10cqw;right:10cqw;top:24cqh;height:50cqh}
+  .rp-float{position:absolute;inset:0 0 6cqh;display:grid;place-items:center}
+  .rp-img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 3cqmin 4cqmin rgba(0,0,0,.25))}
+  .rp-card{width:min(60cqw,40cqh);aspect-ratio:3/4;border-radius:5cqmin;background:var(--accent);color:var(--on-accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3cqmin;padding:4cqmin;box-sizing:border-box;text-align:center;font:800 5.4cqmin/1.1 var(--display)}
+  .rp-card .mark{width:11cqmin;height:11cqmin;font-size:6cqmin;border-radius:2.6cqmin;background:var(--on-accent);color:var(--accent)}
+  .rp-floor{position:absolute;left:20%;right:20%;bottom:2cqh;height:3cqh;border-radius:50%;background:color-mix(in srgb,var(--ink) 14%,transparent)}
+  .rp-feats{position:absolute;right:7cqw;top:30cqh;margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7cqh;align-items:flex-end;font:700 4.4cqmin/1.15 var(--text)}
+  .rp-feats li{display:flex;align-items:center;gap:2cqmin}
+  .rp-feats i{display:block;width:12cqw;height:.4cqmin;background:var(--accent);transform-origin:right}
+  .rp-feats span{max-width:32cqw;text-align:right}
+  .rp-price{position:absolute;right:7cqw;top:8cqh;width:30cqmin;height:30cqmin;border-radius:50%;background:var(--accent);color:var(--on-accent);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;line-height:1}
+  .rp-price b{font:900 7.4cqmin/1 var(--display);letter-spacing:-.03em}
+  .rp-price small{font:700 3.2cqmin var(--text);margin-top:1cqmin;opacity:.85}
+  .rp-cta{position:absolute;left:12cqw;right:12cqw;bottom:9cqh;background:var(--ink);color:var(--background);border-radius:99cqmin;text-align:center;padding:3cqmin;font:700 4.4cqmin var(--text)}`,
+        script: `
+  kit.reveal('#rp-title', {at:.2});
+  kit.enter('#rp-hero', 'blur', {at:.5, d:1.3, ease:'apple'});
+  kit.enter('.rp-floor', 'fade', {at:.8, d:1});
+  kit.float('.rp-float', {at:0, d:12, amp:10});
+  kit.shine('#rp-hero', {at:2.2, d:1.3});
+  kit.exit('#rp-title', 'fade', {at:4.4, d:.4});
+  // The product steps aside for its strengths, each drawn to it.
+  hfEl(document.getElementById('rp-stage'), [{translate:'0 0', scale:'1'}, {translate:'-16cqw 0', scale:'.86'}], {at:4.6, d:1.1, ease:'apple'});
+  document.querySelectorAll('.rp-feats li').forEach(function(li, i){
+    hfEl(li.querySelector('i'), [{transform:'scaleX(0)'}, {transform:'none'}], {at:5.3 + i * .45, d:.5, ease:'snap'});
+    kit.enter(li.querySelector('span'), 'left', {at:5.5 + i * .45, d:.5});
+  });
+  kit.exit('.rp-feats', 'fade', {at:8.6, d:.4});
+  hfEl(document.getElementById('rp-stage'), [{translate:'-16cqw 0', scale:'.86'}, {translate:'0 -4cqh', scale:'.8'}], {at:8.7, d:.9, ease:'apple'});
+  kit.enter('#rp-price', 'pop', {at:9.1, d:.7, ease:'spring'});
+  kit.enter('#rp-cta', 'rise', {at:9.5, d:.6});
+  kit.shine('#rp-cta', {at:10.4, d:1});`,
+      };
+    },
+  },
+  {
+    id: 'temoignage',
+    name: 'Témoignage client',
+    use: 'A customer review told on screen: the quote appears word by word (key words *between stars* in the highlight colour), the stars light up, then the customer’s photo and name. Social proof.',
+    duration: 10,
+    slots: [
+      { key: 'quote', label: 'Citation', example: 'Livré en *2 heures*, et la qualité est *parfaite*. Je recommande.' },
+      { key: 'author', label: 'Nom du client', example: 'Aïcha K.' },
+      { key: 'role', label: 'Qui il est', example: 'Cliente à Ouagadougou' },
+      { key: 'photo', label: 'Photo du client', example: '', image: true },
+      { key: 'rating', label: 'Note (1 à 5, vide pour aucune)', example: '5' },
+    ],
+    body: (v, ctx) => {
+      const ws = words(v.quote).slice(0, 40);
+      const rating = Math.round(Math.min(5, Math.max(0, num(v.rating, 0))));
+      const initials = escapeHtml(words(v.author).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '·');
+      const per = Math.min(.16, 3.2 / Math.max(1, ws.length));
+      const quoteEnd = 1.2 + ws.length * per;
+      return {
+        html: `
+  <section id="s-tm" class="clip scene" data-start="0" data-duration="10" data-track-index="1">
+    <div class="tm-mark" id="tm-mark">“</div>
+    <div class="tm-body">
+      <p class="tm-quote">${starred(ws).map(({ w, hot }) => `<span class="tw${hot ? ' hot' : ''}">${escapeHtml(w)}</span>`).join(' ')}</p>
+      ${rating ? `<div class="tm-stars">${Array.from({ length: 5 }, (_, i) => `<span class="star${i < rating ? ' on' : ''}">★</span>`).join('')}</div>` : ''}
+      <div class="tm-who" id="tm-who">${v.photo ? `<img class="tm-face" src="${escapeHtml(v.photo)}" alt="">` : `<span class="tm-face tm-initials">${initials}</span>`}<div><b>${escapeHtml(v.author)}</b><span>${escapeHtml(v.role)}</span></div></div>
+    </div>
+    <div class="tm-brand" id="tm-brand">${logoMark(ctx, 'mark', 'tm-logo')}<b>${escapeHtml(ctx.brand.name)}</b></div>
+  </section>`,
+        css: `
+  .tm-mark{position:absolute;left:7cqw;top:5cqh;font:900 34cqmin/1 Georgia,'Times New Roman',serif;color:var(--highlight)}
+  .tm-body{position:absolute;left:8cqw;right:8cqw;top:26cqh;bottom:14cqh;display:flex;flex-direction:column;justify-content:center;gap:5cqmin}
+  .tm-quote{margin:0;font:700 6.6cqmin/1.28 var(--display);letter-spacing:-.015em}
+  .tw{display:inline-block}
+  .tw.hot{color:var(--highlight)}
+  .tm-stars{display:flex;gap:1.6cqmin;font-size:6.4cqmin;line-height:1}
+  .star{color:color-mix(in srgb,var(--ink) 22%,transparent)}
+  .star.on{color:var(--highlight)}
+  .tm-who{display:flex;align-items:center;gap:3.4cqmin}
+  .tm-face{width:15cqmin;height:15cqmin;border-radius:50%;object-fit:cover;flex:none}
+  .tm-initials{display:grid;place-items:center;background:var(--accent);color:var(--on-accent);font:800 5.4cqmin var(--display)}
+  .tm-who b{display:block;font:700 4.6cqmin var(--text)}
+  .tm-who span{font-size:3.8cqmin;opacity:.7}
+  .tm-brand{position:absolute;left:8cqw;bottom:6cqh;display:flex;align-items:center;gap:2cqmin;font:700 3.8cqmin var(--display);opacity:.9}
+  .tm-brand .mark{width:6cqmin;height:6cqmin;font-size:3.2cqmin;border-radius:1.5cqmin}`,
+        script: `
+  kit.enter('#tm-mark', 'drop', {at:.15, d:.8, ease:'spring'});
+  hfEl(document.getElementById('tm-mark'), [{opacity:1}, {opacity:.25}], {at:1.1, d:.6});
+  kit.enter('.tw', 'rise', {at:1.2, d:.45, stagger:${per.toFixed(3)}});
+  hfEl(document.querySelector('.tm-quote'), [{scale:'1'}, {scale:'1.03'}], {at:1.2, d:8.8, ease:'linear'});
+  kit.enter('.star', 'pop', {at:${(quoteEnd + .3).toFixed(2)}, d:.45, stagger:.12, ease:'spring'});
+  kit.enter('#tm-who', 'rise', {at:${(quoteEnd + 1.2).toFixed(2)}, d:.6, ease:'apple'});
+  kit.enter('#tm-brand', 'fade', {at:${(quoteEnd + 1.7).toFixed(2)}, d:.6});`,
+      };
+    },
+  },
+  {
+    id: 'avant-apres',
+    name: 'Avant / après',
+    use: 'A transformation shown with two photos (renovation, hairdressing, cleaning, retouching, coaching): the before, a curtain wiping to the after, then back to the middle to compare, and a title. Needs both photos.',
+    duration: 9,
+    slots: [
+      { key: 'before', label: 'Photo avant', example: '', image: true },
+      { key: 'after', label: 'Photo après', example: '', image: true },
+      { key: 'title', label: 'Titre', example: 'Salon refait en 3 jours.' },
+      { key: 'cta', label: 'Appel à l’action', example: 'Devis gratuit · 70 00 00 00' },
+      { key: 'labels', label: 'Étiquettes', example: 'AVANT\nAPRÈS', list: true },
+    ],
+    body: (v) => {
+      const [lb, la] = [...lines(v.labels), 'AVANT', 'APRÈS'].filter(Boolean);
+      const pic = (src: string, cls: string, label: string) =>
+        src ? `<img class="ba-pic ${cls}" src="${escapeHtml(src)}" alt="">` : `<div class="ba-pic ${cls} ba-empty"><span>${escapeHtml(label)}</span></div>`;
+      return {
+        html: `
+  <section id="s-ba" class="clip scene" data-start="0" data-duration="9" data-track-index="1">
+    <div class="ba-frame" id="ba-frame">
+      ${pic(v.before, 'ba-before', lb)}
+      <div class="ba-after-wrap" id="ba-after">${pic(v.after, 'ba-after', la ?? 'APRÈS')}</div>
+      <div class="ba-line" id="ba-line"><span class="ba-knob">⇆</span></div>
+    </div>
+    <span class="ba-tag ba-tag-b" id="ba-tag-b">${escapeHtml(lb)}</span>
+    <span class="ba-tag ba-tag-a" id="ba-tag-a">${escapeHtml(la ?? 'APRÈS')}</span>
+    <div class="ba-bottom" id="ba-bottom"><h1 class="ba-title" id="ba-title">${escapeHtml(v.title)}</h1><p class="ba-cta" id="ba-cta">${escapeHtml(v.cta)}</p></div>
+  </section>`,
+        css: `
+  .ba-frame{position:absolute;inset:0;overflow:hidden}
+  .ba-pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .ba-empty{display:grid;place-items:center;font:900 12cqmin var(--display);letter-spacing:.06em}
+  .ba-before.ba-empty{background:color-mix(in srgb,var(--ink) 30%,var(--background));color:var(--background)}
+  .ba-after.ba-empty{background:var(--accent);color:var(--on-accent)}
+  .ba-after-wrap{position:absolute;inset:0}
+  .ba-line{position:absolute;top:0;bottom:0;left:0;width:.8cqmin;margin-left:-.4cqmin;background:#fff;box-shadow:0 0 3cqmin rgba(0,0,0,.45)}
+  .ba-knob{position:absolute;top:50%;left:50%;width:11cqmin;height:11cqmin;margin:-5.5cqmin;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font:900 5cqmin var(--text)}
+  .ba-tag{position:absolute;top:6cqh;padding:1.6cqmin 3.4cqmin;border-radius:99cqmin;font:800 3.6cqmin var(--text);letter-spacing:.08em;background:rgba(0,0,0,.6);color:#fff}
+  .ba-tag-b{left:6cqw}
+  .ba-tag-a{right:6cqw;background:#fff;color:#111}
+  .ba-bottom{position:absolute;left:0;right:0;bottom:0;padding:5cqh 8cqw 7cqh;background:var(--background);color:var(--ink);display:flex;flex-direction:column;gap:1.6cqmin}
+  .ba-title{margin:0;font:800 8cqmin/1.05 var(--display);letter-spacing:-.03em;text-wrap:balance}
+  .ba-cta{margin:0;font:600 4cqmin var(--text);color:var(--highlight)}`,
+        script: `
+  // The after is cut by a curtain whose edge is the line: both follow the same keys.
+  var keys = [[0,100],[1.6,100],[3.4,0],[5.2,0],[6.4,50]];
+  var span = 6.4, ease = EASES.inout;
+  hfEl(document.getElementById('ba-after'), keys.map(function(k, i){ var f = {clipPath:'inset(0 0 0 ' + k[1] + '%)', offset:k[0] / span}; if (i < keys.length - 1) f.easing = ease; return f; }), {at:0, d:span, ease:'linear'});
+  hfEl(document.getElementById('ba-line'), keys.map(function(k, i){ var f = {left:k[1] + '%', offset:k[0] / span}; if (i < keys.length - 1) f.easing = ease; return f; }), {at:0, d:span, ease:'linear'});
+  // Hidden while the curtain rests against an edge.
+  hfEl(document.getElementById('ba-line'), [{opacity:0, offset:0}, {opacity:0, offset:1.3 / 6.4}, {opacity:1, offset:1.6 / 6.4}, {opacity:1, offset:3.1 / 6.4}, {opacity:0, offset:3.4 / 6.4}, {opacity:0, offset:5.2 / 6.4}, {opacity:1, offset:5.5 / 6.4}, {opacity:1}], {at:0, d:6.4, ease:'linear'});
+  kit.kenburns('.ba-frame', {at:0, d:9, to:1.06});
+  kit.enter('#ba-tag-b', 'left', {at:.3, d:.5});
+  kit.exit('#ba-tag-b', 'fade', {at:3, d:.3});
+  kit.enter('#ba-tag-a', 'right', {at:3.3, d:.5});
+  kit.shine('#ba-after', {at:3.7, d:1.2});
+  kit.enter('#ba-tag-b', 'left', {at:6.3, d:.4});
+  kit.enter('#ba-bottom', 'rise', {at:6.6, d:.7, ease:'apple'});
+  kit.reveal('#ba-title', {at:6.8});
+  kit.enter('#ba-cta', 'fade', {at:7.5, d:.5});`,
+      };
+    },
+  },
+  {
+    id: 'offre-du-jour',
+    name: 'Offre du jour',
+    use: 'A flash deal for a WhatsApp Status or a story: the product pops, the old price is struck through, the new price lands with its discount stamp, and a countdown ticks to the end of the offer.',
+    duration: 8,
+    slots: [
+      { key: 'product', label: 'Produit', example: 'Pagne wax 6 yards' },
+      { key: 'image', label: 'Photo du produit', example: '', image: true },
+      { key: 'old', label: 'Ancien prix', example: '15 000' },
+      { key: 'new', label: 'Nouveau prix', example: '9 900' },
+      { key: 'currency', label: 'Monnaie', example: 'F' },
+      { key: 'left', label: 'Temps restant (hh:mm:ss)', example: '05:42:17' },
+      { key: 'cta', label: 'Appel à l’action', example: 'Écrivez-nous sur WhatsApp' },
+    ],
+    body: (v, ctx) => {
+      const before = num(v.old, 0);
+      const after = num(v.new, 0);
+      const off = before > 0 && after > 0 && after < before ? Math.round((1 - after / before) * 100) : 0;
+      const [h, m, s] = [...v.left.split(':').map((x) => Math.max(0, Math.min(99, Math.round(num(x, 0))))), 0, 0, 0];
+      const hero = v.image
+        ? `<img class="od-img" id="od-hero" src="${escapeHtml(v.image)}" alt="">`
+        : `<div class="od-card" id="od-hero">${logoMark(ctx, 'mark', 'od-logo')}</div>`;
+      return {
+        html: `
+  <section id="s-od" class="clip scene" data-start="0" data-duration="8" data-track-index="1">
+    <div class="od">
+      <div class="od-top">${hero}</div>
+      <div class="od-info">
+        <h1 class="od-name" id="od-name">${escapeHtml(v.product)}</h1>
+        <div class="od-prices">
+          <span class="od-old" id="od-old">${escapeHtml(v.old)}<i id="od-strike"></i></span>
+          <span class="od-new" id="od-new">${escapeHtml(v.new)}<small>${escapeHtml(v.currency)}</small></span>
+          ${off ? `<div class="od-stamp" id="od-stamp">-${off} %</div>` : ''}
+        </div>
+        <div class="od-timer" id="od-timer"><div><b id="od-h"></b><small>heures</small></div><div><b id="od-m"></b><small>min</small></div><div><b id="od-s"></b><small>s</small></div></div>
+        <p class="od-cta" id="od-cta">${escapeHtml(v.cta)}</p>
+      </div>
+    </div>
+  </section>`,
+        css: `
+  .od{position:absolute;inset:6cqh 8cqw 7cqh;display:flex;flex-direction:column;gap:4cqmin}
+  .od-top{flex:1 1 0;min-height:0;display:grid;place-items:center}
+  .od-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:3cqmin}
+  .od-card{height:100%;max-height:40cqmin;aspect-ratio:1;border-radius:5cqmin;background:var(--accent);display:grid;place-items:center}
+  .od-card .mark{width:14cqmin;height:14cqmin;font-size:8cqmin;border-radius:3cqmin;background:var(--on-accent);color:var(--accent)}
+  .od-info{display:flex;flex-direction:column;gap:3cqmin}
+  .od-name{margin:0;font:800 7.4cqmin/1.05 var(--display);letter-spacing:-.03em;text-wrap:balance}
+  .od-prices{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:1cqmin}
+  .od-old{position:relative;font:800 9cqmin/1 var(--display);opacity:.55}
+  .od-old i{position:absolute;left:-3%;right:-3%;top:50%;height:1.2cqmin;background:var(--highlight);transform:rotate(-8deg)}
+  .od-new{font:900 20cqmin/.95 var(--display);letter-spacing:-.05em;color:var(--highlight)}
+  .od-new small{font-size:7cqmin;margin-left:1cqmin;letter-spacing:0}
+  .od-stamp{position:absolute;right:0;top:0;rotate:10deg;border:.9cqmin solid var(--highlight);color:var(--highlight);border-radius:2cqmin;padding:1.4cqmin 3cqmin;font:900 6cqmin var(--display)}
+  .od-timer{display:flex;gap:3cqmin}
+  .od-timer div{flex:1;background:var(--ink);color:var(--background);border-radius:2.4cqmin;text-align:center;padding:2.4cqmin 0;font-variant-numeric:tabular-nums}
+  .od-timer b{display:block;font:900 8cqmin/1 var(--display)}
+  .od-timer small{display:block;font:600 2.8cqmin var(--text);margin-top:1cqmin;opacity:.8}
+  .od-cta{margin:0;text-align:center;font:700 4.2cqmin var(--text)}
+  @container (min-aspect-ratio: 5/4){
+    .od{flex-direction:row;align-items:center;gap:6cqw}
+    .od-top{flex:0 0 38%;height:100%}
+    .od-card{max-height:none;width:100%;height:auto}
+    .od-info{flex:1}
+    .od-cta{text-align:left}
+  }`,
+        script: `
+  kit.enter('#od-hero', 'pop', {at:.1, d:.7, ease:'spring'});
+  kit.float('.od-top', {at:0, d:8, amp:8});
+  kit.reveal('#od-name', {at:.4});
+  kit.enter('#od-old', 'left', {at:1.3, d:.5});
+  hfEl(document.getElementById('od-strike'), [{transform:'rotate(-8deg) scaleX(0)', transformOrigin:'left'}, {transform:'rotate(-8deg) scaleX(1)', transformOrigin:'left'}], {at:1.9, d:.35, ease:'snap'});
+  kit.enter('#od-new', 'pop', {at:2.4, d:.7, ease:'spring'});
+  if (document.getElementById('od-stamp')) hfEl(document.getElementById('od-stamp'), [{opacity:0, transform:'scale(2.2)'}, {opacity:1, transform:'none'}], {at:3, d:.35, ease:'snap'});
+  kit.enter('#od-timer', 'rise', {at:3.6, d:.6});
+  kit.count('#od-h', {at:3.6, d:.01, from:${h}, to:${h}, pad:true});
+  kit.count('#od-m', {at:3.6, d:.01, from:${m}, to:${m}, pad:true});
+  // The seconds tick down, one a second, as a real clock.
+  kit.count('#od-s', {at:4.2, d:${Math.max(.01, Math.min(s, 3))}, from:${s}, to:${s - Math.min(s, 3)}, pad:true, ease:'linear'});
+  kit.enter('#od-cta', 'fade', {at:4.4, d:.5});
+  hfEl(document.getElementById('od-new'), [{scale:'1'}, {scale:'1.05'}, {scale:'1'}], {at:5.5, d:1, ease:'inout', n:2});`,
+      };
+    },
+  },
 ];
 
 /**

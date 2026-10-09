@@ -14,6 +14,13 @@ describe('motion kit', () => {
     expect(() => new Function(KIT_JS)).not.toThrow();
   });
 
+  it('highlights words between stars, over one word or several', async () => {
+    const { html } = compose('temoignage', { format: '9:16', title: 'T', brand: DEFAULT_BRAND, values: { quote: 'Livré en *2 heures*, et *parfait*. Merci' }, logoSrc: null });
+    const hot = [...html.matchAll(/<span class="tw hot">([^<]+)<\/span>/g)].map((m) => m[1]);
+    expect(hot).toEqual(['2', 'heures,', 'parfait.']);
+    expect(/<p class="tm-quote">[^]*?<\/p>/.exec(html)![0]).not.toContain('*');
+  });
+
   it('is documented for the agent, every function and ease', () => {
     for (const fn of ['enter', 'exit', 'reveal', 'type', 'cursor', 'camera', 'count', 'shine', 'float', 'kenburns', 'split', 'center']) {
       expect(KIT_JS).toContain(`${fn}: function(`);

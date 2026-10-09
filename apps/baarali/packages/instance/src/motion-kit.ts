@@ -24,6 +24,7 @@ export const KIT_CSS = `
   .kit-count::before{content:attr(data-prefix)}
   .kit-count{counter-reset:kit-n var(--kit-n)}
   .kit-count::after{content:counter(kit-n) attr(data-suffix)}
+  .kit-count.pad::after{content:counter(kit-n, decimal-leading-zero) attr(data-suffix)}
   .kit-caret{display:inline-block;width:.08em;height:1.05em;margin-left:.04em;vertical-align:-.15em;background:currentColor}
   .kit-typed{white-space:pre-wrap}
   .kit-cursor{position:absolute;left:0;top:0;width:4.4cqmin;height:4.4cqmin;margin:-.46cqmin 0 0 -.73cqmin;z-index:50;pointer-events:none;transform-origin:16.7% 10.4%;filter:drop-shadow(0 .3cqmin .5cqmin rgba(0,0,0,.35))}
@@ -166,10 +167,10 @@ export const KIT_JS = `
         var leg = legs(keys, function(k){ return {transform:'translate(' + (k[2] || 0) + 'px,' + (k[3] || 0) + 'px) scale(' + k[1] + ')'}; }, o.ease || 'inout');
         hfEl(one(sel), leg.frames, {at:leg.at, d:leg.d, ease:'linear'});
       },
-      /** A number counting from o.from (0) to o.to, whole numbers; o.prefix / o.suffix around it. */
+      /** A number counting from o.from (0) to o.to, up or down, whole numbers; o.prefix / o.suffix around it, o.pad for two digits (05). */
       count: function(sel, o){
         var el = one(sel);
-        el.classList.add('kit-count'); el.textContent = '';
+        el.classList.add('kit-count'); if (o.pad) el.classList.add('pad'); el.textContent = '';
         el.setAttribute('data-prefix', o.prefix || ''); el.setAttribute('data-suffix', o.suffix || '');
         hfEl(el, [{'--kit-n':String(Math.round(o.from || 0))}, {'--kit-n':String(Math.round(o.to))}], {at:o.at, d:o.d || 1.6, ease:o.ease || 'out'});
       },
@@ -205,6 +206,6 @@ export const KIT_DOC = `The page's script has the motion kit (times in seconds f
    - \`kit.type(sel, text, {at, cps, caretUntil})\`: typed a character at a time with a caret; returns the time it ends.
    - \`kit.cursor(null, [[t, x, y], …], {clicks:[t, …], hideAt})\`: a pointer gliding through stops and clicking with a ripple, gone 1 s after its last click; put each stop on its target with \`kit.center(sel)\` → [x, y].
    - \`kit.camera(sel, [[t, scale, x, y], …])\`: slow zooms and pans on a stage element that holds the scene.
-   - \`kit.count(sel, {at, d, from, to, prefix, suffix})\`: a whole number counting up.
+   - \`kit.count(sel, {at, d, from, to, prefix, suffix, pad})\`: a whole number counting up or down (pad: two digits, for a clock).
    - \`kit.shine(sel, {at})\`: a light sweep across a product or a card. \`kit.float(sel, {at, d, amp})\`: an idle float. \`kit.kenburns(img, {at, d, to})\`: a slow push on a photo.
    - \`kit.split(sel, 'words'|'letters')\` returns spans to animate with \`hfEl\`. Animate one element's property in time order.`;

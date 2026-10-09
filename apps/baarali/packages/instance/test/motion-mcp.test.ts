@@ -12,11 +12,11 @@ async function setup() {
 const textOf = (r: { content: Array<{ text: string }> }) => r.content[0].text;
 
 describe('motion tools', () => {
-  it('lists the nine templates with their slots', async () => {
+  it('lists the thirteen templates with their slots', async () => {
     const { tools } = await setup();
     const out = textOf(await tools.run('list_templates', {}));
     for (const t of TEMPLATES) expect(out).toContain(`- ${t.id} — ${t.name}`);
-    expect(TEMPLATES).toHaveLength(9);
+    expect(TEMPLATES).toHaveLength(13);
   });
 
   it('makes every template in every format, and each passes the check', async () => {
