@@ -41,7 +41,7 @@ const MENU: Record<string, string> = {
   'Live Notes': 'Notes vivantes',
   'Settings…': 'Paramètres…',
   'About Baarali': 'À propos de Baarali',
-  'New Chat': 'Nouvelle discussion',
+  'New Chat': 'Nouveau chat',
   'New Presentation…': 'Nouvelle présentation…',
   'Export Note': 'Exporter la note',
   'Search…': 'Rechercher…',

@@ -49,7 +49,7 @@ describe('the French dictionary', () => {
 describe('translate', () => {
   it('translates a whole string and keeps the spaces around it', () => {
     expect(translate(FR, 'Settings')).toBe('Paramètres');
-    expect(translate(FR, ' New chat ')).toBe(' Nouvelle discussion ');
+    expect(translate(FR, ' New chat ')).toBe(' Nouveau chat ');
   });
 
   it('finds a text the build did not name Baarali', () => {
