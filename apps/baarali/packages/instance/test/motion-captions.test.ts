@@ -11,8 +11,8 @@ const ROOT = '<div id="root" data-composition-id="main" data-start="0" data-dura
 
 describe('captions', () => {
   it('finds the voice: an <audio>, or a <video> that keeps its sound, never a remote one', () => {
-    expect(findVoice('<video class="clip" src="assets/b.mp4" muted data-start="0"></video><audio class="clip" id="v" src="assets/voix.mp3" data-start="1.5"></audio>')).toEqual({ src: 'assets/voix.mp3', at: 1.5 });
-    expect(findVoice('<video class="clip" src="assets/film.mp4" data-has-audio="true"></video>')).toEqual({ src: 'assets/film.mp4', at: 0 });
+    expect(findVoice('<video class="clip" src="assets/b.mp4" muted data-start="0"></video><audio class="clip" id="v" src="assets/voix.mp3" data-start="1.5"></audio>')).toEqual({ src: 'assets/voix.mp3', at: 1.5, id: 'v' });
+    expect(findVoice('<video class="clip" src="assets/film.mp4" data-has-audio="true"></video>')).toEqual({ src: 'assets/film.mp4', at: 0, id: null });
     expect(findVoice('<audio src="https://x.test/a.mp3"></audio><video src="a.mp4" muted></video>')).toBeNull();
   });
 
