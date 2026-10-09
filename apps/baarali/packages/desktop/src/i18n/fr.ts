@@ -2949,6 +2949,11 @@ export const FR: Dictionary = {
     "Step limit reached": "Limite d’étapes atteinte",
     "Stopped": "Arrêté",
     "steps": "étapes",
+    // The chat's work folded into steps (renderer components/work-steps.tsx, 09/10/2026).
+    "Baarali is working…": "Baarali travaille…",
+    "Worked": "A travaillé",
+    "step": "étape",
+    "Getting ready": "Préparation",
     "Cost": "Coût",
     "F CFA": "F CFA",
     "Confirming browser action": "Validation d’une action dans le navigateur",
