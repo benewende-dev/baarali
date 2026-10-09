@@ -198,6 +198,7 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/spaces/*', authed);
   app.use('/v1/voice/*', authed);
   app.use('/v1/announcement', authed);
+  app.use('/v1/sidebar', authed);
   // The agent at work: what it spends counts as use of the instance, so an
   // image update never restarts it under a running task (instances.updateIdle).
   for (const path of ['/v1/llm/*', '/v1/media/*', '/v1/motion/*', '/v1/voice/*']) {
@@ -428,6 +429,8 @@ export function createApp(deps: ControlDeps) {
   app.get('/v1/media/packs', (c) => c.json({ data: deps.mediaPacks }));
   app.post('/v1/media/generations', (c) => createGeneration({ ...deps, models, auto }, c.get('account'), c.req.raw));
   app.get('/v1/media/generations/:id', (c) => getGeneration(deps, c.get('account'), c.req.param('id')));
+  // The sidebar the admin console published (sidebar.ts); null keeps the app's default.
+  app.get('/v1/sidebar', async (c) => c.json({ layout: (await deps.store.sidebarLayout())?.layout ?? null }));
   app.get('/v1/motion/allowance', (c) => motionAllowance(deps, c.get('account')));
   app.post('/v1/motion/renders', (c) => createRender(deps, c.get('account'), c.req.raw));
   app.get('/v1/motion/renders/:id', (c) => getRender(deps, c.get('account'), c.req.param('id')));

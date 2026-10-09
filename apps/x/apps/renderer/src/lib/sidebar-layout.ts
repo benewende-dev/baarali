@@ -38,9 +38,35 @@ export function setPublishedSidebarLayout(layout: Layout | null): void {
   for (const l of listeners) l()
 }
 
+/** Read again every 10 minutes and when the window comes back, like the announcements. */
+const REFRESH_MS = 10 * 60_000
+let syncing = false
+let lastLoad = 0
+
+async function loadPublished(): Promise<void> {
+  try {
+    const answer = await window.ipc.invoke('billing:getSidebarLayout', null)
+    lastLoad = Date.now()
+    // null: the API could not be reached; the last layout known stays.
+    if (answer) setPublishedSidebarLayout(answer.layout)
+  } catch {
+    // Same: offline, the sidebar keeps its last layout.
+  }
+}
+
+function startSync(): void {
+  if (syncing || typeof window === 'undefined' || !window.ipc) return
+  syncing = true
+  void loadPublished()
+  setInterval(() => void loadPublished(), REFRESH_MS)
+  window.addEventListener('focus', () => {
+    if (Date.now() - lastLoad > 30_000) void loadPublished()
+  })
+}
+
 export function useSidebarRows(): sidebarLayout.SidebarRow[] {
   return useSyncExternalStore(
-    (l) => { listeners.add(l); return () => listeners.delete(l) },
+    (l) => { listeners.add(l); startSync(); return () => listeners.delete(l) },
     () => rows,
   )
 }

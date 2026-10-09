@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { checkSidebarLayout, DEFAULT_SIDEBAR_LAYOUT, describeSidebarLayout, SIDEBAR_PAGE_NAMES } from './sidebar.js';
 import type { Context, Hono } from 'hono';
 import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { isAdmin, type SoldPack } from './admin.js';
@@ -437,6 +438,31 @@ export function mountAdminConsole(app: Hono<any>, deps: ConsoleDeps): void {
     ].filter(Boolean).join(', ');
     await log(actor, 'models', null, `${ids.length === 1 ? ids[0] : `${ids.length} modèles`} : ${words}`);
     return c.json({ saved: settings.length });
+  });
+
+  // The app's sidebar (sidebar.ts, 09/10/2026): read, published for everyone, or back to the default.
+  app.get('/admin/api/sidebar', async (c) => {
+    const actor = await api(c, false);
+    if (actor instanceof Response) return actor;
+    const published = await store.sidebarLayout();
+    return c.json({ published, default: DEFAULT_SIDEBAR_LAYOUT, names: SIDEBAR_PAGE_NAMES });
+  });
+
+  app.post('/admin/api/sidebar', async (c) => {
+    const actor = await api(c, true);
+    if (actor instanceof Response) return actor;
+    const b = await body(c);
+    if (b.layout === null) {
+      await store.saveSidebarLayout(null);
+      await log(actor, 'sidebar', null, describeSidebarLayout(null));
+      return c.json({ published: null });
+    }
+    const checked = checkSidebarLayout(b.layout);
+    if (!checked.ok) return c.json({ error: { code: 'invalid_request', message: checked.message } }, 400);
+    const published = { layout: checked.layout, at: deps.now(), by: actor };
+    await store.saveSidebarLayout(published);
+    await log(actor, 'sidebar', null, describeSidebarLayout(checked.layout));
+    return c.json({ published });
   });
 
   // Découverte's list, in order: the first is the default, the others take over.

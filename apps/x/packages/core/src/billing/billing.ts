@@ -1,4 +1,5 @@
 import { getAccessToken } from '../auth/tokens.js';
+import { SidebarLayoutSchema, type SidebarLayout } from '@x/shared/dist/sidebar-layout.js';
 import { API_URL } from '../config/env.js';
 import { AnnouncementSchema, MediaCreditsSchema, NoticeInboxSchema, PartnerCodeStateSchema, PlanOffersSchema, type PartnerCodeCheck, type PartnerCodeResult, type PartnerCodeState, type Announcement, type AnnouncementEventKind, type BillingInfo, type BillingPlanId, type MediaCredits, type NoticeEventKind, type NoticeInbox, type PlanOffers } from '@x/shared/dist/billing.js';
 import { getRowboatConfig } from '../config/rowboat.js';
@@ -115,6 +116,25 @@ export async function getAnnouncement(): Promise<Announcement | null> {
     if (!response.ok) return null;
     const body = (await response.json()) as { announcement?: unknown };
     return body.announcement ? AnnouncementSchema.parse(body.announcement) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The sidebar the admin console published (control GET /v1/sidebar,
+ * Baarali, 09/10/2026): { layout: null } when none is, null when the API
+ * cannot be reached, so the app keeps the last one it knew.
+ */
+export async function getSidebarLayout(): Promise<{ layout: SidebarLayout | null } | null> {
+  try {
+    const accessToken = await getAccessToken();
+    const response = await fetch(`${API_URL}/v1/sidebar`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { layout?: unknown };
+    if (!body.layout) return { layout: null };
+    const parsed = SidebarLayoutSchema.safeParse(body.layout);
+    return parsed.success ? { layout: parsed.data } : null;
   } catch {
     return null;
   }

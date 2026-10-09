@@ -96,6 +96,13 @@ export interface MotionUsage {
 /** How a new export is paid, from what the period already used. */
 export type MotionSplit = (used: MotionUsage) => { included: number; credits: number };
 
+/** The sidebar the admin console published (sidebar.ts); the layout is checked on the way in. */
+export interface PublishedSidebar {
+  layout: { entries: Array<{ id: string; label?: string | null; hidden?: boolean }> };
+  at: number;
+  by: string;
+}
+
 /** One change to an account's media credits; the balance is their sum (decided 01/10/2026). */
 export interface MediaLedgerEntry {
   accountId: string;
@@ -210,6 +217,10 @@ export interface ControlStore {
   saveMotionRender(render: MotionRender): Promise<void>;
   /** Plan seconds used since `since`, refunded exports left out. */
   motionUsage(accountId: string, since: number): Promise<MotionUsage>;
+  /** The published sidebar; null when the app keeps its default. */
+  sidebarLayout(): Promise<PublishedSidebar | null>;
+  /** Publishes one, or goes back to the default with null. */
+  saveSidebarLayout(published: PublishedSidebar | null): Promise<void>;
   /** Lets `token` act as the account. Kept hashed only. */
   grantToken(token: string, accountId: string): Promise<void>;
   /** `token` no longer acts as anyone; nothing happens when it never did. */
@@ -418,6 +429,13 @@ export class MemoryStore implements ControlStore {
   }
   async motionUsage(accountId: string, since: number) {
     return this.motionUsageOf(accountId, since);
+  }
+  private sidebar: PublishedSidebar | null = null;
+  async sidebarLayout() {
+    return this.sidebar ? structuredClone(this.sidebar) : null;
+  }
+  async saveSidebarLayout(published: PublishedSidebar | null) {
+    this.sidebar = published ? structuredClone(published) : null;
   }
   async grantToken(token: string, accountId: string) {
     const account = await this.account(accountId);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SidebarLayoutSchema } from './sidebar-layout.js';
 import { UseCase } from './analytics.js';
 import { DeckOutline, DeckOutlineSlide, EditSlideRequest, GenerateDeckOutlineRequest, GenerateSlideRequest } from './deck.js';
 import { RelPath, Encoding, Stat, DirEntry, ReaddirOptions, ReadFileResult, WorkspaceChangeEvent, WriteFileOptions, WriteFileResult, RemoveOptions } from './workspace.js';
@@ -3731,6 +3732,12 @@ export const ipcSchemas = {
   'billing:getAnnouncement': {
     req: z.null(),
     res: AnnouncementSchema.nullable(),
+  },
+  // The sidebar the admin console published (Baarali, 09/10/2026): null when
+  // the API cannot be reached, { layout: null } when nothing is published.
+  'billing:getSidebarLayout': {
+    req: z.null(),
+    res: z.object({ layout: SidebarLayoutSchema.nullable() }).nullable(),
   },
   'billing:announcementEvent': {
     req: z.object({ id: z.string(), kind: AnnouncementEventKindSchema }),

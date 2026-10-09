@@ -75,6 +75,24 @@ input[type=search] { flex:1; min-width:180px; }
 .it time { font-size:12px; color:var(--muted); white-space:nowrap; min-width:110px; font-variant-numeric:tabular-nums; }
 .it p { margin:0; }
 .it small, .muted { color:var(--muted); }
+.sbcols { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:20px; align-items:start; }
+@media (max-width:900px) { .sbcols { grid-template-columns:1fr; } }
+.sbrow { display:grid; grid-template-columns:22px minmax(0,1fr) minmax(0,170px) 96px; gap:10px; align-items:center; padding:8px 4px; border-bottom:1px solid var(--line); }
+.sbrow.drag { background:var(--blue-soft); outline:1px solid var(--blue); border-radius:8px; }
+.sbrow .grip { cursor:grab; color:var(--muted); text-align:center; letter-spacing:-2px; user-select:none; }
+.sbrow.lock .grip { visibility:hidden; }
+.sbrow input[type=text] { font:inherit; border:1px solid var(--line); border-radius:7px; padding:5px 9px; background:transparent; color:var(--ink); width:100%; }
+.sbrow input.changed { border-color:var(--blue); }
+.sbrow .orig { font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sbrow .act { justify-self:end; display:flex; gap:6px; align-items:center; font-size:12px; color:var(--muted); }
+.sbrow.hid input { opacity:.45; }
+.sbsep { grid-column:2/4; display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; }
+.sbsep::before, .sbsep::after { content:""; flex:1; border-top:1px dashed var(--line); }
+.sbprev { border:1px solid var(--line); border-radius:12px; padding:12px 8px; position:sticky; top:20px; }
+.sbprev .sbt { font:500 11px "Inter", sans-serif; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:0 8px 8px; }
+.sbpi { padding:6px 8px; border-radius:7px; color:var(--ink); }
+.sbpi.first { background:var(--blue-soft); color:var(--blue); }
+.sbpline { height:1px; background:var(--line); margin:6px; }
 .empty { color:var(--muted); padding:8px 0; }
 .drawer { position:fixed; inset:0 0 0 auto; width:min(480px,100%); background:var(--paper); border-left:1px solid var(--line); box-shadow:-20px 0 40px rgb(0 0 0 / .15); padding:24px; overflow:auto; z-index:5; }
 .drawer h3 { font:600 20px "Source Serif 4", Georgia, serif; color:var(--ink); margin:0 90px 4px 0; overflow-wrap:anywhere; }
@@ -240,6 +258,7 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
     <button data-v="clients">Clients <span class="count" id="n-clients"></span></button>
     <button data-v="instances">Instances <span class="count" id="n-instances"></span></button>
     <button data-v="modeles">Modèles <span class="count" id="n-models"></span></button>
+    <button data-v="barre">Barre de l'app</button>
     <h6>Faire grandir</h6>
     <button data-v="notifs">Notifications <span class="count" id="n-notifs"></span></button>
     <button data-v="annonces">Annonces <span class="count" id="n-announce"></span></button>
@@ -394,6 +413,19 @@ export function adminPage(opts: { nonce: string; admin: string }): string {
     </div>
   </div>
 
+  <div data-p="barre" hidden>
+    <div class="head"><div><h1>Barre de l'app</h1><p>L'ordre, le nom et la présence de chaque page dans la barre de gauche de l'app. Publié, ça arrive chez tout le monde en moins de 10 minutes, sans mise à jour de l'app.</p></div>
+      <div class="actions"><span class="pill warn" id="sb-dirty" hidden></span><button class="btn" id="sb-reset" type="button">Revenir à l'ordre d'origine</button><button class="btn primary" id="sb-publish" type="button">Publier</button></div></div>
+    <div class="sbcols">
+      <section class="card"><h2>Pages</h2>
+        <p class="hint">Glissez une ligne par sa poignée ⋮⋮ pour la déplacer. Le nom se change dans le champ ; vide, la page garde son nom d'origine. Chat reste en tête, les Échanges restent en bas.</p>
+        <div id="sb-rows"></div>
+        <button class="btn" id="sb-sep" type="button">+ Ajouter un séparateur</button>
+        <p class="hint" id="sb-when"></p>
+      </section>
+      <div class="sbprev"><div class="sbt">Aperçu</div><div id="sb-prev"></div><p class="hint">Ce que vos clients verront une fois publié.</p></div>
+    </div>
+  </div>
   <div data-p="annonces" hidden>
     <div class="head"><div><h1>Annonces</h1><p>Un bandeau en haut du Chat, sur le Mac et le téléphone. Un seul visible à la fois ; le client peut le fermer.</p></div></div>
     <div class="grid2">
@@ -583,7 +615,7 @@ function bar(p) {
 }
 
 // Navigation, remembered in the address (#clients…).
-const views = ["apercu", "clients", "instances", "modeles", "notifs", "annonces", "partenaires", "journal"];
+const views = ["apercu", "clients", "instances", "modeles", "barre", "notifs", "annonces", "partenaires", "journal"];
 function show(v) {
   if (!views.includes(v)) v = "apercu";
   for (const s of document.querySelectorAll("[data-p]")) s.hidden = s.dataset.p !== v;
@@ -608,11 +640,89 @@ async function load(v) {
     if (v === "instances") await loadInstances();
     if (v === "journal") await loadJournal();
     if (v === "modeles") await loadModels();
+    if (v === "barre") await loadSidebar();
     if (v === "notifs") await loadNotifications();
     if (v === "annonces") await loadAnnouncements();
     if (v === "partenaires") await loadPartners();
   } catch (e) { if (e.message !== "signed out") toast("Chargement impossible. Réessaie."); }
 }
+
+// The app's sidebar (09/10/2026): edited here, published for everyone.
+const sb = { names: {}, base: [], rows: [], drag: -1 };
+function sbClone(entries) { return entries.map((e) => ({ ...e })); }
+async function loadSidebar() {
+  const r = await get("/sidebar");
+  sb.names = r.names;
+  sb.defaults = r.default.entries;
+  sb.base = sbClone(r.published ? r.published.layout.entries : r.default.entries);
+  sb.rows = sbClone(sb.base);
+  sb.when = r.published ? "Publiée " + stamp.format(new Date(r.published.at)) + " par " + r.published.by : "L'app suit l'ordre d'origine : rien n'est publié.";
+  drawSidebar();
+}
+function sbDirty() { return JSON.stringify(sb.rows) !== JSON.stringify(sb.base); }
+function drawSidebar() {
+  const rows = sb.rows.map((e, i) => {
+    if (e.id === "separator") {
+      return el("div", { class: "sbrow", draggable: "true", "data-i": String(i) }, el("span", { class: "grip" }, "⋮⋮"), el("span", { class: "sbsep" }, "séparateur"),
+        el("span", { class: "act" }, el("button", { class: "btn", type: "button", onclick: () => { sb.rows.splice(i, 1); drawSidebar(); } }, "Retirer")));
+    }
+    const lock = e.id === "chat";
+    const input = el("input", { type: "text", maxlength: "32", placeholder: sb.names[e.id] });
+    input.value = e.label || "";
+    if (e.label) input.className = "changed";
+    input.addEventListener("input", () => {
+      const v = input.value.trim();
+      e.label = v && v !== sb.names[e.id] ? v : undefined;
+      if (!e.label) delete e.label;
+      input.className = e.label ? "changed" : "";
+      drawPreview(); drawDirty();
+    });
+    const orig = el("span", { class: "orig" }, lock ? "Toujours en tête" : e.label ? "d'origine : " + sb.names[e.id] : e.hidden ? "masquée : reste ouvrable par ⌘K" : "");
+    const act = lock ? el("span", { class: "act" }, "🔒 fixe") : el("label", { class: "act" }, e.hidden ? "Masquée" : "Visible",
+      (() => { const c = el("input", { type: "checkbox" }); c.checked = !e.hidden; c.addEventListener("change", () => { if (c.checked) delete e.hidden; else e.hidden = true; drawSidebar(); }); return c; })());
+    return el("div", { class: "sbrow" + (lock ? " lock" : "") + (e.hidden ? " hid" : ""), draggable: lock ? "false" : "true", "data-i": String(i) },
+      el("span", { class: "grip" }, "⋮⋮"), input, orig, act);
+  });
+  $("sb-rows").replaceChildren(...rows);
+  $("sb-when").textContent = sb.when;
+  drawPreview(); drawDirty();
+}
+function drawPreview() {
+  const out = [];
+  for (const e of sb.rows) {
+    if (e.id === "separator") { if (out.length && !out[out.length - 1].classList.contains("sbpline")) out.push(el("div", { class: "sbpline" })); continue; }
+    if (e.hidden) continue;
+    out.push(el("div", { class: "sbpi" + (out.length === 0 ? " first" : "") }, e.label || sb.names[e.id]));
+  }
+  out.push(el("div", { class: "sbpline" }), el("div", { class: "sbpi muted" }, "Échanges…"));
+  $("sb-prev").replaceChildren(...out);
+}
+function drawDirty() {
+  const d = sbDirty();
+  $("sb-dirty").hidden = !d;
+  $("sb-dirty").textContent = "Changements non publiés";
+  $("sb-publish").disabled = !d;
+}
+$("sb-rows").addEventListener("dragstart", (ev) => { const r = ev.target.closest(".sbrow"); if (!r) return; sb.drag = Number(r.dataset.i); r.classList.add("drag"); });
+$("sb-rows").addEventListener("dragend", () => { sb.drag = -1; drawSidebar(); });
+$("sb-rows").addEventListener("dragover", (ev) => {
+  ev.preventDefault();
+  const r = ev.target.closest(".sbrow"); if (!r || sb.drag < 0) return;
+  const to = Math.max(1, Number(r.dataset.i));
+  if (to === sb.drag) return;
+  const [moved] = sb.rows.splice(sb.drag, 1);
+  sb.rows.splice(to, 0, moved);
+  sb.drag = to;
+  drawSidebar();
+  const again = $("sb-rows").querySelector('[data-i="' + to + '"]'); if (again) again.classList.add("drag");
+});
+$("sb-sep").addEventListener("click", () => { sb.rows.push({ id: "separator" }); drawSidebar(); });
+$("sb-reset").addEventListener("click", async () => {
+  try { await send("/sidebar", { layout: null }); toast("L'app reprend l'ordre d'origine."); await loadSidebar(); } catch (e) { toast(e.message); }
+});
+$("sb-publish").addEventListener("click", async () => {
+  try { await send("/sidebar", { layout: { entries: sb.rows } }); toast("Publiée : chez tout le monde en moins de 10 minutes."); await loadSidebar(); } catch (e) { toast(e.message); }
+});
 
 async function loadOverview() {
   const o = await get("/overview");
