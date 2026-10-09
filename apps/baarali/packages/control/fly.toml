@@ -8,6 +8,9 @@ primary_region = "cdg"
   BAARALI_PLAN_ID = "essentiel"
   # Our Spaces server (packages/spaces, baarali-spaces), decided 02/10/2026.
   BAARALI_SPACES_URL = "https://spaces.baarali.com"
+  # The installers of the latest published release (baarali-desktop.yml).
+  # Set, the home page offers the download instead of sign-in.
+  BAARALI_DOWNLOAD_BASE = "https://github.com/benewende-dev/baarali/releases/latest/download"
 
 [http_service]
   internal_port = 8080
