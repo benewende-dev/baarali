@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { KIT_DOC } from './motion-kit.js';
 
 // Prepares an instance workdir before rowboat-server boots (roadmap phase 0,
 // 30/09/2026). Only files the upstream already reads are written, in their
@@ -96,10 +97,12 @@ The \`${MOTION_SERVER_NAME}\` MCP server, through \`executeMcpTool\`, makes moti
 4. **Make it theirs.** Edit \`index.html\` with the file tools for what the template does not do. Rules that keep it renderable:
    - The root keeps \`data-composition-id\`, \`data-start="0"\`, \`data-duration\`, \`data-width\`, \`data-height\` and \`data-no-timeline\`.
    - Each scene is a \`<section class="clip">\` with a unique \`id\`, \`data-start\`, \`data-duration\` and \`data-track-index\`.
-   - Motion is the Web Animations API only, through the page's helpers: \`hf(selector, keyframes, {at, d, stagger, ease})\` and \`hfEl(element, …)\`, with times in seconds from the start of the video; eases: out, in, inout, snap, spring, linear. CSS @keyframes also work. **Never GSAP** — Baarali does not ship it.
+   - Motion is the Web Animations API only: \`hf(selector, keyframes, {at, d, stagger, ease})\` and \`hfEl(element, …)\`, eases out, in, inout, snap, spring, apple, linear. CSS @keyframes also work. **Never GSAP** — Baarali does not ship it.
+   - ${KIT_DOC}
    - Sizes in \`cqw\`/\`cqh\`/\`cqmin\` so the design fits every format; colours and fonts from the variables \`--background\`, \`--ink\`, \`--accent\`, \`--highlight\`, \`--on-accent\` (text on the accent), \`--brand-1\`… (the palette), \`--display\`, \`--text\`.
    - Media (an image, footage, a voice, music) is copied into the project's \`assets/\` and referenced by a relative path; a \`<video>\` says \`muted\` or \`data-has-audio="true"\`; \`<audio>\` and \`<video>\` are clips with timing.
    - Premium motion: something moves in every second, entrances overlap (stagger 0.08–0.2 s), the key figure lands on a beat, text stays on screen long enough to be read (at least 1.5 s per short line), nothing important sits in the bottom 15% or the right 15% of a 9:16 (the network's buttons).
+   - Art direction, what makes it look professional: one idea per shot; one hero size and one text size, two weights at most; generous margins (8 % of the frame) and everything on a few shared alignment lines; at most three colours on screen, the highlight for one thing only; one ease family through the video (\`apple\` for a calm premium film, \`out\` or \`snap\` for energy); a slow camera move or float on every held shot; cuts on the voice's beats; the last shot (logo, call to action) held at least 2 s. A product or an app is shown in use — a window, a phone, the pointer clicking, the text being typed — rather than described.
 5. **Footage, voice, music.** For a filmed background, a voice-over or a music bed, use the Video, voice and music skill's tools (\`${MEDIA_SERVER_NAME}\`): give the price in credits first, then copy the file into \`assets/\` and add it as a clip. For a still picture, the Images skill.
 6. **Captions.** A video with a voice (a voice-over, someone speaking) gets captions unless the user says otherwise: \`captions\` transcribes the voice and syncs each word to it, two lines at a time, the spoken word in the highlight colour. Then read the words in the project's \`captions.json\`: names, places and prices may be misheard; correct a word's \`text\` there and call \`captions\` again (free). \`position\` moves them (bottom, middle, top). Text without a voice: the \`sous-titres\` template instead.
    **Music under a voice:** call \`mix\` once both are clips (after the captions, it reuses their words for free): the music comes down while the voice speaks, back up in its pauses, and fades out at the end. Too loud or too soft for the user: \`level\` and \`under_voice\`. Name the music clip \`musique\`.

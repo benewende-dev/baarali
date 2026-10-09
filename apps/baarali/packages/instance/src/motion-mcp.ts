@@ -339,7 +339,8 @@ export async function checkComposition(html: string, projectDir: string): Promis
       if (isMusic(clip) && !clip.automated) add('warning', 'music_not_mixed', `The music ${clip.id ?? clip.src} plays at full level under the voice.`, 'Call mix: it lowers the music while the voice speaks.');
     }
   }
-  if (/\.animate\(/.test(html) && !/\bfill\s*:\s*['"]both['"]/.test(html)) {
+  // The kit's hfEl chooses the fill itself (motion-kit.ts).
+  if (/\.animate\(/.test(html) && !/\bfill\s*:\s*['"]both['"]/.test(html) && !/function hfEl\(/.test(html)) {
     add('warning', 'waapi_fill', 'Animations without fill:"both" lose their state when seeked.', 'Create every animation with fill:"both" (hfEl does).');
   }
   for (const m of html.matchAll(/\b(?:src|href)="([^"]+)"/g)) {

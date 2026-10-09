@@ -6,6 +6,8 @@
 // builders. Sizes are container units of the root, so one template fits
 // every format; colours and fonts are the brand kit's CSS variables.
 
+import { KIT_CSS, KIT_JS } from './motion-kit.js';
+
 export const FORMATS = {
   '9:16': { width: 1080, height: 1920 },
   '1:1': { width: 1080, height: 1080 },
@@ -416,16 +418,6 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-/** The eases a template names; « pro » motion starts firm and lands soft. */
-const EASES: Record<string, string> = {
-  out: 'cubic-bezier(.16,1,.3,1)',
-  in: 'cubic-bezier(.7,0,.84,0)',
-  inout: 'cubic-bezier(.65,0,.35,1)',
-  snap: 'cubic-bezier(.7,0,.2,1)',
-  spring: 'cubic-bezier(.2,1.6,.4,1)',
-  linear: 'linear',
-};
-
 /**
  * The page around a template: the HyperFrames root, the brand as CSS
  * variables, and `hf()`, which creates each animation paused at its absolute
@@ -454,7 +446,7 @@ export function compose(templateId: string, opts: { format: Format; title: strin
   :root{--background:${c.background};--ink:${c.ink};--accent:${c.accent};--highlight:${c.highlight};--on-accent:${textOn(c.accent)}${palette};--display:'${opts.brand.fonts.display}',system-ui,sans-serif;--text:'${opts.brand.fonts.text}',system-ui,sans-serif}
   html,body{margin:0;background:${t.transparent ? 'transparent' : 'var(--background)'}}
   #root{position:relative;overflow:hidden;width:${width}px;height:${height}px;container-type:size;background:${t.transparent ? 'transparent' : 'var(--background)'};color:var(--ink);font-family:var(--text)}
-  .scene{position:absolute;inset:0}
+  .scene{position:absolute;inset:0}${KIT_CSS}
   .mark{width:7cqmin;height:7cqmin;object-fit:contain}
   .mark.tile{display:grid;place-items:center;border-radius:1.8cqmin;background:var(--accent);color:var(--on-accent);font:900 4cqmin var(--display)}${part.css ?? ''}
 </style>
@@ -463,15 +455,7 @@ export function compose(templateId: string, opts: { format: Format; title: strin
 <div id="root" data-composition-id="main" data-start="0" data-duration="${duration}" data-width="${width}" data-height="${height}" data-no-timeline>${part.html}
 </div>
 <script>
-  var EASES = ${JSON.stringify(EASES)};
-  function hfEl(el, frames, o){
-    var a = el.animate(frames, {duration:o.d * 1000, delay:o.at * 1000, easing:EASES[o.ease || 'out'] || o.ease, fill:'both', iterations:o.n || 1});
-    a.pause();
-    return a;
-  }
-  function hf(selector, frames, o){
-    document.querySelectorAll(selector).forEach(function(el, i){ hfEl(el, frames, {at:o.at + (o.stagger || 0) * i, d:o.d, ease:o.ease, n:o.n}); });
-  }${part.script}
+${KIT_JS}${part.script}
 </script>
 </body>
 </html>
