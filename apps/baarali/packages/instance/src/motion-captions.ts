@@ -1,3 +1,4 @@
+import { audioClips, isMusic, isVoice } from './motion-mix.js';
 import { escapeHtml } from './motion-templates.js';
 
 // Word-by-word captions synced to a voice (Studio Motion step 3, style A
@@ -30,17 +31,15 @@ export interface CaptionsFile {
   words: CaptionWord[];
 }
 
-/** A voice in the composition: the first <audio>, or a <video> that keeps its sound, with its start. */
-export function findVoice(html: string): { src: string; at: number } | null {
-  for (const m of html.matchAll(/<(audio|video)\b([^>]*)>/gi)) {
-    const attrs = m[2];
-    if (m[1].toLowerCase() === 'video' && !/data-has-audio\s*=\s*["']true["']/i.test(attrs)) continue;
-    const src = /\bsrc\s*=\s*["']([^"']+)["']/i.exec(attrs)?.[1];
-    if (!src || /^(https?:|data:)/.test(src)) continue;
-    const at = Number(/\bdata-start\s*=\s*["']?([\d.]+)/i.exec(attrs)?.[1] ?? 0);
-    return { src, at: Number.isFinite(at) ? at : 0 };
-  }
-  return null;
+/**
+ * A voice in the composition, with its start: the clip whose name says voice,
+ * else the first <audio> whose name does not say music, or a <video> that
+ * keeps its sound; the one with this id when given.
+ */
+export function findVoice(html: string, id?: string): { src: string; at: number; id: string | null } | null {
+  const local = audioClips(html).filter((c) => c.src && !/^(https?:|data:)/.test(c.src));
+  const clip = id ? local.find((c) => c.id === id) : (local.find(isVoice) ?? local.find((c) => !isMusic(c)));
+  return clip ? { src: clip.src!, at: clip.start ?? 0, id: clip.id } : null;
 }
 
 /** The composition's size and length, read on its root. */

@@ -33,6 +33,6 @@ serveStdio(
       now: Date.now,
       control: token ? { url: controlUrl, token, fetch: globalThis.fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)) } : undefined,
     }),
-    { name: 'baarali-motion', version: '0.0.3' },
+    { name: 'baarali-motion', version: '0.0.4' },
   ),
 );

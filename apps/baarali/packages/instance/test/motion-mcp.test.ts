@@ -250,7 +250,7 @@ describe('captions tool', () => {
   it('says what is missing, and when nothing was heard or the limit is reached', async () => {
     const { dir, tools, setAnswer } = await captioned();
     expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: 'assets/none.mp3' }))).toContain('No file at motion/pub/assets/none.mp3');
-    expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: 'assets/voix.flac' }))).toContain('Captions read');
+    expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: 'assets/voix.flac' }))).toContain('The voice must be one of');
     expect(textOf(await tools.run('captions', { project: 'motion/pub', audio: '../../../etc/passwd' }))).toContain('in the workspace');
     expect(textOf(await tools.run('captions', { project: 'motion/pub', position: 'side' }))).toContain('Position is one of');
     setAnswer(() => Response.json({ transcript: '', words: [] }));
@@ -261,5 +261,57 @@ describe('captions tool', () => {
     const html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
     await fs.writeFile(path.join(dir, 'index.html'), html.replace(/<audio[^>]*><\/audio>/, ''));
     expect(textOf(await tools.run('captions', { project: 'motion/pub' }))).toContain('no voice to caption');
+  });
+
+  const withMusic = async (dir: string, tags: string) => {
+    const html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    await fs.writeFile(path.join(dir, 'index.html'), html.replace('<audio id="voix"', `${tags}\n  <audio id="voix"`));
+  };
+  const MUSIC = '<audio id="musique" class="clip" src="assets/musique.mp3" data-start="0" data-duration="4" data-track-index="6"></audio>';
+
+  it('mixes the music under the voice from the captions’ words, without transcribing again', async () => {
+    const { dir, tools, calls } = await captioned();
+    await fs.writeFile(path.join(dir, 'assets/musique.mp3'), 'MUSIC');
+    await withMusic(dir, MUSIC);
+    let html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    expect((await checkComposition(html, dir)).map((f) => f.code)).toContain('music_not_mixed');
+
+    await tools.run('captions', { project: 'motion/pub' });
+    const out = textOf(await tools.run('mix', { project: 'motion/pub' }));
+    expect(out).toContain('Mixed: the music musique plays at 1, comes down to 0.25 (-12 dB) under the voice in 1 passage(s)');
+    expect(out).toContain('nothing was transcribed');
+    expect(calls).toHaveLength(1);
+    html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    const lane = JSON.parse(/<audio id="musique"[^>]*data-automation='([^']*)'/.exec(html)![1]);
+    // The voice starts at 0.5 s, its words from 0.2 s to 1.8 s: down from 0.4 s to 0.7 s, back up from 2.3 s,
+    // into the fade of the video's last 1.5 s (it lasts 4 s).
+    expect(lane.lanes[0].points).toEqual([{ t: 0, v: 0 }, { t: 0.2, v: 1 }, { t: 0.4, v: 1 }, { t: 0.7, v: 0.25 }, { t: 2.3, v: 0.25 }, { t: 2.5, v: 0.438 }, { t: 3.1, v: 0.6 }, { t: 4, v: 0 }]);
+    expect(await checkComposition(html, dir)).toEqual([]);
+
+    // Softer, and again: one lane, the new level kept.
+    expect(textOf(await tools.run('mix', { project: 'motion/pub', level: 0.6, under_voice: 0.5 }))).toContain('plays at 0.6, comes down to 0.3 (-6 dB)');
+    html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+    expect(html.match(/data-automation=/g)).toHaveLength(1);
+    expect(textOf(await tools.run('mix', { project: 'motion/pub' }))).toContain('plays at 0.6');
+  });
+
+  it('transcribes a voice with no captions once, and keeps its words for them', async () => {
+    const { dir, tools, calls } = await captioned();
+    await withMusic(dir, MUSIC);
+    expect(textOf(await tools.run('mix', { project: 'motion/pub' }))).toContain('The voice was transcribed for its timing');
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(await fs.readFile(path.join(dir, 'captions.json'), 'utf8'))).toMatchObject({ audio: 'assets/voix.mp3', at: 0.5 });
+    expect(textOf(await tools.run('captions', { project: 'motion/pub' }))).toContain('Captions rebuilt from 4 words');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('says which music, when it cannot tell', async () => {
+    const { dir, tools } = await captioned();
+    expect(textOf(await tools.run('mix', { project: 'motion/pub' }))).toContain('no music to mix');
+    await withMusic(dir, '<audio id="a1" class="clip" src="assets/a1.mp3" data-start="0" data-duration="2" data-track-index="6"></audio><audio id="a2" class="clip" src="assets/a2.mp3" data-start="2" data-duration="2" data-track-index="7"></audio>');
+    expect(textOf(await tools.run('mix', { project: 'motion/pub' }))).toContain('Several audio clips could be the music (a1, a2)');
+    expect(textOf(await tools.run('mix', { project: 'motion/pub', music: 'a3' }))).toContain('No <audio> clip with the id "a3"');
+    expect(textOf(await tools.run('mix', { project: 'motion/pub', music: 'a2' }))).toContain('Mixed: the music a2');
+    expect(textOf(await tools.run('mix', { project: 'motion/pub', voice: 'nobody' }))).toContain('No clip with the id "nobody"');
   });
 });

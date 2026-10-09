@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { compose, contrast, DEFAULT_BRAND, FORMATS, PALETTE_LIMIT, TEMPLATES, type BrandKit, type Format } from './motion-templates.js';
 import type { ToolDef, ToolResult } from './media-mcp.js';
-import { CAPTIONS_FILE, captionsBlock, findVoice, injectCaptions, POSITIONS, rootOf, type CaptionsFile, type CaptionWord, type Position } from './motion-captions.js';
+import { CAPTIONS_FILE, CAPTIONS_START, captionsBlock, findVoice, injectCaptions, POSITIONS, rootOf, type CaptionsFile, type CaptionWord, type Position } from './motion-captions.js';
+import { audioClips, fittedLane, isMusic, speechSpans, withLane } from './motion-mix.js';
 
 // The Studio Motion's tools (decided 08/10/2026): an MCP server the instance
 // registers beside baarali-media, so every chat — the assistant, each
@@ -157,6 +158,24 @@ export const MOTION_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'mix',
+    description:
+      "Mix a motion project's music under its voice: the music comes down while the voice speaks, back up in its real pauses, and fades out at the end. Takes the voice's timing from captions.json (free when the video has captions), or transcribes the voice once (about 0.01 $ a minute) and keeps the words there. Writes a volume lane on the music clip, which the preview plays and the export renders.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The project folder, e.g. motion/promo-week-end.' },
+        voice: { type: 'string', description: 'The id of the voice clip, when the project has several (an <audio>, or a <video> with data-has-audio). Default: the audio clip that is not music.' },
+        music: { type: 'string', description: 'The id of the music clip, when it cannot be told apart (default: the <audio> whose id or file says music).' },
+        level: { type: 'number', description: 'The music level away from the voice, 0–1. Default: its data-volume, or 1.' },
+        under_voice: { type: 'number', description: 'The share of that level kept under the voice, 0–1. Default 0.25 (−12 dB): the voice clearly in front.' },
+        fade_out: { type: 'number', description: 'Seconds of fade at the end of the music. Default 1.5 when it plays to the end of the video, else 0.5.' },
+        retranscribe: { type: 'boolean', description: 'Transcribe the voice again (it changed but kept its file name).' },
+      },
+      required: ['project'],
+    },
+  },
+  {
     name: 'check',
     description:
       'Check a motion project before showing or rendering it: the composition root, the timed clips, the media files, and the animation rules (Web Animations or CSS only; GSAP is not allowed). Returns the problems with how to fix each.',
@@ -247,6 +266,11 @@ export async function checkComposition(html: string, projectDir: string): Promis
       add('warning', 'video_missing_muted', `Video ${id ?? ''} says neither muted nor data-has-audio="true".`, 'Add muted for silent footage, or data-has-audio="true" to keep its sound.');
     }
   }
+  if (findVoice(html)) {
+    for (const clip of audioClips(html)) {
+      if (isMusic(clip) && !clip.automated) add('warning', 'music_not_mixed', `The music ${clip.id ?? clip.src} plays at full level under the voice.`, 'Call mix: it lowers the music while the voice speaks.');
+    }
+  }
   if (/\.animate\(/.test(html) && !/\bfill\s*:\s*['"]both['"]/.test(html)) {
     add('warning', 'waapi_fill', 'Animations without fill:"both" lose their state when seeked.', 'Create every animation with fill:"both" (hfEl does).');
   }
@@ -304,6 +328,42 @@ export function createMotionTools(deps: MotionToolsDeps) {
       }
     }
     return abs(path.join(MOTION_DIR, `${base}-${deps.now()}`));
+  }
+
+  /** The voice's words with their times, from the control plane; a refusal as a tool result. */
+  async function transcribe(voicePath: string): Promise<CaptionWord[] | ToolResult> {
+    const type = AUDIO_TYPES[path.extname(voicePath).toLowerCase()];
+    if (!type) return text(`The voice must be one of ${Object.keys(AUDIO_TYPES).join(', ')}.`, true);
+    let bytes: Buffer;
+    try {
+      bytes = await fs.readFile(voicePath);
+    } catch {
+      return text(`No file at ${path.relative(deps.workDir, voicePath)}.`, true);
+    }
+    if (bytes.length > MAX_VOICE_BYTES) return text('The voice file is over 25 MB: give the voice-over alone (an mp3), not the whole footage.', true);
+    if (!deps.control) return text('Transcription is not available here.', true);
+    const res = await deps.control.fetch(`${deps.control.url}/v1/voice/transcribe?words=true`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${deps.control.token}`, 'content-type': type },
+      body: new Uint8Array(bytes),
+    });
+    const data = (await res.json().catch(() => ({}))) as { words?: unknown; error?: { code?: string; message?: string } };
+    if (!res.ok) {
+      if (data.error?.code === 'quota_reached') return text('Not transcribed: the usage limit of the plan is reached for now. Say so to the user.', true);
+      return text(`The transcription failed (${data.error?.message ?? res.status}). Try again in a moment.`, true);
+    }
+    const words = cleanWords(data.words);
+    if (words.length === 0) return text('No speech was heard in this voice: check that it is the right file and that it has sound.', true);
+    return words;
+  }
+
+  /** The project's captions.json, if it is readable. */
+  async function readCaptions(dir: string): Promise<CaptionsFile | null> {
+    try {
+      return JSON.parse(await fs.readFile(path.join(dir, CAPTIONS_FILE), 'utf8')) as CaptionsFile;
+    } catch {
+      return null;
+    }
   }
 
   async function write(meta: ProjectMeta): Promise<{ dir: string; duration: number }> {
@@ -430,12 +490,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       }
       const root = rootOf(html);
       if (!root) return text('The composition root has no data-width, data-height or data-duration: call check and fix it first.', true);
-      let existing: CaptionsFile | null = null;
-      try {
-        existing = JSON.parse(await fs.readFile(path.join(dir, CAPTIONS_FILE), 'utf8')) as CaptionsFile;
-      } catch {
-        existing = null;
-      }
+      const existing = await readCaptions(dir);
       if (args.position !== undefined && !POSITIONS.includes(args.position as Position)) return text(`Position is one of ${POSITIONS.join(', ')}.`, true);
       const position = (args.position as Position | undefined) ?? (existing && POSITIONS.includes(existing.position) ? existing.position : 'bottom');
 
@@ -461,29 +516,9 @@ export function createMotionTools(deps: MotionToolsDeps) {
         } else {
           return text('This project has no voice to caption: add the voice-over as an <audio> clip (copied into assets/), or give `audio`. For text without a voice, the sous-titres template times the words evenly.', true);
         }
-        const type = AUDIO_TYPES[path.extname(voicePath).toLowerCase()];
-        if (!type) return text(`Captions read ${Object.keys(AUDIO_TYPES).join(', ')} files.`, true);
-        let bytes: Buffer;
-        try {
-          bytes = await fs.readFile(voicePath);
-        } catch {
-          return text(`No file at ${path.relative(deps.workDir, voicePath)}.`, true);
-        }
-        if (bytes.length > MAX_VOICE_BYTES) return text('The voice file is over 25 MB: give the voice-over alone (an mp3), not the whole footage.', true);
-        if (!deps.control) return text('Transcription is not available here.', true);
-        const res = await deps.control.fetch(`${deps.control.url}/v1/voice/transcribe?words=true`, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${deps.control.token}`, 'content-type': type },
-          body: new Uint8Array(bytes),
-        });
-        const data = (await res.json().catch(() => ({}))) as { words?: unknown; error?: { code?: string; message?: string } };
-        if (!res.ok) {
-          if (data.error?.code === 'quota_reached') return text('Not transcribed: the usage limit of the plan is reached for now. Say so to the user.', true);
-          return text(`The transcription failed (${data.error?.message ?? res.status}). Try again in a moment.`, true);
-        }
-        const words = cleanWords(data.words);
-        if (words.length === 0) return text('No speech was heard in this voice: check that it is the right file and that it has sound.', true);
-        file = { audio: path.relative(dir, voicePath), at, position, words };
+        const words = await transcribe(voicePath);
+        if (!Array.isArray(words)) return words;
+        file ={ audio: path.relative(dir, voicePath), at, position, words };
       }
 
       const brand = await readBrand();
@@ -497,6 +532,74 @@ export function createMotionTools(deps: MotionToolsDeps) {
         `The words are in ${rel(dir)}/${CAPTIONS_FILE}. Read them: the transcription may misspell names, places or prices. Correct a word by editing its "text" there, then call captions again (free).`,
         'Call check, then show the project.',
       ].filter(Boolean).join('\n'));
+    }
+
+    if (name === 'mix') {
+      const dir = projectDir(args.project);
+      if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
+      let html: string;
+      try {
+        html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+      } catch {
+        return text(`No index.html in ${rel(dir)}.`, true);
+      }
+      const root = rootOf(html);
+      if (!root) return text('The composition root has no data-width, data-height or data-duration: call check and fix it first.', true);
+      const id = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+      const voiceId = id(args.voice);
+      const voice = findVoice(html, voiceId);
+      if (!voice) {
+        return text(voiceId
+          ? `No clip with the id "${voiceId}" holds a voice in the project (an <audio> of the project, or a <video> with data-has-audio="true").`
+          : 'This project has no voice to lower the music under: add the voice-over as an <audio> clip (copied into assets/), or give `voice`, the id of its clip.', true);
+      }
+      const clips = audioClips(html);
+      const others = clips.filter((c) => c.kind === 'audio' && !(c.src === voice.src && c.id === voice.id));
+      const musicId = id(args.music);
+      const named = others.filter(isMusic);
+      const music = musicId ? others.find((c) => c.id === musicId) : named.length === 1 ? named[0] : named.length === 0 && others.length === 1 ? others[0] : undefined;
+      if (!music) {
+        if (musicId) return text(`No <audio> clip with the id "${musicId}" besides the voice.`, true);
+        if (others.length === 0) return text('This project has no music to mix: add the music bed as an <audio> clip (copied into assets/), with id="musique".', true);
+        return text(`Several audio clips could be the music (${others.map((c) => c.id ?? c.src).join(', ')}): give \`music\`, the id of the one to lower under the voice.`, true);
+      }
+      if (music.start === null) return text('The music starts relative to another clip: give its clip a data-start in seconds, then call mix again.', true);
+      const musicStart = music.start;
+      const playing = Math.min(music.duration ?? Infinity, root.duration - music.start);
+      if (!(playing > 0)) return text('The music starts after the end of the video: move its data-start.', true);
+      const share = (v: unknown, fallback: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback);
+      const level = share(args.level, music.volume === null ? 1 : Math.min(1, music.volume));
+      const underVoice = share(args.under_voice, 0.25);
+      const endsWithVideo = music.duration === null || music.start + music.duration >= root.duration - 0.05;
+      const fadeOut = typeof args.fade_out === 'number' && Number.isFinite(args.fade_out) ? Math.min(10, Math.max(0, args.fade_out)) : endsWithVideo ? 1.5 : 0.5;
+
+      // The voice's words: those the captions transcribed, when they are of this voice.
+      const voicePath = path.resolve(dir, voice.src);
+      if (!voicePath.startsWith(deps.workDir + path.sep)) return text('The voice must be a file in the workspace.', true);
+      const existing = await readCaptions(dir);
+      const known = existing && typeof existing.audio === 'string' && path.resolve(dir, existing.audio) === voicePath ? cleanWords(existing.words) : [];
+      let words = known;
+      let transcribed = false;
+      if (known.length === 0 || args.retranscribe === true) {
+        const heard = await transcribe(voicePath);
+        if (!Array.isArray(heard)) return heard;
+        words = heard;
+        transcribed = true;
+        const position = existing && POSITIONS.includes(existing.position) ? existing.position : 'bottom';
+        await fs.writeFile(path.join(dir, CAPTIONS_FILE), JSON.stringify({ audio: path.relative(dir, voicePath), at: voice.at, position, words } satisfies CaptionsFile, null, 2) + '\n');
+      }
+
+      const lane = fittedLane(words, voice.at, { clipStart: music.start, clipDuration: playing, level, underVoice, fadeIn: 0.2, fadeOut });
+      await fs.writeFile(path.join(dir, 'index.html'), withLane(html, music, lane, level));
+      const passages = speechSpans(words, voice.at).filter(([s, e]) => e > musicStart && s < musicStart + playing).length;
+      const db = underVoice > 0 ? `${Math.round(20 * Math.log10(underVoice))} dB` : 'silence';
+      return text([
+        `Mixed: the music ${music.id ?? music.src} plays at ${level}, comes down to ${Math.round(level * underVoice * 100) / 100} (${db}) under the voice in ${passages} passage(s) and back up in its pauses, and fades out over its last ${fadeOut} s.`,
+        transcribed
+          ? `The voice was transcribed for its timing (counted in the usage, about 0.01 $ a minute); the words are kept in ${rel(dir)}/${CAPTIONS_FILE}, so captions now cost nothing more.${html.includes(CAPTIONS_START) && existing ? ' The captions on the video are of the previous voice: call captions again.' : ''}`
+          : `Timing from the voice's words in ${CAPTIONS_FILE}: nothing was transcribed.`,
+        'The lane is the data-automation attribute of the music clip: after moving the voice or the music, call mix again. Louder or softer: `level` (0–1) and `under_voice` (the share kept under the voice, 0–1).',
+      ].join('\n'));
     }
 
     if (name === 'check') {
