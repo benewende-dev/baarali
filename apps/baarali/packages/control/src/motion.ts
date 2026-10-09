@@ -23,12 +23,13 @@ export const RENDER_MINUTES_BY_CATEGORY: Record<Plan['category'], number> = { fr
 export const RENDER_MINUTES_PER_WEEK: Record<string, number> = { semaine: 3 };
 
 /**
- * Beyond the plan: 3 credits a minute, counted to the second over the
- * period (splitFor). A minute costs us about a cent of
- * render machine (measured 08/10/2026: 10 s of 1080×1920 in 24 s of one
- * Chrome); the rest keeps the margin and the idle machine paid.
+ * Beyond the plan: 5 credits a minute, counted to the second over the
+ * period (splitFor). Raised from 3 on 09/10/2026: measured in production,
+ * 10 s of 1080×1920 render in 69 s on performance-4x with 4 browsers, about
+ * 2 US cents of machine a minute of video, which 3 credits left under the
+ * 55 % margin floor.
  */
-export const RENDER_CREDITS_PER_MINUTE = 3;
+export const RENDER_CREDITS_PER_MINUTE = 5;
 export const MAX_RENDER_SECONDS = 300;
 /** As the render service: 150 MB of files, a third more in base64. */
 export const MAX_UPLOAD_BYTES = Math.ceil(150 * 1024 * 1024 * 1.4);

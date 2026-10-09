@@ -31,7 +31,7 @@ Baarali est pensé d'abord pour l'Afrique de l'Ouest, et ouvert au monde : l'app
 | Pro | 100 € par mois | 120 par mois |
 | Pro max | 200 € par mois | 300 par mois |
 
-Les prix en francs CFA suivent la parité fixe (1 € = 655,957 FCFA). Le texte se décompte sur deux fenêtres, 5 heures et la semaine, au coût réel des modèles. Images, vidéos, voix, musiques et exports au-delà des minutes incluses se paient en **crédits médias**, vendus en packs de 2 €, 5 € et 20 €. Un export vidéo au-delà des minutes coûte 3 crédits la minute, comptés à la seconde. Une création qui échoue est toujours remboursée.
+Les prix en francs CFA suivent la parité fixe (1 € = 655,957 FCFA). Le texte se décompte sur deux fenêtres, 5 heures et la semaine, au coût réel des modèles. Images, vidéos, voix, musiques et exports au-delà des minutes incluses se paient en **crédits médias**, vendus en packs de 2 €, 5 € et 20 €. Un export vidéo au-delà des minutes coûte 5 crédits la minute, comptés à la seconde. Une création qui échoue est toujours remboursée.
 
 ---
 

@@ -53,16 +53,16 @@ describe('Studio Motion export rules', () => {
     expect(billedSeconds(9.2, 30)).toBe(10);
     expect(billedSeconds(10, 60)).toBe(20);
     expect(splitFor(30, 120)({ included: 100, extra: 0 })).toEqual({ included: 20, credits: 1 });
-    expect(splitFor(60, 0)({ included: 0, extra: 0 })).toEqual({ included: 0, credits: 3 });
+    expect(splitFor(60, 0)({ included: 0, extra: 0 })).toEqual({ included: 0, credits: 5 });
   });
 
   it('counts the credits to the second over the period, not export by export', () => {
-    // 10 s past the minutes, three times: 30 s, so 2 credits (3 a minute), not 3.
-    const paid = [0, 10, 20].map((extra) => splitFor(10, 0)({ included: 0, extra }).credits);
-    expect(paid).toEqual([1, 0, 1]);
-    // 100 s in all, 5 credits, however it is cut.
-    expect(splitFor(100, 0)({ included: 0, extra: 0 }).credits).toBe(5);
-    expect(splitFor(70, 30)({ included: 0, extra: 0 })).toEqual({ included: 30, credits: 2 });
+    // 4 s past the minutes, three times: 12 s, so 1 credit (5 a minute), not 3.
+    const paid = [0, 4, 8].map((extra) => splitFor(4, 0)({ included: 0, extra }).credits);
+    expect(paid).toEqual([1, 0, 0]);
+    // 100 s in all, 9 credits, however it is cut.
+    expect(splitFor(100, 0)({ included: 0, extra: 0 }).credits).toBe(9);
+    expect(splitFor(70, 30)({ included: 0, extra: 0 })).toEqual({ included: 30, credits: 4 });
     expect(new Date(monthStart(T0)).toISOString()).toBe('2026-10-01T00:00:00.000Z');
     expect(new Date(nextMonthStart(Date.UTC(2026, 11, 31))).toISOString()).toBe('2027-01-01T00:00:00.000Z');
   });
@@ -79,18 +79,18 @@ describe('/v1/motion', () => {
     expect(seen[0].init.headers).toMatchObject({ authorization: 'Bearer rs', 'content-length': String(project.length) });
     expect(seen[0].body).toBe(project);
     expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 10, extra: 0 });
-    expect(await (await call('/v1/motion/allowance')).json()).toMatchObject({ period: 'month', total_seconds: 1800, used_seconds: 10, credits_per_minute: 3, resets_at: '2026-11-01T00:00:00.000Z' });
+    expect(await (await call('/v1/motion/allowance')).json()).toMatchObject({ period: 'month', total_seconds: 1800, used_seconds: 10, credits_per_minute: 5, resets_at: '2026-11-01T00:00:00.000Z' });
   });
 
   it('charges credits beyond the minutes, and refuses what they cannot pay before rendering', async () => {
-    const free = setup(() => accepted(100), { planId: 'decouverte', credits: 4 });
-    // 2 minutes included: 100 s fit, the next 100 s take 20 from them and 80 s of credits (4).
+    const free = setup(() => accepted(100), { planId: 'decouverte', credits: 7 });
+    // 2 minutes included: 100 s fit, the next 100 s take 20 from them and 80 s of credits (7).
     expect(await (await free.submit('seconds=100')).json()).toMatchObject({ included_seconds: 100, credits: 0 });
     const second = await free.submit('seconds=100');
-    expect(await second.json()).toMatchObject({ included_seconds: 20, credits: 4, balance: 0 });
+    expect(await second.json()).toMatchObject({ included_seconds: 20, credits: 7, balance: 0 });
     const third = await free.submit('seconds=100');
     expect(third.status).toBe(402);
-    expect((await third.json()).error).toMatchObject({ code: 'insufficient_media_credits', cost: 5, balance: 0 });
+    expect((await third.json()).error).toMatchObject({ code: 'insufficient_media_credits', cost: 8, balance: 0 });
     expect(free.seen).toHaveLength(2);
   });
 
@@ -100,12 +100,12 @@ describe('/v1/motion', () => {
     expect(allowance).toMatchObject({ period: 'week', total_seconds: 180, used_seconds: 0, resets_at: new Date(T0 + 4 * 24 * 3600_000).toISOString() });
     expect(allowance).not.toHaveProperty('window');
     expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 120, credits: 0 });
-    // 60 s left: the next 120 s pay 60 s, 3 credits.
-    expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 60, credits: 3, allowance: { period: 'week', used_seconds: 180 } });
+    // 60 s left: the next 120 s pay 60 s, 5 credits.
+    expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 60, credits: 5, allowance: { period: 'week', used_seconds: 180 } });
     // The next week, the minutes are back.
     week.tick(4 * 24 * 3600_000);
     expect(await (await week.submit('seconds=120')).json()).toMatchObject({ included_seconds: 120, credits: 0 });
-    expect(await week.store.mediaBalance('me')).toBe(7);
+    expect(await week.store.mediaBalance('me')).toBe(5);
   });
 
   it('follows the export to its file, on the machine that holds it', async () => {
@@ -135,7 +135,7 @@ describe('/v1/motion', () => {
     const { submit, call, store } = setup((s) => (s.url.includes('/jobs/new') ? accepted(60) : json({ status: 'failed', error: 'GSAP is not allowed' })), { planId: 'decouverte', credits: 10 });
     await submit('seconds=60');
     const { id } = await (await submit('seconds=60&fps=60')).json();
-    expect(await store.mediaBalance('me')).toBe(7);
+    expect(await store.mediaBalance('me')).toBe(5);
     expect(await (await call(`/v1/motion/renders/${id}`)).json()).toMatchObject({ status: 'failed', error: 'GSAP is not allowed' });
     await call(`/v1/motion/renders/${id}`);
     expect(await store.mediaBalance('me')).toBe(10);
