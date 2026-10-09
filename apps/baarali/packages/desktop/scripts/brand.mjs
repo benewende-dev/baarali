@@ -345,6 +345,9 @@ export function corePlan() {
       edit(`${core}/todo/planner-task.ts`, "const PLANNER_NAME = 'Morning planner';", "const PLANNER_NAME = 'Planificateur du matin';"),
       edit(`${core}/todo/planner-task.ts`, 'const PLANNER_INSTRUCTIONS = `Each morning,', 'const PLANNER_INSTRUCTIONS_EN = `Each morning,'),
       edit(`${core}/runtime/assembly/copilot/instructions.ts`, CODE_SELF_FROM, CODE_SELF_TO),
+      // The agent's name is Baarali, never « Baarali Copilot » (09/10/2026).
+      edit(`${core}/runtime/assembly/copilot/instructions.ts`, 'You are Rowboat Copilot - an AI assistant', 'You are Baarali - an AI assistant'),
+      edit(`${core}/runtime/assembly/skills/builtin-tools/skill.ts`, 'The Rowboat copilot has access', 'Baarali, the assistant, has access'),
       edit(
         `${core}/runtime/assembly/connections.ts`,
         '        return (await repo.getConfig()).enabled;',
