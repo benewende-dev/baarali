@@ -75,8 +75,11 @@ function defaultShell(): { file: string; args: string[] } {
   if (process.platform === 'win32') {
     return { file: 'powershell.exe', args: [] };
   }
-  // Login shell so the user's PATH/aliases match their normal terminal.
-  return { file: process.env.SHELL || '/bin/zsh', args: ['-l'] };
+  // Login shell so the user's PATH/aliases match their normal terminal. The
+  // first one present: a Linux host (a hosted instance) may have no zsh.
+  const file = [process.env.SHELL, '/bin/zsh', '/bin/bash', '/bin/sh']
+    .find((candidate) => candidate && fs.existsSync(candidate)) ?? '/bin/sh';
+  return { file, args: ['-l'] };
 }
 
 function spawnEntry(id: string, cwd: string, cols: number, rows: number): TerminalEntry {

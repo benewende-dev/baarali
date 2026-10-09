@@ -350,6 +350,11 @@ export function corePlan() {
         '        return (await repo.getConfig()).enabled;',
         "        if (!(await repo.getConfig()).enabled) return false;\n        // Baarali: on only with an engine really installed (brand.mjs).\n        const { isEngineProvisioned } = await import('../../code-mode/acp/engine-provisioner.js');\n        return isEngineProvisioned('claude') || isEngineProvisioned('codex');",
       ),
+      // A Code session's own folder and branch carry our name: they show in the
+      // terminal and in git. Sessions keep the path they were created with.
+      edit(`${core}/code-mode/sessions/service.ts`, "return path.join(projectPath, '.rowboat', 'worktrees', sessionId);", "return path.join(projectPath, '.baarali', 'worktrees', sessionId);"),
+      edit(`${core}/code-mode/sessions/service.ts`, 'const branch = `rowboat/${sessionId}`;', 'const branch = `baarali/${sessionId}`;'),
+      edit(`${core}/code-mode/git/service.ts`, "path.join(await fs.realpath(repoPath), '.rowboat', 'worktrees')", "path.join(await fs.realpath(repoPath), '.baarali', 'worktrees')"),
       edit(`${core}/todo/planner-task.ts`, 'const PLANNER_INSTRUCTIONS_PRIOR: string[] = [\n', `${PLANNER_FR}const PLANNER_INSTRUCTIONS_PRIOR: string[] = [\n    PLANNER_INSTRUCTIONS_EN,\n`),
       edit(
         `${core}/todo/planner-task.ts`,
