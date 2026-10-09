@@ -10,7 +10,7 @@ export { DEFAULT_SIDEBAR_LAYOUT };
 /** Each page's own name, as the app shows it in French. */
 export const SIDEBAR_PAGE_NAMES: Record<SidebarPage, string> = {
   chat: 'Chat',
-  coworkers: 'Coéquipiers',
+  coworkers: 'Employés',
   code: 'Code',
   spaces: 'Espaces d’équipe',
   email: 'E-mail',

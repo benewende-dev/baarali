@@ -9,7 +9,7 @@ describe('checkSidebarLayout', () => {
   it('takes the order, names and hidden pages, and drops a name equal to the page’s own', () => {
     const e = entries();
     e[2] = { id: 'code', label: 'Atelier' };
-    e[1] = { id: 'coworkers', label: 'Coéquipiers' };
+    e[1] = { id: 'coworkers', label: 'Employés' };
     e[10] = { id: 'prompts', hidden: true };
     const r = checkSidebarLayout({ entries: e });
     expect(r.ok).toBe(true);
@@ -17,7 +17,7 @@ describe('checkSidebarLayout', () => {
     expect(r.layout.entries[1]).toEqual({ id: 'coworkers' });
     expect(r.layout.entries[2]).toEqual({ id: 'code', label: 'Atelier' });
     expect(r.layout.entries[10]).toEqual({ id: 'prompts', hidden: true });
-    expect(describeSidebarLayout(r.layout)).toBe('barre publiée : Chat, Coéquipiers, Atelier, Espaces d’équipe, E-mail, Réunions, Tâches, Routines, Apps, Bibliothèque ; masquées : Prompts');
+    expect(describeSidebarLayout(r.layout)).toBe('barre publiée : Chat, Employés, Atelier, Espaces d’équipe, E-mail, Réunions, Tâches, Routines, Apps, Bibliothèque ; masquées : Prompts');
   });
 
   it('refuses a missing or doubled page, Chat moved or hidden, too many separators, junk', () => {
