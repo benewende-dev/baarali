@@ -244,6 +244,29 @@ describe('/v1/llm on a plan with a model policy (Découverte)', () => {
     expect(sent(seen[0]).model).toBe('anthropic/claude-opus-4.7');
     expect(sent(seen[0]).models).toBeUndefined();
   });
+  it('sends a call whose model is saturated upstream to the plan\'s default, once', async () => {
+    const { call, seen, store } = setup((s) =>
+      sent(s).model === 'anthropic/claude-opus-4.7' ? json({ error: { code: 429, message: 'temporarily rate-limited upstream' } }, 429) : json({ usage: { cost: 0.0001 } }),
+    );
+    expect((await call('/v1/llm/chat/completions', chat({ model: 'anthropic/claude-opus-4.7' }))).status).toBe(200);
+    expect(seen.map((s) => sent(s).model)).toEqual(['anthropic/claude-opus-4.7', 'typesafe/jev-router']);
+    expect(store.usage).toHaveLength(1);
+    expect(store.usage[0]).toMatchObject({ model: 'typesafe/jev-router', requestedModel: 'anthropic/claude-opus-4.7', status: 200 });
+  });
+
+  it('answers the refusal, unbilled, when the default is saturated too', async () => {
+    const { call, seen, store } = setup(() => json({ error: { code: 503, message: 'overloaded' } }, 503));
+    expect((await call('/v1/llm/chat/completions', chat({ model: 'anthropic/claude-opus-4.7' }))).status).toBe(503);
+    expect(seen).toHaveLength(2);
+    expect(store.usage[0]).toMatchObject({ status: 503, credits: 0 });
+  });
+
+  it('does not retry a call refused for another reason', async () => {
+    const { call, seen } = setup(() => json({ error: { code: 500, message: 'boom' } }, 500));
+    await call('/v1/llm/chat/completions', chat({ model: 'anthropic/claude-opus-4.7' }));
+    expect(seen).toHaveLength(1);
+  });
+
   it('sends a paid plan\'s model OpenRouter withdrew to the default, once the app has read the list', async () => {
     const { call, seen, store } = setup((s) =>
       s.url.endsWith('/models') ? json({ data: [{ id: first }, { id: 'anthropic/claude-opus-4.7' }] }) : json({ usage: { cost: 0.0001 } }),

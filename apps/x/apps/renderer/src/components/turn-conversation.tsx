@@ -22,7 +22,7 @@ import { TerminalOutput } from '@/components/terminal-output'
 import { ChatMessageAttachments } from '@/components/chat-message-attachments'
 import { BillingErrorNotice } from '@/components/billing-error-notice'
 import { TokenUsageMenu } from '@/components/token-usage-menu'
-import { matchBillingError } from '@/lib/billing-error'
+import { BUSY_MODEL_TEXT, isBusyModelError, matchBillingError } from '@/lib/billing-error'
 import { shownSteps } from '@/lib/chat-steps'
 import { segmentTurns } from '@/lib/work-steps'
 import { WorkBlock } from '@/components/work-steps'
@@ -403,6 +403,19 @@ export function TurnConversation({
       const billingMatch = matchBillingError(item.message)
       if (billingMatch) {
         return <BillingErrorNotice key={item.id} id={item.id} match={billingMatch} />
+      }
+      if (isBusyModelError(item.message)) {
+        return (
+          <Message key={item.id} from="assistant" data-message-id={item.id}>
+            <MessageContent className="rounded-lg border border-border bg-muted/40 px-4 py-3">
+              <p className="text-sm">{BUSY_MODEL_TEXT}</p>
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none">Details</summary>
+                <pre className="mt-1 whitespace-pre-wrap font-mono" data-no-translate>{item.message}</pre>
+              </details>
+            </MessageContent>
+          </Message>
+        )
       }
       return (
         <Message key={item.id} from="assistant" data-message-id={item.id}>

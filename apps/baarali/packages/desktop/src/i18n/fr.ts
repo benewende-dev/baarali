@@ -211,6 +211,7 @@ export const FR: Dictionary = {
     "Convert to static note →": "Convertir en note statique →",
     "Convert to static note?": "Convertir en note statique ?",
     "Details": "Détails",
+    "This model is busy right now. Try again in a moment, or choose Automatic.": "Ce modèle est saturé pour le moment. Réessayez dans un instant, ou choisissez Automatique.",
     "Keep this note updated with…": "Tenir cette note à jour avec…",
     "Make it live to have an agent keep its body up to date — describe what you want it to track and how often.": "Rendez-la vivante pour qu’un agent la tienne à jour : décrivez ce qu’il doit suivre et à quelle fréquence.",
     "No objective yet. Click Edit to write one.": "Pas encore d’objectif. Cliquez sur Modifier pour en écrire un.",

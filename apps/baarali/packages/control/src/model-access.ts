@@ -366,6 +366,33 @@ export function fitCall(c: Catalog, plan: Plan, path: string, raw: string, known
   return again && again.ok ? { ...again, requested: fitted.requested } : (again ?? { ok: false, status: 503, code: 'no_model', message: 'No model is available for this plan right now' });
 }
 
+/**
+ * Where a chat call goes when the model it was sent to is saturated or down
+ * upstream (429, 502, 503; decided 09/10/2026): once more, on the plan's
+ * default (« Automatique » when open, else its own default), fitted like any
+ * call. undefined: no other model to try, or not a chat call.
+ */
+export function busyFallback(c: Catalog, plan: Plan, path: string, raw: string, served: string | null, known?: Set<string> | null): { body: string; served: string } | undefined {
+  if (path !== '/chat/completions' || !served) return undefined;
+  let body: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    body = parsed as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+  // An image call needs an image model: the plan's default is not one.
+  if (Array.isArray(body.modalities) && body.modalities.includes('image')) return undefined;
+  const { models: _fallbacks, ...rest } = body;
+  for (const candidate of [defaultModel(c, plan, known), chosenDefault(c, plan)]) {
+    if (!candidate || candidate === served) continue;
+    const again = fitCall(c, plan, path, JSON.stringify({ ...rest, model: candidate }), known);
+    if (again?.ok && again.served !== served) return { body: again.body, served: again.served };
+  }
+  return undefined;
+}
+
 /** The catalog with « Automatique » closed. */
 function withoutAuto(c: Catalog): Catalog {
   const settings = new Map(c.settings);
