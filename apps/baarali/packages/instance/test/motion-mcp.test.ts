@@ -181,6 +181,44 @@ describe('motion tools', () => {
     expect(textOf(await offline.run('render', { project: 'motion/intro' }))).toBe('Video export is not available here.');
   });
 
+  it('answers the app’s studio as data, at once when it follows the export itself', async () => {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-motion-'));
+    let slept = 0;
+    let status: Record<string, unknown> = { status: 'rendering', progress: 0.4 };
+    const tools = createMotionTools({
+      workDir,
+      now: () => 0,
+      control: {
+        url: 'https://c.test',
+        token: 'tok',
+        sleep: async () => void slept++,
+        fetch: (async (url: string) => {
+          if (url.endsWith('/allowance')) return Response.json({ period: 'month', used_seconds: 420, total_seconds: 1800, resets_at: '2026-11-01T00:00:00.000Z', credits_per_minute: 5, balance: 12 });
+          if (url.includes('/renders?')) return Response.json({ id: 'mr_9', included_seconds: 10, credits: 0, allowance: { used_seconds: 430, total_seconds: 1800 } }, { status: 202 });
+          if (url.endsWith('/file')) return new Response('MP4');
+          return Response.json(status);
+        }) as typeof fetch,
+      },
+    });
+    await tools.run('new_project', { template: 'annonce-choc', title: 'Promo' });
+    expect((await tools.run('export_minutes', {})).structuredContent).toEqual({
+      allowance: { period: 'month', usedSeconds: 420, totalSeconds: 1800, resetsAt: '2026-11-01T00:00:00.000Z', creditsPerMinute: 5, balance: 12 },
+    });
+    const started = await tools.run('render', { project: 'motion/promo', wait: false });
+    expect(started.structuredContent).toEqual({ export: { id: 'mr_9', format: 'mp4', status: 'rendering', progress: 0.4 } });
+    expect(slept).toBe(0);
+    status = { status: 'done' };
+    expect((await tools.run('render_status', { id: 'mr_9', project: 'motion/promo', wait: false })).structuredContent).toEqual({
+      export: { id: 'mr_9', format: 'mp4', status: 'done', progress: 1, file: 'motion/promo/exports/promo.mp4' },
+    });
+    status = { status: 'failed', error: 'GSAP is not allowed' };
+    expect((await tools.run('render_status', { id: 'mr_9', project: 'motion/promo', wait: false })).structuredContent).toEqual({
+      export: { id: 'mr_9', format: 'mp4', status: 'failed', error: 'GSAP is not allowed' },
+    });
+    await fs.writeFile(path.join(workDir, 'motion/promo/index.html'), '<div>no root</div>');
+    expect((await tools.run('render', { project: 'motion/promo', wait: false })).structuredContent).toMatchObject({ refused: { code: 'composition_errors' } });
+  });
+
   it('refuses media outside the project folder', async () => {
     const { workDir } = await setup();
     const dir = path.join(workDir, 'motion/p');
@@ -278,6 +316,8 @@ describe('captions tool', () => {
 
     await tools.run('captions', { project: 'motion/pub' });
     const out = textOf(await tools.run('mix', { project: 'motion/pub' }));
+    const mixed = await tools.run('mix', { project: 'motion/pub' });
+    expect(mixed.structuredContent).toEqual({ mix: { music: 'musique', level: 1, underVoice: 0.25, fadeOut: 1.5, passages: 1, transcribed: false } });
     expect(out).toContain('Mixed: the music musique plays at 1, comes down to 0.25 (-12 dB) under the voice in 1 passage(s)');
     expect(out).toContain('nothing was transcribed');
     expect(calls).toHaveLength(1);
