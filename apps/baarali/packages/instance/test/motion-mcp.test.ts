@@ -12,11 +12,11 @@ async function setup() {
 const textOf = (r: { content: Array<{ text: string }> }) => r.content[0].text;
 
 describe('motion tools', () => {
-  it('lists the eight templates with their slots', async () => {
+  it('lists the nine templates with their slots', async () => {
     const { tools } = await setup();
     const out = textOf(await tools.run('list_templates', {}));
     for (const t of TEMPLATES) expect(out).toContain(`- ${t.id} — ${t.name}`);
-    expect(TEMPLATES).toHaveLength(8);
+    expect(TEMPLATES).toHaveLength(9);
   });
 
   it('makes every template in every format, and each passes the check', async () => {
@@ -33,6 +33,18 @@ describe('motion tools', () => {
         expect(await checkComposition(html, path.join(workDir, rel)), `${t.id} ${format}`).toEqual([]);
       }
     }
+  });
+
+  it('carries a product photo into the project, and does without one', async () => {
+    const { tools, workDir } = await setup();
+    await fs.mkdir(path.join(workDir, 'files'), { recursive: true });
+    await fs.writeFile(path.join(workDir, 'files/box.png'), 'PNG');
+    await tools.run('new_project', { template: 'presentation-produit', title: 'Lancement', format: '16:9', values: { image: 'files/box.png' } });
+    const html = await fs.readFile(path.join(workDir, 'motion/lancement-16x9/index.html'), 'utf8');
+    expect(html).toContain('<img class="hero-img" id="hero" src="assets/image.png"');
+    expect(await fs.readFile(path.join(workDir, 'motion/lancement-16x9/assets/image.png'), 'utf8')).toBe('PNG');
+    await tools.run('new_project', { template: 'presentation-produit', title: 'Sans photo', values: { image: '../outside.png' } });
+    expect(await fs.readFile(path.join(workDir, 'motion/sans-photo/index.html'), 'utf8')).toContain('class="hero-card"');
   });
 
   it('fills the slots, escapes them, and says which kept the example', async () => {

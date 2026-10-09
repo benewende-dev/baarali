@@ -71,6 +71,12 @@ export const KIT_JS = `
       return {frames:frames, at:t0, d:span};
     }
     var api = {
+      /** The centre of an element in the video frame, in pixels, ignoring animations: where to put a cursor stop. */
+      center: function(sel){
+        var el = one(sel), r = root(), x = el.offsetWidth / 2, y = el.offsetHeight / 2;
+        while (el && el !== r) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+        return [Math.round(x), Math.round(y)];
+      },
       /** Entrance of one or more elements: rise, drop, left, right, fade, scale, pop, blur. */
       enter: function(sel, preset, o){
         o = o || {};
@@ -146,8 +152,12 @@ export const KIT_JS = `
           hfEl(el, [{scale:1}, {scale:.82, offset:.4}, {scale:1}], {at:t, d:.28, ease:'inout'});
           var r = document.createElement('div'); r.className = 'kit-ripple'; r.style.left = p[1] + 'px'; r.style.top = p[2] + 'px'; r.style.color = o.rippleColor || 'rgba(255,255,255,.9)';
           root().appendChild(r);
-          hfEl(r, [{opacity:.9, transform:'scale(.3)'}, {opacity:0, transform:'scale(1.6)'}], {at:t + .05, d:.55, ease:'out'});
+          hfEl(r, [{opacity:0, transform:'scale(.3)'}, {opacity:.9, transform:'scale(.4)', offset:.05}, {opacity:0, transform:'scale(1.6)'}], {at:t + .05, d:.55, ease:'out'});
         });
+        // Gone after its last click (o.hideAt overrides), so it never lingers into the next shot.
+        var last = (o.clicks || []).length ? Math.max.apply(null, o.clicks) + 1 : null;
+        var hide = o.hideAt !== undefined ? o.hideAt : last;
+        if (hide !== null) hfEl(el, [{opacity:1}, {opacity:0}], {at:hide, d:.3, ease:'in'});
         return el;
       },
       /** A camera on a stage element: [t, scale, x, y] keys (pixels), slow legs eased in and out. */
@@ -193,7 +203,7 @@ export const KIT_DOC = `The page's script has the motion kit (times in seconds f
    - \`kit.enter(sel, preset, {at, d, stagger, ease})\` and \`kit.exit(…)\`: presets rise, drop, left, right, fade, scale, pop, blur.
    - \`kit.reveal(sel, {at, stagger, by:'words'|'letters'})\`: each word rises out of its own mask — the keynote title.
    - \`kit.type(sel, text, {at, cps, caretUntil})\`: typed a character at a time with a caret; returns the time it ends.
-   - \`kit.cursor(null, [[t, x, y], …], {clicks:[t, …]})\`: a pointer gliding through stops and clicking with a ripple; put each stop on the centre of its target.
+   - \`kit.cursor(null, [[t, x, y], …], {clicks:[t, …], hideAt})\`: a pointer gliding through stops and clicking with a ripple, gone 1 s after its last click; put each stop on its target with \`kit.center(sel)\` → [x, y].
    - \`kit.camera(sel, [[t, scale, x, y], …])\`: slow zooms and pans on a stage element that holds the scene.
    - \`kit.count(sel, {at, d, from, to, prefix, suffix})\`: a whole number counting up.
    - \`kit.shine(sel, {at})\`: a light sweep across a product or a card. \`kit.float(sel, {at, d, amp})\`: an idle float. \`kit.kenburns(img, {at, d, to})\`: a slow push on a photo.

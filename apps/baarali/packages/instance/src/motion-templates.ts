@@ -62,6 +62,8 @@ export interface Slot {
   example: string;
   /** Several values, one per line. */
   list?: boolean;
+  /** A picture: the workspace path of an image, copied into the project's assets/; empty leaves it out. */
+  image?: boolean;
 }
 
 export interface Template {
@@ -416,6 +418,123 @@ export const TEMPLATES: Template[] = [
       };
     },
   },
+  {
+    id: 'presentation-produit',
+    name: 'Présentation produit',
+    use: 'A keynote-style launch film for a product, an app or a service: the name, three promise words, the product as the hero with its strengths, a demo (a request typed, the pointer clicking, the result), then the call to action. Best in 16:9 for a screen or YouTube; works in every format.',
+    duration: 20,
+    slots: [
+      { key: 'name', label: 'Nom du produit', example: 'Sahel Net Fibre' },
+      { key: 'tagline', label: 'Signature', example: 'L’internet qui ne vous lâche pas.' },
+      { key: 'promise', label: 'Trois mots', example: 'Rapide.\nStable.\nIllimité.', list: true },
+      { key: 'image', label: 'Photo du produit', example: '', image: true },
+      { key: 'features', label: 'Atouts', example: 'Jusqu’à 500 Mb/s\nInstallée en 48 h\nAssistance 7j/7', list: true },
+      { key: 'request', label: 'Demande tapée', example: 'Fibre 100 Mb/s à Ouaga 2000' },
+      { key: 'action', label: 'Bouton', example: 'Commander' },
+      { key: 'result', label: 'Résultat', example: 'Commande confirmée · installation jeudi' },
+      { key: 'cta', label: 'Appel à l’action', example: 'sahelnet.bf' },
+    ],
+    body: (v, ctx) => {
+      const promise = lines(v.promise).slice(0, 3);
+      const features = lines(v.features).slice(0, 3);
+      const hero = v.image
+        ? `<img class="hero-img" id="hero" src="${escapeHtml(v.image)}" alt="">`
+        : `<div class="hero-card" id="hero">${logoMark(ctx, 'mark', 'hero-logo')}<b>${escapeHtml(v.name)}</b></div>`;
+      return {
+        html: `
+  <section id="s-open" class="clip scene" data-start="0" data-duration="3.3" data-track-index="1">
+    <div class="center">
+      ${logoMark(ctx, 'mark open-mark', 'open-logo')}
+      <h1 class="pname" id="open-name">${escapeHtml(v.name)}</h1>
+      <p class="ptag" id="open-tag">${escapeHtml(v.tagline)}</p>
+    </div>
+  </section>
+  <section id="s-promise" class="clip scene" data-start="3.2" data-duration="4.1" data-track-index="2">
+    <div class="center"><div class="words">${promise.map((w, i) => `<span class="pw${i === promise.length - 1 ? ' last' : ''}" id="pw${i}">${escapeHtml(w)}</span>`).join(' ')}</div></div>
+  </section>
+  <section id="s-hero" class="clip scene" data-start="7.2" data-duration="4.4" data-track-index="3">
+    <div class="hero-wrap">${hero}</div>
+    <ul class="feats">${features.map((f) => `<li><i></i>${escapeHtml(f)}</li>`).join('')}</ul>
+  </section>
+  <section id="s-demo" class="clip scene" data-start="11.5" data-duration="5" data-track-index="4">
+    <div class="cam" id="cam">
+      <div class="device">
+        <div class="dbar"><i></i><i></i><i></i></div>
+        <div class="dname">${logoMark(ctx, 'mark', 'demo-logo')}<b>${escapeHtml(v.name)}</b></div>
+        <div class="field" id="field"></div>
+        <div class="btn" id="btn">${escapeHtml(v.action)}</div>
+        <div class="done" id="done"><i>✓</i>${escapeHtml(v.result)}</div>
+      </div>
+    </div>
+  </section>
+  <section id="s-end" class="clip scene" data-start="16.4" data-duration="3.6" data-track-index="5">
+    <div class="center">
+      ${logoMark(ctx, 'mark open-mark', 'end-logo')}
+      <h1 class="pname" id="end-name">${escapeHtml(v.name)}</h1>
+      <div class="endcta" id="end-cta">${escapeHtml(v.cta)}</div>
+    </div>
+  </section>`,
+        css: `
+  .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4cqmin;padding:0 8cqw;text-align:center}
+  .open-mark{width:13cqmin;height:13cqmin;font-size:7cqmin;border-radius:3.2cqmin}
+  .pname{margin:0;font:800 10cqmin/1.04 var(--display);letter-spacing:-.045em;text-wrap:balance}
+  .ptag{margin:0;font:500 4.2cqmin/1.25 var(--text);opacity:.65;letter-spacing:-.01em;text-wrap:balance}
+  .words{display:flex;flex-wrap:wrap;justify-content:center;gap:0 3.4cqmin;font:800 13cqmin/1.08 var(--display);letter-spacing:-.05em}
+  .pw.last{color:var(--highlight)}
+  .hero-wrap{position:absolute;left:8cqw;right:8cqw;top:8cqh;height:52cqh;display:grid;place-items:center}
+  .hero-img{max-width:100%;max-height:100%;object-fit:contain;border-radius:3cqmin}
+  .hero-card{width:min(76cqw,70cqh);aspect-ratio:16/10;border-radius:4cqmin;background:var(--accent);color:var(--on-accent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.5cqmin;font:800 6.4cqmin/1.05 var(--display);letter-spacing:-.03em;text-align:center;padding:0 4cqmin;box-sizing:border-box}
+  .hero-card .mark{width:11cqmin;height:11cqmin;font-size:6cqmin;border-radius:2.6cqmin;background:var(--on-accent);color:var(--accent)}
+  .feats{position:absolute;left:8cqw;right:8cqw;top:66cqh;margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:2.2cqmin 5cqmin;font:600 4.2cqmin/1.2 var(--text)}
+  .feats li{display:flex;align-items:center;gap:1.6cqmin}
+  .feats i{width:1.6cqmin;height:1.6cqmin;border-radius:50%;background:var(--highlight);flex:none}
+  .cam{position:absolute;inset:0;display:grid;place-items:center;transform-origin:50% 50%}
+  .device{position:relative;width:min(84cqw,120cqh);border-radius:3cqmin;background:color-mix(in srgb,var(--ink) 7%,var(--background));border:.2cqmin solid color-mix(in srgb,var(--ink) 16%,transparent);padding:7cqmin 5cqmin 5cqmin;box-sizing:border-box;display:flex;flex-direction:column;gap:3cqmin;box-shadow:0 4cqmin 8cqmin rgba(0,0,0,.35)}
+  .dbar{position:absolute;left:3cqmin;top:2.4cqmin;display:flex;gap:1.2cqmin}
+  .dbar i{width:1.6cqmin;height:1.6cqmin;border-radius:50%;background:color-mix(in srgb,var(--ink) 25%,transparent)}
+  .dname{display:flex;align-items:center;gap:1.6cqmin;font:700 3.6cqmin var(--display)}
+  .dname .mark{width:5.4cqmin;height:5.4cqmin;font-size:3cqmin;border-radius:1.4cqmin}
+  .field{min-height:9cqmin;border-radius:2cqmin;background:var(--background);border:.2cqmin solid color-mix(in srgb,var(--ink) 18%,transparent);display:flex;align-items:center;padding:0 3cqmin;font:500 3.6cqmin var(--text)}
+  .btn{align-self:flex-end;background:var(--accent);color:var(--on-accent);font:700 3.6cqmin var(--text);padding:2.2cqmin 4.4cqmin;border-radius:2cqmin}
+  .done{display:flex;align-items:center;gap:2cqmin;font:600 3.6cqmin/1.2 var(--text);color:var(--ink)}
+  .done i{font-style:normal;width:5.4cqmin;height:5.4cqmin;border-radius:50%;background:var(--highlight);color:var(--background);display:grid;place-items:center;font-size:3cqmin;font-weight:900;flex:none}
+  .endcta{margin-top:1.6cqmin;background:var(--ink);color:var(--background);font:700 4.4cqmin var(--text);padding:2.4cqmin 5cqmin;border-radius:99cqmin}`,
+        script: `
+  // 1 · The name.
+  kit.enter('#open-logo', 'pop', {at:.2, d:.7, ease:'spring'});
+  kit.reveal('#open-name', {at:.5});
+  kit.reveal('#open-tag', {at:1.1, stagger:.04});
+  kit.float('#s-open .center', {at:0, d:3.3, amp:6});
+  kit.exit('#s-open .center', 'blur', {at:2.9, d:.4});
+  // 2 · Three words, one beat each; the last in the highlight.
+  document.querySelectorAll('.pw').forEach(function(w, i){ kit.enter(w, 'blur', {at:3.35 + i * .75, d:.7, ease:'apple'}); });
+  kit.float('#s-promise .words', {at:3.2, d:4.1, amp:5});
+  kit.exit('#s-promise .words', 'fade', {at:6.95, d:.35});
+  // 3 · The product, the hero; its strengths underneath.
+  kit.enter('#hero', 'scale', {at:7.3, d:1, ease:'apple'});
+  kit.float('.hero-wrap', {at:7.2, d:4.4, amp:8});
+  kit.shine('#hero', {at:8.3, d:1.2});
+  kit.enter('.feats li', 'rise', {at:8.6, stagger:.3});
+  kit.exit('#s-hero .hero-wrap, #s-hero .feats', 'fade', {at:11.25, d:.35});
+  // 4 · The demo: typed, pointed, clicked, done.
+  kit.enter('.device', 'rise', {at:11.55, d:.8, ease:'apple'});
+  var typed = kit.type('#field', ${JSON.stringify(v.request)}, {at:12.3, cps:22, caretUntil:14.3});
+  var click = Math.max(13.9, Math.min(14.6, typed + .35));
+  var b = kit.center('#btn');
+  kit.cursor(null, [[12.6, b[0] + 260, b[1] + 220], [click - .15, b[0], b[1]]], {clicks:[click]});
+  kit.enter('#btn', 'fade', {at:11.9, d:.4});
+  hfEl(document.getElementById('btn'), [{scale:'1'}, {scale:'.94', offset:.4}, {scale:'1'}], {at:click, d:.3, ease:'inout'});
+  kit.enter('#done', 'rise', {at:click + .35, d:.6, ease:'spring'});
+  kit.camera('#cam', [[11.5, 1, 0, 0], [16.4, 1.08, 0, 0]]);
+  // 5 · The call to action, held.
+  kit.enter('#end-logo', 'pop', {at:16.5, d:.7, ease:'spring'});
+  kit.reveal('#end-name', {at:16.75});
+  kit.enter('#end-cta', 'scale', {at:17.4, d:.6, ease:'apple'});
+  kit.shine('#end-cta', {at:18.2, d:1});`,
+      };
+    },
+  },
+
 ];
 
 /**

@@ -15,7 +15,7 @@ describe('motion kit', () => {
   });
 
   it('is documented for the agent, every function and ease', () => {
-    for (const fn of ['enter', 'exit', 'reveal', 'type', 'cursor', 'camera', 'count', 'shine', 'float', 'kenburns', 'split']) {
+    for (const fn of ['enter', 'exit', 'reveal', 'type', 'cursor', 'camera', 'count', 'shine', 'float', 'kenburns', 'split', 'center']) {
       expect(KIT_JS).toContain(`${fn}: function(`);
       expect(KIT_DOC).toContain(`kit.${fn}(`);
     }
