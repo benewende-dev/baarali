@@ -24,6 +24,8 @@ import { BillingErrorNotice } from '@/components/billing-error-notice'
 import { TokenUsageMenu } from '@/components/token-usage-menu'
 import { matchBillingError } from '@/lib/billing-error'
 import { shownSteps } from '@/lib/chat-steps'
+import { segmentTurns } from '@/lib/work-steps'
+import { WorkBlock } from '@/components/work-steps'
 import { wikiLabel } from '@/lib/wiki-links'
 import { streamdownComponents, userMessageRemarkPlugins } from '@/lib/markdown-render'
 import { useSmoothedText } from '@/hooks/useSmoothedText'
@@ -111,6 +113,8 @@ const EMPTY_AUTO_DECISIONS: ChatTabViewState['autoPermissionDecisions'] = new Ma
 
 export interface TurnConversationProps {
   items: ConversationItem[]
+  /** BAARALI(09/10/2026): the last turn is still running (lib/work-steps.ts). */
+  working?: boolean
   /**
    * Tool-row open state. Chat panes lift this to the tab store so it survives
    * tab switches; omit both for local per-mount state (transcript surfaces).
@@ -136,6 +140,7 @@ export interface TurnConversationProps {
 
 export function TurnConversation({
   items,
+  working = false,
   isToolOpen: isToolOpenProp,
   onToolOpenChange: onToolOpenChangeProp,
   permissionRequests = EMPTY_PERMISSION_REQUESTS,
@@ -411,11 +416,11 @@ export function TurnConversation({
     return null
   }
 
-  return (
-    <div className={cn('flex w-full flex-col gap-8', className)}>
-      {groupConversationItems(
-        // BAARALI(05/10/2026): the agent's backstage stays out of the chat (lib/chat-steps.ts).
-        shownSteps(items),
+  // Every item as before, grouped tools and permission cards included: in a
+  // step of the work block, or alone.
+  const renderItems = (list: ConversationItem[]): React.ReactNode =>
+    groupConversationItems(
+        list,
         // Only an interactive permission card (ask or denial) breaks a
         // tool out of a group — auto-approved calls group fine, since
         // their approval renders as a shield glyph on the row itself.
@@ -475,7 +480,29 @@ export function TurnConversation({
           }
         }
         return rendered
-      })}
+      })
+
+  // BAARALI(05/10/2026): the agent's backstage stays out of the chat (lib/chat-steps.ts);
+  // BAARALI(09/10/2026): its work is folded into steps, the answer in the open (lib/work-steps.ts).
+  const waitsForPerson = (list: ConversationItem[]) =>
+    list.some((it) => isToolCall(it) && !!permissionRequests.get(it.id) && !permissionResponses.get(it.id))
+  return (
+    <div className={cn('flex w-full flex-col gap-8', className)}>
+      {segmentTurns(shownSteps(items), working).map((seg) =>
+        seg.kind === 'work' ? (
+          <WorkBlock
+            key={seg.id}
+            steps={seg.steps}
+            active={seg.active}
+            startedAt={seg.startedAt}
+            endedAt={seg.endedAt}
+            renderItems={renderItems}
+            forceOpen={seg.steps.some((step) => waitsForPerson(step.items))}
+          />
+        ) : (
+          <React.Fragment key={seg.item.id}>{renderItems([seg.item])}</React.Fragment>
+        ),
+      )}
     </div>
   )
 }

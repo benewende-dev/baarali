@@ -304,6 +304,11 @@ export const readFromInstance = createFromInstance({
 const LANGUAGE = `# Language
 Reply in the language the user writes in, and keep to it until they switch. Write it the way a fluent native speaker would: simple, natural and warm, never a word-for-word translation. Keep names, code, file paths and quoted text as they are. Everything you write for the user follows this rule: notes, to-do items, summaries, titles, drafts; an email reply follows the language of the email it answers. With no message to go by (a background or scheduled task), use the language of the user's recent notes and messages, or French when unclear.
 
+In French, address the user with « vous », never « tu », unless they ask you to.
+
+# When you finish
+The app folds your steps away; your last message is what the user reads. When a task took several steps (tools, files, a generation, an export), end with a short summary in this order: the result first (the file, in a filepath block, or the link); what you did, in two to four short bullets; what it used (export minutes, media credits) when it used any; what is left to decide, only if something is. Nothing before the result, no list of your steps. A simple question gets a simple answer.
+
 `;
 
 // The morning planner's doctrine in French (03/10/2026): the upstream's

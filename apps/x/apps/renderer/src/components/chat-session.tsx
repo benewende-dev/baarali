@@ -19,6 +19,8 @@ import { AskHumanRequest } from '@/components/ai-elements/ask-human-request'
 import { ReasoningRow } from '@/components/reasoning-row'
 import { TurnActivityIndicator } from '@/components/turn-activity-indicator'
 import { TurnConversation } from '@/components/turn-conversation'
+import { hasActiveWork } from '@/lib/work-steps'
+import { shownSteps } from '@/lib/chat-steps'
 import { streamdownComponents } from '@/lib/markdown-render'
 import { useSmoothedText } from '@/hooks/useSmoothedText'
 import type { useVoiceMode } from '@/hooks/useVoiceMode'
@@ -201,6 +203,7 @@ export function ChatSessionPane({
             <>
               <TurnConversation
                 items={tabState.conversation}
+                working={isActive && activeIsProcessing}
                 isToolOpen={(toolId) => isToolOpenForTab(tab.id, toolId)}
                 onToolOpenChange={(toolId, open) => setToolOpenForTab(tab.id, toolId, open)}
                 permissionRequests={tabState.allPermissionRequests}
@@ -250,7 +253,8 @@ export function ChatSessionPane({
                   shimmer while thought text is streaming — only fall back to
                   the bare indicator when there is nothing to show (working, or
                   reasoning with no visible text, e.g. encrypted-only). */}
-              {isActive && activeIsProcessing && !(activeIsReasoning && tabState.currentReasoning) && (
+              {/* BAARALI(09/10/2026): the work block shows its own spinner (lib/work-steps.ts). */}
+              {isActive && activeIsProcessing && !(activeIsReasoning && tabState.currentReasoning) && !hasActiveWork(shownSteps(tabState.conversation), true) && (
                 <Message from="assistant">
                   <MessageContent>
                     <TurnActivityIndicator isReasoning={activeIsReasoning} />
