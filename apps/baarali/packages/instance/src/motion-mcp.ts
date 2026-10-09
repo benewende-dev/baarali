@@ -119,6 +119,7 @@ export const MOTION_TOOLS: ToolDef[] = [
         project: { type: 'string', description: 'The project folder, e.g. motion/promo-week-end.' },
         format: { type: 'string', enum: [...EXPORT_FORMATS], description: 'Default mp4.' },
         fps: { type: 'number', enum: [30, 60], description: '30 (default). 60 only when asked for very smooth motion: it counts double.' },
+        wait: { type: 'boolean', description: 'Leave unset. false is for the app: it returns at once and follows the export itself.' },
       },
       required: ['project'],
     },
@@ -132,6 +133,7 @@ export const MOTION_TOOLS: ToolDef[] = [
         id: { type: 'string', description: 'The export id returned by render.' },
         project: { type: 'string', description: 'The project folder it belongs to.' },
         format: { type: 'string', enum: [...EXPORT_FORMATS] },
+        wait: { type: 'boolean', description: 'Leave unset. false is for the app: it returns at once and follows the export itself.' },
       },
       required: ['id', 'project'],
     },
@@ -205,6 +207,8 @@ function cleanWords(raw: unknown): CaptionWord[] {
 }
 
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError } : {}) });
+/** A text for the agent, with the same answer as data for the app's studio. */
+const answer = (t: string, data: Record<string, unknown>, isError = false): ToolResult => ({ ...text(t, isError), structuredContent: data });
 const HEX = /^#[0-9a-f]{6}$/i;
 const FONT = /^[A-Za-z0-9 ]{2,40}$/;
 
@@ -593,13 +597,13 @@ export function createMotionTools(deps: MotionToolsDeps) {
       await fs.writeFile(path.join(dir, 'index.html'), withLane(html, music, lane, level));
       const passages = speechSpans(words, voice.at).filter(([s, e]) => e > musicStart && s < musicStart + playing).length;
       const db = underVoice > 0 ? `${Math.round(20 * Math.log10(underVoice))} dB` : 'silence';
-      return text([
+      return answer([
         `Mixed: the music ${music.id ?? music.src} plays at ${level}, comes down to ${Math.round(level * underVoice * 100) / 100} (${db}) under the voice in ${passages} passage(s) and back up in its pauses, and fades out over its last ${fadeOut} s.`,
         transcribed
           ? `The voice was transcribed for its timing (counted in the usage, about 0.01 $ a minute); the words are kept in ${rel(dir)}/${CAPTIONS_FILE}, so captions now cost nothing more.${html.includes(CAPTIONS_START) && existing ? ' The captions on the video are of the previous voice: call captions again.' : ''}`
           : `Timing from the voice's words in ${CAPTIONS_FILE}: nothing was transcribed.`,
         'The lane is the data-automation attribute of the music clip: after moving the voice or the music, call mix again. Louder or softer: `level` (0–1) and `under_voice` (the share kept under the voice, 0–1).',
-      ].join('\n'));
+      ].join('\n'), { mix: { music: music.id ?? music.src, level, underVoice, fadeOut, passages, transcribed } });
     }
 
     if (name === 'check') {
@@ -635,7 +639,9 @@ export function createMotionTools(deps: MotionToolsDeps) {
         const res = await api('/allowance');
         const data = await readJson(res);
         if (!res.ok) return text(`Could not read the export minutes (${res.status}).`, true);
-        return text(`Export minutes ${period(data)}: ${minutes(data.used_seconds)} used of ${minutes(data.total_seconds)}, back on ${String(data.resets_at).slice(0, 10)}. Beyond them: ${data.credits_per_minute} media credits a minute, counted to the second; balance ${data.balance} credits.`);
+        return answer(`Export minutes ${period(data)}: ${minutes(data.used_seconds)} used of ${minutes(data.total_seconds)}, back on ${String(data.resets_at).slice(0, 10)}. Beyond them: ${data.credits_per_minute} media credits a minute, counted to the second; balance ${data.balance} credits.`, {
+          allowance: { period: data.period === 'week' ? 'week' : 'month', usedSeconds: Number(data.used_seconds) || 0, totalSeconds: Number(data.total_seconds) || 0, resetsAt: String(data.resets_at ?? ''), creditsPerMinute: Number(data.credits_per_minute) || 0, balance: Number(data.balance) || 0 },
+        });
       }
 
       const dir = projectDir(args.project);
@@ -643,31 +649,35 @@ export function createMotionTools(deps: MotionToolsDeps) {
       const format = (args.format ?? 'mp4') as ExportFormat;
       if (!EXPORT_FORMATS.includes(format)) return text(`Format is one of ${EXPORT_FORMATS.join(', ')}.`, true);
 
+      // The agent waits for its export; the app's studio asks once and polls itself.
+      const wait = args.wait !== false;
+      const state = (id: string, status: string, more: Record<string, unknown> = {}) => ({ export: { id, format, status, ...more } });
+
       /** Waits for the export, then saves it beside the project. */
       const follow = async (id: string, intro: string): Promise<ToolResult> => {
-        const until = deps.now() + RENDER_WAIT_MS;
+        const until = deps.now() + (wait ? RENDER_WAIT_MS : 0);
         for (;;) {
           const res = await api(`/renders/${encodeURIComponent(id)}`);
           const data = await readJson(res);
-          if (res.status === 404) return text(`No export ${id}.`, true);
+          if (res.status === 404) return answer(`No export ${id}.`, state(id, 'unknown'), true);
           if (data.status === 'failed') {
-            return text(`${intro}The export failed: ${data.error ?? 'unknown error'}. Its minutes and credits were given back. Fix the composition if the error names it, call check, and render again.`, true);
+            return answer(`${intro}The export failed: ${data.error ?? 'unknown error'}. Its minutes and credits were given back. Fix the composition if the error names it, call check, and render again.`, state(id, 'failed', { error: String(data.error ?? 'unknown error') }), true);
           }
           if (data.status === 'done') {
             const file = await api(`/renders/${encodeURIComponent(id)}/file`);
             if (!file.ok) {
               const code = ((await readJson(file)).error as Record<string, unknown> | undefined)?.code;
-              if (code === 'lost') return text(`${intro}The export finished but its file was lost before it reached the workspace. It was refunded, minutes and credits: render it again, at no extra cost.`, true);
-              return text(`${intro}The export is done but its file could not be fetched (${file.status}); render it again.`, true);
+              if (code === 'lost') return answer(`${intro}The export finished but its file was lost before it reached the workspace. It was refunded, minutes and credits: render it again, at no extra cost.`, state(id, 'lost'), true);
+              return answer(`${intro}The export is done but its file could not be fetched (${file.status}); render it again.`, state(id, 'failed', { error: `file ${file.status}` }), true);
             }
             const out = path.join(dir, EXPORTS_DIR, `${path.basename(dir)}${format === 'mp4' ? '' : `-${format}`}.${EXPORT_EXTENSIONS[format]}`);
             await fs.mkdir(path.dirname(out), { recursive: true });
             await fs.writeFile(out, Buffer.from(await file.arrayBuffer()));
-            return text(`${intro}Exported: ${rel(out)}. Show it to the user in a \`\`\`filepath block (${rel(out)}); it plays and downloads in the app, on the phone as on the computer.`);
+            return answer(`${intro}Exported: ${rel(out)}. Show it to the user in a \`\`\`filepath block (${rel(out)}); it plays and downloads in the app, on the phone as on the computer.`, state(id, 'done', { progress: 1, file: rel(out) }));
           }
           if (deps.now() >= until) {
             const pct = Math.round((Number(data.progress) || 0) * 100);
-            return text(`${intro}Still rendering (${data.queued ? 'waiting for a free machine' : `${pct} %`}). Do not call render again: it would export twice. Call render_status with id ${id} and project ${rel(dir)}${format === 'mp4' ? '' : ` and format ${format}`}.`);
+            return answer(`${intro}Still rendering (${data.queued ? 'waiting for a free machine' : `${pct} %`}). Do not call render again: it would export twice. Call render_status with id ${id} and project ${rel(dir)}${format === 'mp4' ? '' : ` and format ${format}`}.`, state(id, data.queued ? 'queued' : 'rendering', { progress: pct / 100 }));
           }
           await control.sleep(RENDER_POLL_MS);
         }
@@ -686,7 +696,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       }
       const errors = (await checkComposition(html, dir)).filter((f) => f.severity === 'error');
       if (errors.length > 0) {
-        return text(`Not exported: fix these first.\n${errors.map((f) => `- ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n')}`, true);
+        return answer(`Not exported: fix these first.\n${errors.map((f) => `- ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n')}`, { refused: { code: 'composition_errors', errors: errors.map((f) => f.message) } }, true);
       }
       const root = /<[a-z]+\b[^>]*\bdata-composition-id\s*=[^>]*>/i.exec(html)?.[0] ?? '';
       const seconds = Number(/\bdata-duration\s*=\s*["']?([\d.]+)/i.exec(root)?.[1]);
@@ -721,9 +731,9 @@ export function createMotionTools(deps: MotionToolsDeps) {
       if (res.status !== 202) {
         const e = (data.error ?? {}) as Record<string, any>;
         if (e.code === 'insufficient_media_credits') {
-          return text(`Not exported: the export minutes of the plan are used up (${minutes(e.allowance?.used_seconds ?? 0)} of ${minutes(e.allowance?.total_seconds ?? 0)}, back on ${String(e.allowance?.resets_at ?? '').slice(0, 10)}) and this export costs ${e.cost} media credits; the balance is ${e.balance}. The user can buy a media credit pack, or wait for the minutes to come back.`, true);
+          return answer(`Not exported: the export minutes of the plan are used up (${minutes(e.allowance?.used_seconds ?? 0)} of ${minutes(e.allowance?.total_seconds ?? 0)}, back on ${String(e.allowance?.resets_at ?? '').slice(0, 10)}) and this export costs ${e.cost} media credits; the balance is ${e.balance}. The user can buy a media credit pack, or wait for the minutes to come back.`, { refused: { code: 'insufficient_media_credits', cost: Number(e.cost) || 0, balance: Number(e.balance) || 0 } }, true);
         }
-        return text(`Not exported: ${e.message ?? `error ${res.status}`}.`, true);
+        return answer(`Not exported: ${e.message ?? `error ${res.status}`}.`, { refused: { code: String(e.code ?? res.status), message: String(e.message ?? '') } }, true);
       }
       const paid = data.credits > 0
         ? `${minutes(data.included_seconds)} from the plan and ${data.credits} media credits`

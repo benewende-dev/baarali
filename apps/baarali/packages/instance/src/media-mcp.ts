@@ -26,6 +26,8 @@ export interface MediaToolsDeps {
 export interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
+  /** The same answer as data, for the apps that call a tool themselves (the Mac studio). */
+  structuredContent?: Record<string, unknown>;
 }
 
 export interface ToolDef {
