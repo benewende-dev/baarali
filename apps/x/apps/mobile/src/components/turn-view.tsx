@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Button, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { phoneSteps, workDuration, type PhoneStep } from '@/lib/work-steps';
 import { ChatMarkdown } from './markdown';
 import type { message as messageShared, turns } from '@x/shared';
 import type { z } from 'zod';
@@ -36,6 +37,63 @@ function ToolChip({ tool }: { tool: turns.ToolCallState }) {
       <Text style={[styles.chipText, { color: '#999' }]}>
         {running ? '⏳' : failed ? '✕' : '✓'} {tool.toolName}
       </Text>
+    </View>
+  );
+}
+
+function StepRow({ step }: { step: PhoneStep }) {
+  const [open, setOpen] = useState(false);
+  const detail = step.said !== null || step.tools.length > 0;
+  return (
+    <View>
+      <Pressable disabled={!detail} onPress={() => setOpen((v) => !v)} style={styles.stepRow} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+        <Text style={styles.caret}>{detail ? (open ? '▾' : '▸') : ' '}</Text>
+        <Text style={[styles.stepIcon, step.failed ? styles.stepFailed : step.running ? styles.stepRunning : styles.stepDone]}>
+          {step.running ? '◌' : step.failed ? '!' : '✓'}
+        </Text>
+        <Text style={[styles.stepTitle, step.running && styles.stepTitleNow]}>{step.title}</Text>
+      </Pressable>
+      {open && (
+        <View style={styles.stepDetail}>
+          {step.said ? <ChatMarkdown>{step.said}</ChatMarkdown> : null}
+          {step.tools.length > 0 && (
+            <View style={styles.chips}>
+              {step.tools.map((tool) => (
+                <ToolChip key={tool.toolCallId} tool={tool} />
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function WorkBlock({ steps, active, started, ended }: { steps: PhoneStep[]; active: boolean; started: string; ended?: string }) {
+  const [open, setOpen] = useState(active);
+  const total = ended ? workDuration(Date.parse(ended) - Date.parse(started)) : null;
+  return (
+    <View>
+      <Pressable onPress={() => setOpen((v) => !v)} style={styles.workHead} accessibilityRole="button" accessibilityState={{ expanded: open || active }}>
+        <Text style={styles.caret}>{open || active ? '▾' : '▸'}</Text>
+        {active ? (
+          <Text style={styles.workNow}>Baarali is working…</Text>
+        ) : (
+          <Text style={styles.workDone}>
+            <Text>Worked</Text>
+            {total ? <Text>{` ${total}`}</Text> : null}
+            <Text>{` · ${steps.length} `}</Text>
+            <Text>{steps.length === 1 ? 'step' : 'steps'}</Text>
+          </Text>
+        )}
+      </Pressable>
+      {(open || active) && (
+        <View style={styles.steps}>
+          {steps.map((step) => (
+            <StepRow key={step.key} step={step} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -102,6 +160,8 @@ export function TurnView({ state, liveText, streaming, onPermission, onAskHuman 
   const askHumanCalls = state.toolCalls.filter(
     (tc) => tc.toolName === 'ask-human' && !tc.result,
   );
+  const { steps, answer } = phoneSteps(state, (call) => (call.response ? assistantText(call.response) : ''));
+  const answerCall = answer === -1 ? undefined : state.modelCalls.find((c) => c.index === answer);
 
   return (
     <View style={styles.turn}>
@@ -109,23 +169,21 @@ export function TurnView({ state, liveText, streaming, onPermission, onAskHuman 
         <Text style={styles.userText}>{userText(state.definition.input)}</Text>
       </View>
 
-      {state.modelCalls.map((call) => {
-        const tools = state.toolCalls.filter((tc) => tc.modelCallIndex === call.index);
-        const answer = call.response ? assistantText(call.response) : '';
-        return (
-          <View key={call.index} style={styles.assistantBlock}>
-            {answer.length > 0 && <ChatMarkdown>{answer}</ChatMarkdown>}
-            {call.error && <Text style={styles.error}>{call.error}</Text>}
-            {tools.length > 0 && (
-              <View style={styles.chips}>
-                {tools.map((tool) => (
-                  <ToolChip key={tool.toolCallId} tool={tool} />
-                ))}
-              </View>
-            )}
-          </View>
-        );
-      })}
+      {/* BAARALI(09/10/2026): the work folded into steps, the answer in the open (lib/work-steps.ts). */}
+      {steps.length > 0 && (
+        <WorkBlock
+          steps={steps}
+          active={!state.terminal && !!streaming}
+          started={state.definition.ts}
+          ended={state.terminal?.ts}
+        />
+      )}
+      {answerCall && (
+        <View style={styles.assistantBlock}>
+          <ChatMarkdown>{assistantText(answerCall.response!)}</ChatMarkdown>
+          {answerCall.error && <Text style={styles.error}>{answerCall.error}</Text>}
+        </View>
+      )}
 
       {liveText ? <ChatMarkdown>{liveText}</ChatMarkdown> : null}
       {streaming && !liveText && !state.terminal && !suspended && (
@@ -201,6 +259,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   thinking: { opacity: 0.6, fontStyle: 'italic', color: '#888' },
+  workHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  workNow: { fontSize: 14, color: '#3478f6' },
+  workDone: { fontSize: 14, color: '#888' },
+  caret: { width: 12, fontSize: 12, color: '#888' },
+  steps: { marginLeft: 5, paddingLeft: 10, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: '#8886', gap: 2 },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingVertical: 4 },
+  stepIcon: { width: 14, fontSize: 13, textAlign: 'center' },
+  stepDone: { color: '#34c759' },
+  stepRunning: { color: '#3478f6' },
+  stepFailed: { color: '#ff9f0a', fontWeight: '700' },
+  stepTitle: { flex: 1, fontSize: 14, color: '#888' },
+  stepTitleNow: { color: '#3478f6' },
+  stepDetail: { marginLeft: 32, marginBottom: 6, padding: 10, borderRadius: 10, backgroundColor: '#8881', gap: 8 },
   error: { color: '#c0392b' },
   meta: { opacity: 0.5, fontSize: 13 },
 });
