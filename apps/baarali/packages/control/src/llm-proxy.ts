@@ -1,4 +1,4 @@
-import { fitCall, planLabeler, presentFor } from './model-access.js';
+import { AUTO_MODEL, busyFallback, fitCall, planLabeler, presentFor } from './model-access.js';
 import { ModelCatalog, type UpstreamModels } from './model-catalog.js';
 import type { AutoMessages } from './auto-messages.js';
 import type { Account, ControlStore } from './store.js';
@@ -98,6 +98,9 @@ class SseCostScanner {
 }
 
 const HOP_HEADERS = ['content-encoding', 'content-length', 'transfer-encoding', 'connection'];
+
+/** Upstream answers that mean « this model, not now »: another one is tried (busyFallback). */
+const BUSY = new Set([429, 502, 503]);
 
 function passHeaders(upstream: Response): Headers {
   const headers = new Headers(upstream.headers);
@@ -206,6 +209,18 @@ export async function proxyLlm(deps: ProxyDeps, account: Account, req: Request):
       ({ body, model } = withUsageAccounting(fallback.body, subpath));
       requestedModel = requestedModel ?? 'typesafe/jev-router';
       upstream = await deps.fetch(target, { method: req.method, headers, body });
+    }
+    // The model saturated or down upstream (a provider's shared pool, 429):
+    // once more, on the plan's default, so the person is not stopped.
+    if (BUSY.has(upstream.status)) {
+      const busy = model === AUTO_MODEL ? fallback : busyFallback(catalog, plan, subpath, body, model, deps.upstreamModels?.knownIds());
+      if (busy && busy.served !== model) {
+        console.warn(`[llm] ${model} busy (${upstream.status}); sent to ${busy.served}`);
+        await upstream.body?.cancel().catch(() => undefined);
+        requestedModel = requestedModel ?? model;
+        ({ body, model } = withUsageAccounting(busy.body, subpath));
+        upstream = await deps.fetch(target, { method: req.method, headers, body });
+      }
     }
   } catch {
     await settle(502, undefined, false);

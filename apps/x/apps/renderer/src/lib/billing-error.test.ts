@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { humanizeModelError, matchBillingError } from './billing-error'
+import { humanizeModelError, isBusyModelError, matchBillingError } from './billing-error'
 
 const OUT_OF_CREDITS = 'Out of credits — add credits or configure your own API key in Settings'
 
@@ -37,5 +37,18 @@ describe('humanizeModelError', () => {
     // A bare 403 must NOT start popping the upgrade dialog in chat.
     expect(matchBillingError('Forbidden')).toBeNull()
     expect(matchBillingError('not enough credits')?.kind).toBe('out_of_credits')
+  })
+})
+
+describe('isBusyModelError', () => {
+  it('knows a model saturated or down at its provider', () => {
+    const qwen = 'Failed after 3 attempts. Last error: AI_APICallError: [Alibaba] qwen/qwen3.8-flash is temporarily rate-limited upstream. [status 429 — {"error":{"code":429}}]'
+    expect(isBusyModelError(qwen)).toBe(true)
+    expect(isBusyModelError('Provider returned error [status 503 — overloaded]')).toBe(true)
+  })
+
+  it('leaves the plan\'s own limit and other failures alone', () => {
+    expect(isBusyModelError('Usage limit reached for this week [status 429 — {"error":{"code":"quota_reached"}}]')).toBe(false)
+    expect(isBusyModelError('The model did not produce a valid slide')).toBe(false)
   })
 })

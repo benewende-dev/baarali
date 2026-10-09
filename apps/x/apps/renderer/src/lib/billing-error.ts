@@ -29,6 +29,21 @@ export function matchBillingError(message: string): BillingErrorMatch | null {
 }
 
 /**
+ * A model saturated or down at its provider (a shared pool's 429, an
+ * overloaded 502/503), once the server's own fallback failed too: the person
+ * reads what to do, the raw payload stays one click away (09/10/2026). The
+ * plan's own limit (« Usage limit reached ») is a 429 too, and is not this.
+ */
+const BUSY_MODEL_PATTERN = /rate-limited|rate limit|overloaded|temporarily unavailable|status (?:429|502|503)\b/i
+const OWN_LIMIT_PATTERN = /quota_reached|usage limit reached/i
+
+export const BUSY_MODEL_TEXT = 'This model is busy right now. Try again in a moment, or choose Automatic.'
+
+export function isBusyModelError(message: string): boolean {
+  return BUSY_MODEL_PATTERN.test(message) && !OWN_LIMIT_PATTERN.test(message)
+}
+
+/**
  * Auth/credit refusals that reach a one-shot LLM call as a bare HTTP status —
  * the gateway answers 403 and the AI SDK surfaces the reason phrase verbatim,
  * so the user sees "Forbidden" with no idea what to do about it. The billing
