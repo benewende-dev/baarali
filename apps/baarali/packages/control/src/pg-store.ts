@@ -20,6 +20,7 @@ import {
   type MotionRender,
   type MotionSplit,
   type MotionUsage,
+  type PublishedSidebar,
   type Plan,
   type UsageRecord,
 } from './store.js';
@@ -384,6 +385,26 @@ export class PgStore implements ControlStore {
 
   async motionUsage(accountId: string, since: number) {
     return usageOf(this.db, accountId, since);
+  }
+
+  async sidebarLayout(): Promise<PublishedSidebar | null> {
+    const { rows } = await this.db.query<{ layout: PublishedSidebar['layout']; published_at: Date; published_by: string }>(
+      'SELECT layout, published_at, published_by FROM baarali.sidebar_layout',
+    );
+    const r = rows[0];
+    return r ? { layout: r.layout, at: new Date(r.published_at).getTime(), by: r.published_by } : null;
+  }
+
+  async saveSidebarLayout(published: PublishedSidebar | null) {
+    if (!published) {
+      await this.db.query('DELETE FROM baarali.sidebar_layout');
+      return;
+    }
+    await this.db.query(
+      `INSERT INTO baarali.sidebar_layout (id, layout, published_at, published_by) VALUES (true, $1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET layout = EXCLUDED.layout, published_at = EXCLUDED.published_at, published_by = EXCLUDED.published_by`,
+      [JSON.stringify(published.layout), new Date(published.at), published.by],
+    );
   }
 
   async listAccounts(since: number): Promise<AccountSummary[]> {

@@ -69,6 +69,17 @@ describe.each([
     expect(await store.motionUsage(ME.id, T0 - 1000)).toEqual({ included: 80, extra: 0 });
   });
 
+  it('keeps one published sidebar, replaced, then removed', async () => {
+    const store = await make();
+    expect(await store.sidebarLayout()).toBeNull();
+    const one = { layout: { entries: [{ id: 'chat' }, { id: 'code', label: 'Atelier' }] }, at: T0, by: 'boss@x' };
+    await store.saveSidebarLayout(one);
+    await store.saveSidebarLayout({ ...one, at: T0 + 1 });
+    expect(await store.sidebarLayout()).toEqual({ ...one, at: T0 + 1 });
+    await store.saveSidebarLayout(null);
+    expect(await store.sidebarLayout()).toBeNull();
+  });
+
   it('finds an account by its token, never by a wrong one', async () => {
     const store = await make();
     expect(await store.accountByToken('tok-me')).toEqual(ME);

@@ -61,6 +61,7 @@ export const RPC_CHANNELS = [
   'billing:getPlans',
   'billing:getMedia',
   'billing:getAnnouncement',
+  'billing:getSidebarLayout',
   'billing:announcementEvent',
   'billing:getNotifications',
   'billing:notificationEvent',

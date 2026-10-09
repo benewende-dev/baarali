@@ -392,6 +392,16 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX motion_renders_account ON baarali.motion_renders (account_id, at);
   `,
+  // 13 — The app's sidebar as the admin console published it (09/10/2026):
+  // one row at most, gone when the console goes back to the default.
+  `
+  CREATE TABLE baarali.sidebar_layout (
+    id boolean PRIMARY KEY DEFAULT true CHECK (id),
+    layout jsonb NOT NULL,
+    published_at timestamptz NOT NULL,
+    published_by text NOT NULL
+  );
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

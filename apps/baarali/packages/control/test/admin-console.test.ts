@@ -796,3 +796,25 @@ describe('the partner programme’s pages', () => {
     expect(await paused.text()).not.toContain('class="refbar"');
   });
 });
+
+describe('the app’s sidebar', () => {
+  it('is published by the console, read by every app, and goes back to the default', async () => {
+    const { as, post, app, store } = setup();
+    const mine = async () => (await app.request('/v1/sidebar', { headers: { authorization: 'Bearer tok-awa' } })).json();
+    expect(await mine()).toEqual({ layout: null });
+    const read = await (await as('boss', '/admin/api/sidebar')).json();
+    expect(read.published).toBeNull();
+    expect(read.names.coworkers).toBe('Coéquipiers');
+    const entries = read.default.entries.map((e: { id: string }) => (e.id === 'code' ? { id: 'code', label: 'Atelier' } : e));
+    // Writes need the console's header; a person's token opens nothing here.
+    expect((await as('boss', '/admin/api/sidebar', { method: 'POST', write: false, body: JSON.stringify({ layout: { entries } }) })).status).toBe(403);
+    expect((await app.request('/admin/api/sidebar', { headers: { authorization: 'Bearer tok-awa' } })).status).toBe(404);
+    expect((await post('boss', '/admin/api/sidebar', { layout: { entries: entries.slice(1) } })).status).toBe(400);
+    expect((await post('boss', '/admin/api/sidebar', { layout: { entries } })).status).toBe(200);
+    expect((await mine()).layout.entries[2]).toEqual({ id: 'code', label: 'Atelier' });
+    expect((await store.adminLog(5))[0]).toMatchObject({ action: 'sidebar', detail: expect.stringContaining('Atelier') });
+    expect((await post('boss', '/admin/api/sidebar', { layout: null })).status).toBe(200);
+    expect(await mine()).toEqual({ layout: null });
+  });
+});
+
