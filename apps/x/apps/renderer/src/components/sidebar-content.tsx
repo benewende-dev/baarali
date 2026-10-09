@@ -8,7 +8,7 @@ import {
   AppWindow,
   NotebookPen,
   MessagesSquare,
-  UsersRound,
+  BriefcaseBusiness,
   ArrowUpRight,
   CalendarClock,
   Library,
@@ -862,7 +862,7 @@ export function SidebarContentPanel({
         return (
 <SidebarMenuItem key={row.id}>
       <SidebarMenuButton isActive={activeNav === 'baarasseurs'} onClick={() => onOpenBaarasseurs?.()}>
-        <UsersRound className="size-4 shrink-0" />
+        <BriefcaseBusiness className="size-4 shrink-0" />
         <span className="flex-1 truncate font-medium">{pageLabel(row, 'Coworkers')}</span>
         {baarasseursUnread > 0 && (
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground" data-no-translate>

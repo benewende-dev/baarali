@@ -804,7 +804,7 @@ describe('the app’s sidebar', () => {
     expect(await mine()).toEqual({ layout: null });
     const read = await (await as('boss', '/admin/api/sidebar')).json();
     expect(read.published).toBeNull();
-    expect(read.names.coworkers).toBe('Coéquipiers');
+    expect(read.names.coworkers).toBe('Employés');
     const entries = read.default.entries.map((e: { id: string }) => (e.id === 'code' ? { id: 'code', label: 'Atelier' } : e));
     // Writes need the console's header; a person's token opens nothing here.
     expect((await as('boss', '/admin/api/sidebar', { method: 'POST', write: false, body: JSON.stringify({ layout: { entries } }) })).status).toBe(403);
