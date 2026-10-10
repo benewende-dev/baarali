@@ -124,6 +124,8 @@ export const KIT_JS = `
         var end = at + text.length / cps;
         if (o.caret !== false) {
           var c = document.createElement('span'); c.className = 'kit-caret'; el.appendChild(c);
+          // Not there before the typing starts.
+          hfEl(c, [{visibility:'hidden'}, {visibility:'visible'}], {at:Math.max(0, at - .001), d:.001, ease:'linear'});
           hfEl(c, [{opacity:1, offset:0}, {opacity:1, offset:.5}, {opacity:0, offset:.51}, {opacity:0}], {at:at, d:1, ease:'linear', n:Math.max(1, Math.ceil((o.caretUntil || end + 1) - at))});
           hfEl(c, [{visibility:'visible'}, {visibility:'hidden'}], {at:o.caretUntil || end + 1, d:.001, ease:'linear'});
         }

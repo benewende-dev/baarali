@@ -12,11 +12,11 @@ async function setup() {
 const textOf = (r: { content: Array<{ text: string }> }) => r.content[0].text;
 
 describe('motion tools', () => {
-  it('lists the thirteen templates with their slots', async () => {
+  it('lists the eighteen templates with their slots', async () => {
     const { tools } = await setup();
     const out = textOf(await tools.run('list_templates', {}));
     for (const t of TEMPLATES) expect(out).toContain(`- ${t.id} — ${t.name}`);
-    expect(TEMPLATES).toHaveLength(13);
+    expect(TEMPLATES).toHaveLength(18);
   });
 
   it('makes every template in every format, and each passes the check', async () => {
@@ -45,6 +45,18 @@ describe('motion tools', () => {
     expect(await fs.readFile(path.join(workDir, 'motion/lancement-16x9/assets/image.png'), 'utf8')).toBe('PNG');
     await tools.run('new_project', { template: 'presentation-produit', title: 'Sans photo', values: { image: '../outside.png' } });
     expect(await fs.readFile(path.join(workDir, 'motion/sans-photo/index.html'), 'utf8')).toContain('class="hero-card"');
+  });
+
+  it('carries the photos of a list (a catalogue’s products) into the project', async () => {
+    const { tools, workDir } = await setup();
+    await fs.mkdir(path.join(workDir, 'files'), { recursive: true });
+    await fs.writeFile(path.join(workDir, 'files/robe.jpg'), 'JPG');
+    await tools.run('new_project', { template: 'catalogue', title: 'Arrivage', values: { products: 'Robe | 18 000 F | files/robe.jpg\nSac | 9 000 F | ../dehors.png\nFoulard | 3 000 F' } });
+    const html = await fs.readFile(path.join(workDir, 'motion/arrivage/index.html'), 'utf8');
+    expect(html).toContain('<img src="assets/products-1.jpg"');
+    expect(await fs.readFile(path.join(workDir, 'motion/arrivage/assets/products-1.jpg'), 'utf8')).toBe('JPG');
+    expect(html).not.toContain('dehors');
+    expect(textOf(await tools.run('list_templates', {}))).toContain('field 3 is the workspace path of an image');
   });
 
   it('fills the slots, escapes them, and says which kept the example', async () => {

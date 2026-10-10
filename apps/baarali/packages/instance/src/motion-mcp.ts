@@ -455,19 +455,32 @@ export function createMotionTools(deps: MotionToolsDeps) {
     }
     // A picture slot names a workspace image: it goes with the project too.
     const values = { ...meta.values };
-    for (const slot of TEMPLATES.find((t) => t.id === meta.template)?.slots ?? []) {
-      if (!slot.image) continue;
-      const given = values[slot.key]?.trim();
-      values[slot.key] = '';
-      if (!given) continue;
+    /** The image's src in the project, or '' when it is not a workspace image. */
+    const bring = async (given: string, base: string): Promise<string> => {
       const src = path.resolve(deps.workDir, given);
-      if (!src.startsWith(deps.workDir + path.sep) || !/\.(png|jpe?g|webp|svg|gif)$/i.test(src)) continue;
+      if (!src.startsWith(deps.workDir + path.sep) || !/\.(png|jpe?g|webp|svg|gif)$/i.test(src)) return '';
       try {
-        const name = `${slot.key}${path.extname(src).toLowerCase()}`;
+        const name = `${base}${path.extname(src).toLowerCase()}`;
         await fs.copyFile(src, path.join(dir, 'assets', name));
-        values[slot.key] = `assets/${name}`;
+        return `assets/${name}`;
       } catch {
         // Moved away: the template does without it.
+        return '';
+      }
+    };
+    for (const slot of TEMPLATES.find((t) => t.id === meta.template)?.slots ?? []) {
+      if (slot.image) {
+        const given = values[slot.key]?.trim();
+        values[slot.key] = given ? await bring(given, slot.key) : '';
+      } else if (slot.imageField !== undefined && values[slot.key]) {
+        // A list of `name | price | photo` lines: each line's photo goes too.
+        const out: string[] = [];
+        for (const [i, line] of values[slot.key].split('\n').entries()) {
+          const f = line.split('|').map((x) => x.trim());
+          if (f[slot.imageField]) f[slot.imageField] = await bring(f[slot.imageField], `${slot.key}-${i + 1}`);
+          out.push(f.join(' | '));
+        }
+        values[slot.key] = out.join('\n');
       }
     }
     const { html, duration } = compose(meta.template, { format: meta.format, title: meta.title, brand, values, logoSrc, speed: meta.speed });
@@ -525,7 +538,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
 
     if (name === 'list_templates') {
       return text(TEMPLATES.map((t) =>
-        `- ${t.id} — ${t.name}: ${t.use} ${t.duration} s${t.transparent ? ', transparent background' : ''}.\n  slots: ${t.slots.map((s) => (s.image ? `${s.key} (the workspace path of an image, optional)` : `${s.key}${s.list ? ' (one per line)' : ''} e.g. "${s.example.replace(/\n/g, ' / ')}"`)).join('; ')}`,
+        `- ${t.id} — ${t.name}: ${t.use} ${t.duration} s${t.transparent ? ', transparent background' : ''}.\n  slots: ${t.slots.map((s) => (s.image ? `${s.key} (the workspace path of an image, optional)` : `${s.key}${s.list ? ' (one per line)' : ''}${s.imageField !== undefined ? ` (fields split by |; field ${s.imageField + 1} is the workspace path of an image, optional)` : ''} e.g. "${s.example.replace(/\n/g, ' / ')}"`)).join('; ')}`,
       ).join('\n'));
     }
 
