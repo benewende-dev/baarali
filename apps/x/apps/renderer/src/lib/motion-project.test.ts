@@ -57,5 +57,8 @@ describe('motion project', () => {
     expect(siblingFormats('motion/pub-1x1', ['pub', 'pub-1x1', 'pub-16x9', 'autre'])).toEqual([
       { ratio: '9:16', project: 'motion/pub' }, { ratio: '1:1', project: 'motion/pub-1x1' }, { ratio: '16:9', project: 'motion/pub-16x9' },
     ])
+    expect(siblingFormats('motion/affiche-A3', ['affiche', 'affiche-A3', 'affiche-carte'])).toEqual([
+      { ratio: '9:16', project: 'motion/affiche' }, { ratio: 'A3', project: 'motion/affiche-A3' }, { ratio: 'carte', project: 'motion/affiche-carte' },
+    ])
   })
 })

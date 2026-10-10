@@ -62,6 +62,9 @@ export default function RootLayout() {
             <Stack.Screen name="partner-code" options={{ title: 'Partner code' }} />
             {/* BAARALI(07/10/2026): the admin console's messages, behind the home tab's bell. */}
             <Stack.Screen name="inbox" options={{ title: 'Notifications' }} />
+            {/* BAARALI(10/10/2026): the Studio Motion and the agent's files, full screen. */}
+            <Stack.Screen name="studio" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="viewer" options={{ title: '', headerTransparent: false, headerStyle: { backgroundColor: '#000000' }, headerTintColor: '#ffffff' }} />
             <Stack.Screen name="pairing" options={{ title: '' }} />
             <Stack.Screen name="pair-dev" options={{ headerShown: false }} />
           </Stack>

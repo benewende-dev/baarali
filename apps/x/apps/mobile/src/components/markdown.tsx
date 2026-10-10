@@ -7,6 +7,8 @@ import MathJaxSvg from 'react-native-mathjax-svg';
 
 import { useColors } from '@/theme/colors';
 
+import { FileCards } from './file-cards';
+
 // Math pipeline (the ChatterUI recipe): texmath tokenizes $…$/$$…$$ and
 // \(…\)/\[…\] into math_* tokens; MathJax→SVG typesets them natively (no
 // WebView, Expo Go safe). The stub engine stops texmath require()-ing katex —
@@ -165,7 +167,19 @@ export function ChatMarkdown({ children, extraRules, onLinkPress }: {
           resizeMode="contain"
         />
       ) : null;
+    // BAARALI(10/10/2026): the agent gives files in a ```filepath block —
+    // videos, posters, PDFs, motion projects — shown as cards (file-cards.tsx).
+    // Any other fence renders as the library's own rule does.
+    const fence = (node: { key: string; content: string; sourceInfo?: string }, _c: unknown, _p: unknown, st: { fence: object }, inherited: object = {}) => {
+      const content = node.content.replace(/\n$/, '');
+      if (node.sourceInfo?.trim() === 'filepath') {
+        const paths = content.split('\n').map((l) => l.trim()).filter(Boolean);
+        if (paths.length) return <FileCards key={node.key} paths={paths} />;
+      }
+      return <Text key={node.key} style={[inherited, st.fence]}>{content}</Text>;
+    };
     return {
+      fence,
       math_inline: inline,
       math_inline_double: block,
       math_block: block,
