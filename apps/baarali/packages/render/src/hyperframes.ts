@@ -6,7 +6,8 @@ import { lintProject } from '@hyperframes/lint';
 import { captureFrameToBuffer, closeCaptureSession, createCaptureSession, createFileServer, createRenderJob, executeRenderJob, initializeSession } from '@hyperframes/producer';
 import { RefusedError, type Renderer } from './queue.js';
 import { usesGsap } from './project.js';
-import { STILL_SIDE, type Stiller } from './stills.js';
+import { PRINT_DPI, printPdf, trimCrop } from './poster.js';
+import { STILL_SIDE, type Posterer, type Stiller } from './stills.js';
 
 /**
  * Capture browsers per render (RENDER_WORKERS). Measured 08/10/2026 on
@@ -96,6 +97,56 @@ export function hyperframesStills(): Stiller {
         const out: Buffer[] = [];
         for (const t of times) out.push((await captureFrameToBuffer(session, Math.round(t * 30), t)).buffer);
         return out;
+      } finally {
+        await closeCaptureSession(session);
+      }
+    } finally {
+      server.close();
+    }
+  };
+}
+
+/** A PNG's size, from its header. */
+function pngSize(b: Buffer): [number, number] {
+  return [b.readUInt32BE(16), b.readUInt32BE(20)];
+}
+
+/**
+ * Posters (poster.ts): the same capture as the stills, PNG at full size. On
+ * paper, at 300 dpi and cut to the trim by FFmpeg; and Chrome prints the
+ * page at the same moment to a vector PDF, which printPdf() puts on the
+ * printer's sheet.
+ */
+export function hyperframesPoster(opts: { ffmpeg: string }): Posterer {
+  return async ({ dir, times, width, height, print, title }) => {
+    const fps = { num: 30, den: 1 };
+    const server = await createFileServer({ projectDir: dir, fps });
+    try {
+      const session = await createCaptureSession(server.url, path.join(dir, '.frames'), {
+        width,
+        height,
+        fps,
+        format: 'png',
+        deviceScaleFactor: print ? PRINT_DPI / 96 : 1,
+      });
+      try {
+        await initializeSession(session);
+        const pngs: Buffer[] = [];
+        const pages: Buffer[] = [];
+        for (const t of times) {
+          let png = (await captureFrameToBuffer(session, Math.round(t * 30), t)).buffer;
+          if (print) {
+            pages.push(Buffer.from(await session.page.pdf({ width: `${width}px`, height: `${height}px`, printBackground: true, pageRanges: '1', margin: { top: 0, right: 0, bottom: 0, left: 0 } })));
+            const [w, h] = pngSize(png);
+            const [cw, ch, cx, cy] = trimCrop(w, h, print.trim);
+            const src = path.join(dir, '.poster-in.png'), out = path.join(dir, '.poster-out.png');
+            await fs.writeFile(src, png);
+            await run(opts.ffmpeg, ['-v', 'error', '-y', '-i', src, '-vf', `crop=${cw}:${ch}:${cx}:${cy}`, out]);
+            png = await fs.readFile(out);
+          }
+          pngs.push(png);
+        }
+        return { pngs, pdf: print ? await printPdf(pages, print.trim, print.bleed, title) : null };
       } finally {
         await closeCaptureSession(session);
       }

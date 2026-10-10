@@ -7,14 +7,34 @@
 // every format; colours and fonts are the brand kit's CSS variables.
 
 import { KIT_CSS, KIT_JS } from './motion-kit.js';
+import { qrSvg, qrTarget } from './qr.js';
+
+/**
+ * Paper (decided 10/10/2026, step 3 « affiches »): the trim size in
+ * millimetres. The page is BLEED_MM larger on each side, the printer's
+ * margin for error when cutting; a CSS pixel is 1/96 inch, so the PDF comes
+ * out at the true size.
+ */
+export const PRINT_SIZES = {
+  A3: [297, 420],
+  A4: [210, 297],
+  A5: [148, 210],
+  A6: [105, 148],
+  carte: [85, 55],
+} as const;
+export const BLEED_MM = 3;
+const printPx = (mm: number) => Math.round(((mm + 2 * BLEED_MM) * 96) / 25.4);
 
 export const FORMATS = {
   '9:16': { width: 1080, height: 1920 },
   '1:1': { width: 1080, height: 1080 },
   '4:5': { width: 1080, height: 1350 },
   '16:9': { width: 1920, height: 1080 },
-} as const;
+  ...(Object.fromEntries(Object.entries(PRINT_SIZES).map(([k, [w, h]]) => [k, { width: printPx(w), height: printPx(h) }])) as Record<keyof typeof PRINT_SIZES, { width: number; height: number }>),
+};
 export type Format = keyof typeof FORMATS;
+export type PrintFormat = keyof typeof PRINT_SIZES;
+export const isPrint = (f: string): f is PrintFormat => f in PRINT_SIZES;
 
 export interface BrandKit {
   name: string;
@@ -76,8 +96,13 @@ export interface Template {
   duration: number;
   /** Rendered over a transparent background: an overlay for a video. */
   transparent?: boolean;
+  /** A still image first (step 3): exported with `poster`, its entrance a bonus. */
+  poster?: boolean;
+  /** The format when none is asked for. */
+  format?: Format;
   slots: Slot[];
-  body: (v: Values, ctx: Ctx) => { html: string; script: string; css?: string; duration?: number };
+  /** `pages`: the times `poster` takes, one page each (a card's two sides); default the last frame. */
+  body: (v: Values, ctx: Ctx) => { html: string; script: string; css?: string; duration?: number; pages?: number[] };
 }
 
 type Values = Record<string, string>;
@@ -123,6 +148,34 @@ function starred(ws: string[]): Array<{ w: string; hot: boolean }> {
 }
 
 const wordSpans = (text: string, cls: string) => words(text).map((w) => `<span class="${cls}">${escapeHtml(w)}</span>`).join(' ');
+
+// Posters (step 3, mockup validated 10/10/2026): a still first, printed or posted.
+const QR_LABEL = 'QR code : numéro WhatsApp avec l’indicatif (+226 70 00 00 00) ou lien ; vide pour aucun';
+const PIN_SVG = '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg>';
+const PHONE_SVG = '<svg viewBox="0 0 24 24"><path d="M6.6 10.8a15.2 15.2 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z" fill="currentColor"/></svg>';
+/** A title's size in cqmin: `big` up to `fits` characters, smaller as it grows. */
+const fitSize = (t: string, big: number, fits: number) => +(big * Math.min(1, Math.sqrt(fits / Math.max(1, t.length)))).toFixed(2);
+/** The poster's frame keeps clear of the cut: the bleed plus 5 mm, or 7 % of the short side on a screen. */
+const POSTER_CSS = `
+  .pz{position:absolute;inset:max(calc(var(--bleed) + 5mm), 7cqmin);display:flex;flex-direction:column}
+  .pz-brand{display:flex;align-items:center;gap:2cqmin;font:800 3.6cqmin var(--text)}
+  .pz-brand .mark{width:9cqmin;height:9cqmin;font-size:5cqmin;border-radius:2.2cqmin}
+  .qr-tile{flex:none;background:#fff;color:#111;border-radius:2cqmin;padding:1.2cqmin;display:flex;flex-direction:column;align-items:center;gap:.6cqmin}
+  .qr-tile svg{display:block;width:100%;height:auto}
+  .qr-tile small{font:700 2.4cqmin/1.2 var(--text);text-align:center;padding-bottom:.6cqmin}`;
+
+/** The logo and the brand's name, when the kit has one. */
+function brandLine(ctx: Ctx, cls: string, id: string): string {
+  if (!ctx.brand.name && !ctx.logoSrc) return '';
+  return `<div class="${cls}" id="${id}">${logoMark(ctx, 'mark', `${id}-logo`)}${ctx.brand.name ? `<span>${escapeHtml(ctx.brand.name)}</span>` : ''}</div>`;
+}
+
+/** A QR code on its white tile (scanners want dark on light); '' when `raw` is neither a number nor a link. */
+function qrTile(raw: string | undefined, caption: string | undefined, id: string): string {
+  const target = qrTarget(raw ?? '');
+  if (!target) return '';
+  return `<div class="qr-tile" id="${id}">${qrSvg(target, { dark: '#111111', light: '#ffffff' })}${caption ? `<small>${escapeHtml(caption)}</small>` : ''}</div>`;
+}
 
 export const TEMPLATES: Template[] = [
   {
@@ -1345,6 +1398,412 @@ export const TEMPLATES: Template[] = [
       };
     },
   },
+  {
+    id: 'affiche-evenement',
+    name: 'Affiche d’événement',
+    use: 'A poster for an event (concert, conference, training, party, match), to print or to post: the date as a calendar page, the title, the place, the artists or speakers, the ticket and a QR code that opens WhatsApp to book. The still version of evenement.',
+    poster: true,
+    format: 'A3',
+    duration: 4,
+    slots: [
+      { key: 'date', label: 'Date (jour et mois)', example: '25 octobre' },
+      { key: 'when', label: 'Jour et heure', example: 'Samedi · 20 h' },
+      { key: 'title', label: 'Titre', example: 'Nuit du Faso Jazz' },
+      { key: 'place', label: 'Lieu', example: 'Institut français, Ouagadougou' },
+      { key: 'guests', label: 'Invités (un par ligne, 0 à 6)', example: 'Awa B.\nTrio Kora\nDJ Wend', list: true },
+      { key: 'price', label: 'Billet (libellé | prix)', example: 'Billet | 5 000 F' },
+      { key: 'booking', label: 'Réservation', example: 'Réservations : 70 00 00 00' },
+      { key: 'qr', label: QR_LABEL, example: '' },
+    ],
+    body: (v, ctx) => {
+      const m = /^(\d{1,2})(?:er)?\s+(.+)$/i.exec(v.date.trim());
+      const [day, month] = m ? [m[1], m[2]] : ['', v.date.trim()];
+      const guests = lines(v.guests).slice(0, 6);
+      const [tLabel = '', tPrice = ''] = fields(v.price);
+      const tfs = fitSize(v.title, 15, 14);
+      return {
+        html: `
+  <section id="s-pe" class="clip scene" data-start="0" data-duration="4" data-track-index="1">
+    <div class="pz pe">
+      <div class="pe-top">
+        <div class="pe-date" id="pe-date"><small>${escapeHtml(month)}</small>${day ? `<b>${escapeHtml(day)}</b>` : ''}${v.when ? `<span>${escapeHtml(v.when)}</span>` : ''}</div>
+        ${brandLine(ctx, 'pz-brand', 'pe-brand')}
+      </div>
+      <h1 class="pe-title" id="pe-title">${escapeHtml(v.title)}</h1>
+      ${v.place ? `<p class="pe-place" id="pe-place">${PIN_SVG}${escapeHtml(v.place)}</p>` : ''}
+      ${guests.length ? `<p class="pe-guests" id="pe-guests">${guests.map(escapeHtml).join('<i>·</i>')}</p>` : ''}
+      <div class="pe-foot">
+        <div class="pe-buy">
+          ${tLabel || tPrice ? `<div class="pe-ticket" id="pe-ticket"><span>${escapeHtml(tPrice ? tLabel : '')}</span><b>${escapeHtml(tPrice || tLabel)}</b></div>` : ''}
+          ${v.booking ? `<p class="pe-book" id="pe-book">${escapeHtml(v.booking)}</p>` : ''}
+        </div>
+        ${qrTile(v.qr, 'Scannez pour réserver', 'pe-qr')}
+      </div>
+    </div>
+  </section>`,
+        css: `${POSTER_CSS}
+  .pe{gap:3.6cqmin}
+  .pe-top{display:flex;justify-content:space-between;align-items:flex-start;gap:4cqmin}
+  .pe-date{min-width:30cqmin;border-radius:3.4cqmin;overflow:hidden;text-align:center;background:var(--ink);color:var(--background);display:flex;flex-direction:column}
+  .pe-date small{background:var(--accent);color:var(--on-accent);font:800 3.6cqmin var(--text);letter-spacing:.12em;text-transform:uppercase;padding:1.4cqmin 3cqmin}
+  .pe-date b{font:900 19cqmin/1.05 var(--display);letter-spacing:-.04em}
+  .pe-date span{font:700 3.4cqmin var(--text);padding:0 3cqmin 2.4cqmin;text-transform:uppercase;letter-spacing:.06em}
+  .pe-title{margin:auto 0 0;font:900 ${tfs}cqmin/.98 var(--display);letter-spacing:-.04em;text-wrap:balance}
+  .pe-place{margin:0;display:flex;align-items:center;gap:1.6cqmin;font:600 4.4cqmin/1.3 var(--text)}
+  .pe-place svg{width:5.4cqmin;height:5.4cqmin;flex:none;color:var(--accent)}
+  .pe-guests{margin:0;font:700 4.6cqmin/1.35 var(--display);color:var(--highlight)}
+  .pe-guests i{font-style:normal;opacity:.6;margin:0 .45em}
+  .pe-foot{margin-top:auto;display:flex;align-items:flex-end;gap:4cqmin}
+  .pe-buy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2.4cqmin}
+  .pe-ticket{display:flex;justify-content:space-between;align-items:center;gap:3cqmin;border-radius:3cqmin;background:var(--accent);color:var(--on-accent);padding:3.2cqmin 4.4cqmin;font:700 4.6cqmin var(--text)}
+  .pe-ticket b{font:900 7cqmin var(--display);white-space:nowrap}
+  .pe-book{margin:0;font:600 4cqmin/1.3 var(--text);opacity:.85}
+  .pe .qr-tile{width:24cqmin}
+  @container (min-aspect-ratio: 9/10) and (max-aspect-ratio: 5/4){
+    .pe{gap:2.4cqmin}
+    .pe-date b{font-size:12cqmin}
+    .pe-title{font-size:${(tfs * .72).toFixed(2)}cqmin}
+    .pe .qr-tile{width:19cqmin}
+  }
+  @container (min-aspect-ratio: 5/4){
+    .pe{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:1fr auto auto auto 1fr;column-gap:6cqw;row-gap:2.6cqmin}
+    .pe-top{display:contents}
+    .pe-date{grid-column:1;grid-row:1 / 6;align-self:center;min-width:36cqmin}
+    .pe-date b{font-size:22cqmin}
+    .pe .pz-brand{grid-column:3;grid-row:1;justify-self:end}
+    .pe-title{grid-column:2 / 4;grid-row:2;margin:0;font-size:${(tfs * .78).toFixed(2)}cqmin}
+    .pe-place{grid-column:2 / 4;grid-row:3}
+    .pe-guests{grid-column:2 / 4;grid-row:4}
+    .pe-foot{grid-column:2 / 4;grid-row:5;align-self:end}
+    .pe .qr-tile{width:20cqmin}
+  }`,
+        script: `
+  kit.enter('#pe-date', 'drop', {at:.1, d:.7, ease:'spring'});
+  kit.enter('#pe-brand', 'fade', {at:.3, d:.5});
+  kit.reveal('#pe-title', {at:.5});
+  kit.enter('#pe-place', 'left', {at:1.2, d:.5});
+  kit.enter('#pe-guests', 'rise', {at:1.4, d:.5});
+  kit.enter('#pe-ticket', 'right', {at:1.6, d:.6, ease:'apple'});
+  kit.enter('#pe-book', 'fade', {at:1.8, d:.5});
+  kit.enter('#pe-qr', 'pop', {at:2, d:.5, ease:'spring'});
+  kit.shine('#pe-ticket', {at:2.5, d:1});`,
+      };
+    },
+  },
+  {
+    id: 'affiche-promo',
+    name: 'Affiche promo',
+    use: 'A promotion as a still, for a WhatsApp status, a post or a shop window: the product (with its photo), the old price struck through, the new price, the discount worked out, the call to action and a QR code to WhatsApp. The still version of offre-du-jour.',
+    poster: true,
+    format: '9:16',
+    duration: 4,
+    slots: [
+      { key: 'product', label: 'Produit', example: 'Pagne wax 6 yards' },
+      { key: 'image', label: 'Photo du produit', example: '', image: true },
+      { key: 'old', label: 'Ancien prix', example: '15 000 F' },
+      { key: 'price', label: 'Nouveau prix', example: '9 900 F' },
+      { key: 'note', label: 'Précision', example: 'Jusqu’à dimanche, dans la limite des stocks' },
+      { key: 'cta', label: 'Appel à l’action', example: 'Écrivez-nous sur WhatsApp' },
+      { key: 'qr', label: QR_LABEL, example: '' },
+    ],
+    body: (v, ctx) => {
+      const before = num(v.old, 0), after = num(v.price, 0);
+      const pct = before > after && after > 0 ? Math.round((1 - after / before) * 100) : 0;
+      const nfs = fitSize(v.product, v.image ? 9 : 13, 16);
+      const pfs = Math.min(v.image ? 18 : 26, 88 / (Math.max(4, v.price.length) * .58));
+      return {
+        html: `
+  <section id="s-pp" class="clip scene" data-start="0" data-duration="4" data-track-index="1">
+    <div class="pz pp${v.image ? '' : ' bare'}">
+      ${brandLine(ctx, 'pz-brand', 'pp-brand')}
+      ${v.image ? `<div class="pp-photo" id="pp-photo"><img src="${escapeHtml(v.image)}" alt=""></div>` : ''}
+      <div class="pp-txt">
+        <h1 class="pp-name" id="pp-name">${escapeHtml(v.product)}</h1>
+        ${v.old || pct ? `<div class="pp-was">${v.old ? `<s class="pp-old" id="pp-old">${escapeHtml(v.old)}</s>` : ''}${pct ? `<span class="pp-stamp" id="pp-stamp">−${pct} %</span>` : ''}</div>` : ''}
+        <div class="pp-new" id="pp-new">${escapeHtml(v.price)}</div>
+        ${v.note ? `<p class="pp-note" id="pp-note">${escapeHtml(v.note)}</p>` : ''}
+        <div class="pp-foot">${v.cta ? `<div class="pp-cta" id="pp-cta">${escapeHtml(v.cta)}</div>` : ''}${qrTile(v.qr, '', 'pp-qr')}</div>
+      </div>
+    </div>
+  </section>`,
+        css: `${POSTER_CSS}
+  .pp{gap:3.4cqmin}
+  .pp-photo{flex:1 1 0;min-height:0;border-radius:4cqmin;background:color-mix(in srgb,var(--ink) 8%,transparent);overflow:hidden;display:grid;place-items:center}
+  .pp-photo img{width:100%;height:100%;object-fit:contain}
+  .pp-txt{flex:none;display:flex;flex-direction:column;gap:2.4cqmin}
+  .pp.bare .pp-txt{flex:1}
+  .pp.bare .pp-name{margin-top:auto}
+  .pp-name{margin:0;font:800 ${nfs}cqmin/1.02 var(--display);letter-spacing:-.03em;text-wrap:balance}
+  .pp-was{display:flex;align-items:center;gap:4cqmin}
+  .pp-old{font:800 8cqmin var(--display);opacity:.55;text-decoration:line-through;text-decoration-color:var(--highlight);text-decoration-thickness:.8cqmin}
+  .pp-stamp{rotate:-6deg;border:.8cqmin solid var(--highlight);color:var(--highlight);border-radius:2cqmin;padding:.6cqmin 2.4cqmin;font:900 5.4cqmin var(--display);white-space:nowrap}
+  .pp-new{font:900 ${pfs.toFixed(2)}cqmin/.95 var(--display);letter-spacing:-.05em;color:var(--highlight);white-space:nowrap}
+  .pp-note{margin:0;font:600 3.6cqmin/1.3 var(--text);opacity:.8}
+  .pp-foot{display:flex;align-items:flex-end;gap:4cqmin;margin-top:2cqmin}
+  .pp.bare .pp-foot{margin-top:auto}
+  .pp-cta{flex:1;background:var(--accent);color:var(--on-accent);border-radius:99cqmin;text-align:center;padding:3.4cqmin 4cqmin;font:800 4.6cqmin/1.15 var(--text)}
+  .pp .qr-tile{width:20cqmin}
+  @container (min-aspect-ratio: 9/10){
+    .pp{display:grid;grid-template-columns:${v.image ? '44% 1fr' : '1fr'};grid-template-rows:auto 1fr;column-gap:6cqmin;row-gap:3cqmin}
+    .pp .pz-brand{grid-column:1 / -1}
+    .pp-photo{grid-row:2}
+    .pp-txt{grid-row:2;justify-content:center}
+    .pp-name{font-size:${(nfs * (v.image ? .85 : .7)).toFixed(2)}cqmin}
+    .pp-new{font-size:${(pfs * .6).toFixed(2)}cqmin}
+    .pp-foot{margin-top:auto}
+  }`,
+        script: `
+  kit.enter('#pp-brand', 'fade', {at:.1, d:.5});
+  kit.enter('#pp-photo', 'scale', {at:.2, d:.8, ease:'apple'});
+  kit.reveal('#pp-name', {at:.6});
+  kit.enter('#pp-old', 'left', {at:1.1, d:.5});
+  kit.enter('#pp-new', 'pop', {at:1.4, d:.6, ease:'spring'});
+  kit.enter('#pp-stamp', 'pop', {at:1.8, d:.5, ease:'spring'});
+  kit.enter('#pp-note', 'fade', {at:2, d:.5});
+  kit.enter('#pp-cta', 'rise', {at:2.2, d:.5});
+  kit.enter('#pp-qr', 'pop', {at:2.4, d:.5, ease:'spring'});
+  kit.shine('#pp-cta', {at:2.8, d:1});`,
+      };
+    },
+  },
+  {
+    id: 'affiche-menu',
+    name: 'Menu à imprimer',
+    use: 'A printed menu for a restaurant, maquis, bakery or caterer, to laminate or put on the tables (A4 by default): dishes by section with their prices on dotted lines, opening hours and delivery, and a QR code that opens WhatsApp to order. The still version of menu.',
+    poster: true,
+    format: 'A4',
+    duration: 4,
+    slots: [
+      { key: 'place', label: 'Nom du lieu', example: 'Maquis Chez Awa' },
+      { key: 'title', label: 'Titre', example: 'Notre menu' },
+      { key: 'menu', label: 'Menu (# rubrique, puis plat | prix)', example: '# Plats\nRiz gras | 1 500\nPoulet bicyclette | 3 500\nTô sauce gombo | 1 000\nPoisson braisé | 2 500\n# Boissons\nBissap | 300\nDégué | 500\nJus de gingembre | 500', list: true },
+      { key: 'info', label: 'Infos pratiques', example: 'Ouvert de 11 h à 23 h\nLivraison · 70 00 00 00', list: true },
+      { key: 'qr', label: QR_LABEL, example: '' },
+      { key: 'qr_caption', label: 'Sous le QR code', example: 'Commandez sur WhatsApp' },
+    ],
+    body: (v, ctx) => {
+      const rows = lines(v.menu).slice(0, 30).map((l) => (l.startsWith('#') ? { sec: l.replace(/^#+\s*/, '') } : { dish: fields(l) }));
+      const info = lines(v.info).slice(0, 4);
+      // From the square up, the footer is a side column.
+      const wide = ctx.width / ctx.height >= .9;
+      const groups: Array<typeof rows> = [];
+      for (const r of rows) ('sec' in r || !groups.length ? groups.push([r]) : groups[groups.length - 1].push(r));
+      // Two columns: whole sections, split where the rows are most even.
+      let split = [groups];
+      if (groups.length > 1) {
+        let best = 1, diff = Infinity;
+        for (let k = 1; k < groups.length; k++) {
+          const left = groups.slice(0, k).flat().length;
+          if (Math.abs(rows.length - 2 * left) < diff) [best, diff] = [k, Math.abs(rows.length - 2 * left)];
+        }
+        split = [groups.slice(0, best), groups.slice(best)];
+      }
+      const min = Math.min(ctx.width, ctx.height);
+      // The room the header and the footer leave, in cqmin (wide, the footer is a side column);
+      // a line is about 1.7 em, a character .6 em. One column or two, whichever gives larger type.
+      const roomH = (ctx.height / min) * 100 - (wide ? 34 : 56);
+      const roomW = (ctx.width / min) * 100 - 14 - (wide ? 32 : 0);
+      const longest = Math.max(10, ...rows.map((r) => ('sec' in r ? 0 : (r.dish[0] ?? '').length + (r.dish[1] ?? '').length)));
+      const size = (cols: typeof split) => Math.min((roomH / (Math.max(...cols.map((c) => c.flat().length)) * 1.7 + 1)) * 1.15, (roomW * (cols.length > 1 ? .46 : 1)) / (longest * .6 + 4));
+      const cols = split.length > 1 && size(split) > size([groups]) ? split : [groups];
+      const fs = Math.max(2, Math.min(6, size(cols)));
+      return {
+        html: `
+  <section id="s-am" class="clip scene" data-start="0" data-duration="4" data-track-index="1">
+    <div class="pz am">
+      <header class="am-head">
+        <div><small id="am-place">${escapeHtml(v.place)}</small><h1 class="am-title" id="am-title">${escapeHtml(v.title)}</h1></div>
+        ${ctx.logoSrc ? logoMark(ctx, 'mark am-logo', 'am-logo') : ''}
+      </header>
+      <div class="am-list${cols.length > 1 ? ' two' : ''}">${cols.map((col) => `<div class="am-col">${col.map((g) => `<div class="am-group">${g.map((r) => ('sec' in r
+        ? `<div class="am-sec">${escapeHtml(r.sec ?? '')}</div>`
+        : `<div class="am-dish"><span>${escapeHtml(r.dish[0] ?? '')}</span><i></i><b>${escapeHtml(r.dish[1] ?? '')}</b></div>`)).join('')}</div>`).join('')}</div>`).join('')}</div>
+      <footer class="am-foot">
+        <div class="am-info">${info.map((l) => `<p>${escapeHtml(l)}</p>`).join('')}</div>
+        ${qrTile(v.qr, v.qr_caption, 'am-qr')}
+      </footer>
+    </div>
+  </section>`,
+        css: `${POSTER_CSS}
+  .am{gap:4cqmin}
+  .am-head{display:flex;justify-content:space-between;align-items:flex-start;gap:4cqmin}
+  .am-head small{display:block;font:800 3.4cqmin var(--text);letter-spacing:.16em;text-transform:uppercase}
+  .am-title{margin:1cqmin 0 0;font:900 11cqmin/1 var(--display);letter-spacing:-.035em;color:var(--highlight)}
+  .am-logo{width:14cqmin;height:14cqmin;font-size:7cqmin;border-radius:3cqmin}
+  .am-list{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:safe center;font-size:${fs.toFixed(2)}cqmin}
+  .am-list.two{flex-direction:row;align-items:center;gap:7cqmin}
+  .am-col{flex:1;min-width:0}
+  .am-sec{font:800 .78em var(--text);letter-spacing:.16em;text-transform:uppercase;color:var(--highlight);border-bottom:.2cqmin solid color-mix(in srgb,var(--ink) 25%,transparent);padding-bottom:.45em;margin:1em 0 .5em}
+  .am-group:first-child .am-sec{margin-top:0}
+  .am-dish{display:flex;align-items:baseline;gap:.5em;font:600 1em/1.2 var(--text);padding:.32em 0;white-space:nowrap}
+  .am-dish i{flex:1;min-width:2em;border-bottom:.12em dotted color-mix(in srgb,var(--ink) 45%,transparent)}
+  .am-dish b{font-weight:800;font-variant-numeric:tabular-nums}
+  .am-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:4cqmin;border-top:.2cqmin solid color-mix(in srgb,var(--ink) 25%,transparent);padding-top:3cqmin}
+  .am-info{display:flex;flex-direction:column;gap:1cqmin;font:600 3.6cqmin/1.3 var(--text)}
+  .am-info p{margin:0}
+  .am-info p:first-child{font-weight:800;color:var(--highlight)}
+  .am .qr-tile{width:20cqmin}
+  @container (min-aspect-ratio: 9/10){
+    .am{display:grid;grid-template-columns:1fr 26cqmin;grid-template-rows:auto 1fr;gap:4cqmin 6cqmin}
+    .am-head{grid-column:1 / -1}
+    .am-list{grid-column:1;grid-row:2}
+    .am-foot{grid-column:2;grid-row:2;flex-direction:column-reverse;align-items:stretch;justify-content:flex-start;border-top:0;padding-top:0}
+    .am .qr-tile{width:auto}
+    .am-info{font-size:2.8cqmin}
+  }`,
+        script: `
+  // The estimate starts large; the list then shrinks until it fits its room.
+  (function(){
+    var l = document.querySelector('.am-list'), f = parseFloat(getComputedStyle(l).fontSize);
+    for (var i = 0; i < 40 && (l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1); i++) { f *= .95; l.style.fontSize = f + 'px'; }
+  })();
+  kit.enter('#am-place', 'fade', {at:.1, d:.5});
+  kit.reveal('#am-title', {at:.3});
+  kit.enter('#am-logo', 'pop', {at:.5, d:.5, ease:'spring'});
+  kit.enter('.am-sec, .am-dish', 'rise', {at:.9, d:.45, stagger:${Math.min(.08, 1.4 / Math.max(1, rows.length)).toFixed(3)}});
+  kit.enter('.am-info p', 'fade', {at:2.3, d:.5, stagger:.1});
+  kit.enter('#am-qr', 'pop', {at:2.5, d:.5, ease:'spring'});`,
+      };
+    },
+  },
+  {
+    id: 'flyer-produit',
+    name: 'Flyer produit',
+    use: 'A flyer for one product, to hand out or slip into parcels (A5 by default), or to post: the photo, the price on a round tag, three strengths, how to order and a QR code to WhatsApp. The still version of revelation-produit.',
+    poster: true,
+    format: 'A5',
+    duration: 4,
+    slots: [
+      { key: 'product', label: 'Produit', example: 'Beurre de karité pur' },
+      { key: 'image', label: 'Photo du produit (détourée de préférence)', example: '', image: true },
+      { key: 'price', label: 'Prix', example: '3 500 F' },
+      { key: 'points', label: 'Atouts (un par ligne, 1 à 4)', example: 'Sans parfum ni additif\nFait à Bobo-Dioulasso\nLivré chez vous', list: true },
+      { key: 'contact', label: 'Pour commander', example: 'Commandes : 70 00 00 00' },
+      { key: 'qr', label: QR_LABEL, example: '' },
+    ],
+    body: (v, ctx) => {
+      const points = lines(v.points).slice(0, 4);
+      const nfs = fitSize(v.product, v.image ? 10 : 14, 14);
+      const tag = Math.min(7, 20 / (Math.max(3, v.price.length) * .6));
+      return {
+        html: `
+  <section id="s-fp" class="clip scene" data-start="0" data-duration="4" data-track-index="1">
+    <div class="pz fp${v.image ? '' : ' bare'}">
+      ${brandLine(ctx, 'pz-brand', 'fp-brand')}
+      ${v.image ? `<div class="fp-photo" id="fp-photo"><img src="${escapeHtml(v.image)}" alt=""></div>` : ''}
+      <div class="fp-txt">
+        <h1 class="fp-name" id="fp-name">${escapeHtml(v.product)}</h1>
+        ${points.length ? `<ul class="fp-points">${points.map((p) => `<li>${escapeHtml(p)}</li>`).join('')}</ul>` : ''}
+        <div class="fp-foot">${v.contact ? `<p class="fp-contact" id="fp-contact">${escapeHtml(v.contact)}</p>` : ''}${qrTile(v.qr, '', 'fp-qr')}</div>
+      </div>
+      ${v.price ? `<div class="fp-tag" id="fp-tag">${escapeHtml(v.price)}</div>` : ''}
+    </div>
+  </section>`,
+        css: `${POSTER_CSS}
+  .fp{gap:3.4cqmin}
+  .fp-photo{flex:1 1 0;min-height:0;display:grid;place-items:center}
+  .fp-photo img{width:100%;height:100%;object-fit:contain}
+  .fp-txt{flex:none;display:flex;flex-direction:column;gap:3cqmin}
+  .fp.bare .fp-txt{flex:1}
+  .fp.bare .fp-name{margin-top:auto}
+  .fp-name{margin:0;font:800 ${nfs}cqmin/1.02 var(--display);letter-spacing:-.03em;text-wrap:balance;padding-right:${v.image ? 0 : 28}cqmin}
+  .fp-points{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:1.2cqmin;font:600 4.2cqmin/1.3 var(--text)}
+  .fp-points li{display:flex;gap:2cqmin}
+  .fp-points li::before{content:"";flex:none;width:2cqmin;height:2cqmin;margin-top:1.6cqmin;border-radius:50%;background:var(--accent)}
+  .fp-foot{display:flex;justify-content:space-between;align-items:flex-end;gap:4cqmin;margin-top:1cqmin}
+  .fp.bare .fp-foot{margin-top:auto}
+  .fp-contact{margin:0;font:800 4.4cqmin/1.25 var(--display);color:var(--highlight)}
+  .fp .qr-tile{width:20cqmin}
+  .fp-tag{position:absolute;top:0;right:0;width:26cqmin;height:26cqmin;border-radius:50%;background:var(--highlight);color:var(--on-highlight);display:grid;place-items:center;text-align:center;font:900 ${tag.toFixed(2)}cqmin/1 var(--display);letter-spacing:-.03em;rotate:8deg}
+  @container (min-aspect-ratio: 9/10){
+    .fp{display:grid;grid-template-columns:${v.image ? '46% 1fr' : '1fr'};grid-template-rows:auto 1fr;column-gap:6cqmin;row-gap:3cqmin}
+    .fp .pz-brand{grid-column:1 / -1}
+    .fp-photo{grid-row:2}
+    .fp-txt{grid-row:2;justify-content:center;padding-top:${v.price ? 18 : 0}cqmin}
+    .fp-name{font-size:${(nfs * .8).toFixed(2)}cqmin}
+    .fp-foot{margin-top:auto}
+    .fp-tag{width:22cqmin;height:22cqmin;font-size:${(tag * .85).toFixed(2)}cqmin}
+  }`,
+        script: `
+  kit.enter('#fp-brand', 'fade', {at:.1, d:.5});
+  kit.enter('#fp-photo', 'rise', {at:.2, d:.9, ease:'apple'});
+  kit.enter('#fp-tag', 'pop', {at:.8, d:.6, ease:'spring'});
+  kit.reveal('#fp-name', {at:1});
+  kit.enter('.fp-points li', 'left', {at:1.5, d:.45, stagger:.15});
+  kit.enter('#fp-contact', 'rise', {at:2.2, d:.5});
+  kit.enter('#fp-qr', 'pop', {at:2.4, d:.5, ease:'spring'});`,
+      };
+    },
+  },
+  {
+    id: 'carte-visite',
+    name: 'Carte de visite',
+    use: 'A business card, front and back (85 × 55 mm by default), for the printer: on the front the logo, the name and the trade in the brand colours; on the back the number, the networks, the address and a QR code that opens WhatsApp. The PDF has two pages, one per side.',
+    poster: true,
+    format: 'carte',
+    duration: 4,
+    slots: [
+      { key: 'name', label: 'Nom', example: 'Awa Ouédraogo' },
+      { key: 'role', label: 'Métier ou fonction', example: 'Couture sur mesure' },
+      { key: 'phone', label: 'Téléphone', example: '70 00 00 00' },
+      { key: 'social', label: 'Réseaux ou e-mail', example: '@awa.couture' },
+      { key: 'lines', label: 'Autres lignes (adresse…)', example: 'Ouaga 2000, Ouagadougou\nLivraison partout', list: true },
+      { key: 'qr', label: QR_LABEL, example: '' },
+    ],
+    body: (v, ctx) => {
+      const more = lines(v.lines).slice(0, 3);
+      return {
+        pages: [1.95, 3.95],
+        html: `
+  <section id="s-cv-front" class="clip scene cv-front" data-start="0" data-duration="2" data-track-index="1">
+    <div class="pz cv">
+      ${logoMark(ctx, 'mark cv-logo', 'cv-logo')}
+      <div class="cv-who">
+        <b id="cv-name">${escapeHtml(v.name)}</b>
+        ${v.role ? `<span id="cv-role">${escapeHtml(v.role)}</span>` : ''}
+        ${ctx.brand.name && ctx.brand.name !== v.name ? `<small id="cv-brand">${escapeHtml(ctx.brand.name)}</small>` : ''}
+      </div>
+    </div>
+  </section>
+  <section id="s-cv-back" class="clip scene cv-back" data-start="2" data-duration="2" data-track-index="2">
+    <div class="pz cv cv-row">
+      <div class="cv-lines">
+        ${v.phone ? `<p class="cv-phone">${PHONE_SVG}${escapeHtml(v.phone)}</p>` : ''}
+        ${v.social ? `<p>${escapeHtml(v.social)}</p>` : ''}
+        ${more.map((l) => `<p>${escapeHtml(l)}</p>`).join('')}
+      </div>
+      ${qrTile(v.qr, '', 'cv-qr')}
+    </div>
+  </section>`,
+        css: `${POSTER_CSS}
+  .cv-front{background:var(--accent);color:var(--on-accent)}
+  .cv-back{background:var(--background);color:var(--ink)}
+  .cv{justify-content:space-between}
+  .cv-logo{width:17cqmin;height:17cqmin;font-size:9cqmin;border-radius:4cqmin}
+  .cv-front .mark.tile{background:var(--on-accent);color:var(--accent)}
+  .cv-who{display:flex;flex-direction:column;gap:1.6cqmin}
+  .cv-who b{font:800 9cqmin/1.05 var(--display);letter-spacing:-.025em}
+  .cv-who span{font:600 5.4cqmin/1.25 var(--text)}
+  .cv-who small{font:700 4cqmin var(--text);letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+  .cv-row{flex-direction:row;align-items:center;gap:6cqmin}
+  .cv-lines{flex:1;min-width:0;display:flex;flex-direction:column;gap:2cqmin;font:600 5cqmin/1.3 var(--text)}
+  .cv-lines p{margin:0}
+  .cv-phone{display:flex;align-items:center;gap:2cqmin;font:800 7cqmin/1.1 var(--display)!important;color:var(--highlight)}
+  .cv-phone svg{width:6cqmin;height:6cqmin;flex:none}
+  .cv .qr-tile{width:36cqmin}
+  @container (max-aspect-ratio: 4/5){
+    .cv-row{flex-direction:column;align-items:flex-start;justify-content:center}
+  }`,
+        script: `
+  kit.enter('#cv-logo', 'pop', {at:.1, d:.5, ease:'spring'});
+  kit.reveal('#cv-name', {at:.35});
+  kit.enter('#cv-role', 'rise', {at:.8, d:.5});
+  kit.enter('#cv-brand', 'fade', {at:1, d:.5});
+  kit.enter('.cv-lines p', 'left', {at:2.15, d:.45, stagger:.12});
+  kit.enter('#cv-qr', 'pop', {at:2.5, d:.5, ease:'spring'});`,
+      };
+    },
+  },
 ];
 
 /**
@@ -1360,6 +1819,9 @@ export function compose(templateId: string, opts: { format: Format; title: strin
   const speed = Math.max(0.5, Math.min(2, opts.speed ?? (opts.brand.tone === 'premium' ? 0.85 : opts.brand.tone === 'warm' ? 0.95 : 1)));
   const part = t.body(values, { brand: opts.brand, logoSrc: opts.logoSrc, speed, width, height });
   const duration = part.duration ?? t.duration;
+  // Paper: the trim size for the PDF, and the bleed every layout keeps clear.
+  const paper = isPrint(opts.format) ? ` data-print-mm="${PRINT_SIZES[opts.format].join('x')}"` : '';
+  const pages = part.pages?.length ? ` data-poster-at="${part.pages.join(',')}"` : '';
   const c = opts.brand.colors;
   const palette = (opts.brand.palette ?? []).map((hex, i) => `;--brand-${i + 1}:${hex}`).join('');
   const fontsUrl = [...new Set([opts.brand.fonts.display, opts.brand.fonts.text])]
@@ -1372,7 +1834,7 @@ export function compose(templateId: string, opts: { format: Format; title: strin
 <!-- Baarali Studio Motion · template ${t.id} · HyperFrames composition, Web Animations only (no GSAP). -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${fontsUrl}&display=block">
 <style>
-  :root{--background:${c.background};--ink:${c.ink};--accent:${c.accent};--highlight:${c.highlight};--on-accent:${textOn(c.accent)};--on-highlight:${textOn(c.highlight)}${palette};--display:'${opts.brand.fonts.display}',system-ui,sans-serif;--text:'${opts.brand.fonts.text}',system-ui,sans-serif}
+  :root{--background:${c.background};--ink:${c.ink};--accent:${c.accent};--highlight:${c.highlight};--on-accent:${textOn(c.accent)};--on-highlight:${textOn(c.highlight)}${palette};--display:'${opts.brand.fonts.display}',system-ui,sans-serif;--text:'${opts.brand.fonts.text}',system-ui,sans-serif;--bleed:${isPrint(opts.format) ? `${BLEED_MM}mm` : '0px'}}
   html,body{margin:0;background:${t.transparent ? 'transparent' : 'var(--background)'}}
   #root{position:relative;overflow:hidden;width:${width}px;height:${height}px;container-type:size;background:${t.transparent ? 'transparent' : 'var(--background)'};color:var(--ink);font-family:var(--text)}
   .scene{position:absolute;inset:0}${KIT_CSS}
@@ -1381,7 +1843,7 @@ export function compose(templateId: string, opts: { format: Format; title: strin
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="main" data-start="0" data-duration="${duration}" data-width="${width}" data-height="${height}" data-no-timeline>${part.html}
+<div id="root" data-composition-id="main" data-start="0" data-duration="${duration}" data-width="${width}" data-height="${height}"${paper}${pages} data-no-timeline>${part.html}
 </div>
 <script>
 ${KIT_JS}${part.script}

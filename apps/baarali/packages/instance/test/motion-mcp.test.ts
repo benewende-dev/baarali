@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkComposition, createMotionTools, previewTimes, projectSlug } from '../src/motion-mcp.js';
+import { checkComposition, createMotionTools, posterTimes, previewTimes, projectSlug } from '../src/motion-mcp.js';
 import { FORMATS, TEMPLATES } from '../src/motion-templates.js';
 
 async function setup() {
@@ -12,11 +12,13 @@ async function setup() {
 const textOf = (r: { content: Array<{ text: string }> }) => r.content[0].text;
 
 describe('motion tools', () => {
-  it('lists the eighteen templates with their slots', async () => {
+  it('lists the twenty-three templates with their slots', async () => {
     const { tools } = await setup();
     const out = textOf(await tools.run('list_templates', {}));
     for (const t of TEMPLATES) expect(out).toContain(`- ${t.id} — ${t.name}`);
-    expect(TEMPLATES).toHaveLength(18);
+    expect(TEMPLATES).toHaveLength(23);
+    expect(out).toContain('affiche-menu — Menu à imprimer');
+    expect(out).toContain('Poster (still; default format A4)');
   });
 
   it('makes every template in every format, and each passes the check', async () => {
@@ -213,6 +215,45 @@ describe('motion tools', () => {
     expect(textOf(await tools.run('preview', { project: 'motion/promo-week-end' }))).toContain('again in a minute');
     reply = () => Response.json({ stills: [{ t: 2, data: '' }], review: null });
     expect(textOf(await tools.run('preview', { project: 'motion/promo-week-end' }))).toContain('the review could not be made');
+  });
+
+  it('takes a poster at its pages, else the last frame', () => {
+    const root = (attrs: string) => `<div id="root" data-composition-id="main" data-start="0" data-duration="4"${attrs}></div>`;
+    expect(posterTimes(root(''))).toEqual([3.96]);
+    expect(posterTimes(root(' data-poster-at="1.95,3.95"'))).toEqual([1.95, 3.95]);
+    expect(posterTimes(root(''), [2, 9, 2, -1])).toEqual([2, 3.96]);
+    expect(posterTimes('<div data-composition-id="x"></div>')).toBeNull();
+  });
+
+  it('exports a poster: PNG on a screen, PDF and 300 dpi PNG on paper, a card’s two sides', async () => {
+    const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-motion-'));
+    const seen: Array<{ url: string; init: RequestInit }> = [];
+    let reply: () => Response = () => Response.json({ pngs: [{ t: 3.96, data: Buffer.from('PNG1').toString('base64') }], pdf: null });
+    const tools = createMotionTools({
+      workDir,
+      now: () => 0,
+      control: { url: 'https://c.test', token: 'tok', sleep: async () => {}, fetch: (async (url: string, init: RequestInit = {}) => { seen.push({ url: String(url), init }); return reply(); }) as typeof fetch },
+    });
+    expect(textOf(await tools.run('new_project', { template: 'affiche-promo', title: 'Promo pagne', values: { qr: '+226 70 00 00 00' } }))).toContain('9:16');
+    let r = await tools.run('poster', { project: 'motion/promo-pagne' });
+    expect(r.isError, textOf(r)).toBeUndefined();
+    expect(seen[0].url).toBe('https://c.test/v1/motion/poster?times=3.96&title=Promo+pagne');
+    expect(await fs.readFile(path.join(workDir, 'motion/promo-pagne/exports/promo-pagne.png'), 'utf8')).toBe('PNG1');
+    expect(r.structuredContent).toMatchObject({ poster: { files: [{ file: 'motion/promo-pagne/exports/promo-pagne.png', kind: 'png' }], print: null } });
+
+    // The card: on paper by default, two pages.
+    expect(textOf(await tools.run('new_project', { template: 'carte-visite', title: 'Carte Awa' }))).toContain('85 × 55 mm');
+    reply = () => Response.json({ pngs: [{ t: 1.95, data: 'QQ==' }, { t: 3.95, data: 'Qg==' }], pdf: Buffer.from('%PDF').toString('base64') });
+    r = await tools.run('poster', { project: 'motion/carte-awa-carte' });
+    expect(new URL(seen[1].url).searchParams.get('times')).toBe('1.95,3.95');
+    expect((await fs.readdir(path.join(workDir, 'motion/carte-awa-carte/exports'))).sort()).toEqual(['carte-awa-carte-recto-300dpi.png', 'carte-awa-carte-verso-300dpi.png', 'carte-awa-carte.pdf']);
+    expect(textOf(r)).toContain('85 × 55 mm, 3 mm bleed, crop marks, 2 pages');
+    expect(r.structuredContent).toMatchObject({ poster: { print: { width: 85, height: 55, bleed: 3 } } });
+
+    // Paper is not a video; the refusals come in words.
+    expect(textOf(await tools.run('render', { project: 'motion/carte-awa-carte' }))).toContain('Export it with poster');
+    reply = () => Response.json({ error: { code: 'too_many_posters' } }, { status: 429 });
+    expect(textOf(await tools.run('poster', { project: 'motion/promo-pagne' }))).toContain('Enough posters');
   });
 
   it('says when an export waits, fails, or cannot be paid', async () => {

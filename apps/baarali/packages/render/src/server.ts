@@ -42,6 +42,7 @@ export function createApp(deps: { queue: RenderQueue; secret: string; stills?: S
   });
   app.use('/jobs/*', authorized);
   app.use('/stills', authorized);
+  app.use('/poster', authorized);
 
   // The agent's preview (stills.ts): a few frames, answered at once.
   app.post('/stills', bodyLimit({ maxSize: Math.ceil(MAX_PROJECT_BYTES * 1.4), onError: (c) => c.json({ error: 'The project is too large' }, 413) }), async (c) => {
@@ -58,6 +59,24 @@ export function createApp(deps: { queue: RenderQueue; secret: string; stills?: S
     } catch (err) {
       console.error('[render] stills', err);
       return c.json({ error: 'The stills failed' }, 500);
+    }
+  });
+
+  // Posters (poster.ts): PNGs, and on paper the printer's PDF, answered at once.
+  app.post('/poster', bodyLimit({ maxSize: Math.ceil(MAX_PROJECT_BYTES * 1.4), onError: (c) => c.json({ error: 'The project is too large' }, 413) }), async (c) => {
+    if (!deps.stills) return c.json({ error: 'Posters are not available' }, 503);
+    let files: unknown;
+    try {
+      files = ((await c.req.json()) as { files?: unknown }).files;
+    } catch {
+      return c.json({ error: 'Expected a JSON body' }, 400);
+    }
+    try {
+      const r = await deps.stills.poster(files, c.req.query('times'), c.req.query('title') ?? '');
+      return r.ok ? c.json({ pngs: r.pngs, pdf: r.pdf }) : c.json({ error: r.message }, r.status);
+    } catch (err) {
+      console.error('[render] poster', err);
+      return c.json({ error: 'The poster failed' }, 500);
     }
   });
 

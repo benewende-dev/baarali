@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { bleedOf, MAX_PAGES, printOf } from './poster.js';
 import { checkProject, writeProject } from './project.js';
 
 // Still frames of a composition (decided 09/10/2026): the agent's preview.
@@ -24,6 +25,19 @@ export interface StillsTask {
 
 /** JPEG stills of the composition at the given times, in their order. */
 export type Stiller = (task: StillsTask) => Promise<Buffer[]>;
+
+/** A poster (poster.ts): one page per time; on paper, `print` gives the trim and the bleed in mm. */
+export interface PosterTask extends StillsTask {
+  print: { trim: [number, number]; bleed: number } | null;
+  title: string;
+}
+
+/** The PNGs, in the order of the times, and on paper the printer's PDF. */
+export type Posterer = (task: PosterTask) => Promise<{ pngs: Buffer[]; pdf: Buffer | null }>;
+
+export type PosterResult =
+  | { ok: true; pngs: Array<{ t: number; data: string }>; pdf: string | null }
+  | { ok: false; status: 400 | 503; message: string };
 
 export type StillsResult =
   | { ok: true; stills: Array<{ t: number; data: string }> }
@@ -55,7 +69,7 @@ export class StillsDesk {
   private tail: Promise<unknown> = Promise.resolve();
   private pending = 0;
 
-  constructor(private readonly deps: { root: string; stiller: Stiller; waitMs?: number }) {}
+  constructor(private readonly deps: { root: string; stiller: Stiller; poster?: Posterer; waitMs?: number }) {}
 
   /** A request is waiting or being served: the machine must not stop. */
   get busy(): boolean {
@@ -70,7 +84,31 @@ export class StillsDesk {
     if (!size) return { ok: false, status: 400, message: 'index.html has no root with data-width and data-height' };
     const times = stillTimes(rawTimes, project.seconds);
     if (!times) return { ok: false, status: 400, message: `times is a list of up to ${MAX_STILLS} seconds, e.g. 1.5,4,8` };
+    const r = await this.turn(project.files, (dir) => this.deps.stiller({ dir, times, ...size }));
+    return r.ok ? { ok: true, stills: r.value.map((b, i) => ({ t: times[i], data: b.toString('base64') })) } : r;
+  }
 
+  /** A poster: PNGs, and the printer's PDF when the root is on paper (data-print-mm). */
+  async poster(files: unknown, rawTimes: string | undefined, title = ''): Promise<PosterResult> {
+    if (!this.deps.poster) return { ok: false, status: 503, message: 'Posters are not available' };
+    const project = checkProject(files);
+    if (!project.ok) return { ok: false, status: 400, message: project.message };
+    const html = project.files.find((f) => f.path === 'index.html')!.bytes.toString('utf8');
+    const size = compositionSize(html);
+    if (!size) return { ok: false, status: 400, message: 'index.html has no root with data-width and data-height' };
+    const times = stillTimes(rawTimes, project.seconds)?.slice(0, MAX_PAGES);
+    if (!times) return { ok: false, status: 400, message: `times is a list of up to ${MAX_PAGES} seconds, one page each` };
+    const trim = printOf(html);
+    const bleed = trim ? bleedOf(size.width, size.height, trim) : null;
+    if (trim && bleed === null) return { ok: false, status: 400, message: 'data-print-mm does not match the page: data-width and data-height are the trim plus the bleed, at 96 px an inch' };
+    const poster = this.deps.poster;
+    const r = await this.turn(project.files, (dir) => poster({ dir, times, ...size, print: trim ? { trim, bleed: bleed! } : null, title: title.slice(0, 120) }));
+    if (!r.ok) return r;
+    return { ok: true, pngs: r.value.pngs.map((b, i) => ({ t: times[i], data: b.toString('base64') })), pdf: r.value.pdf?.toString('base64') ?? null };
+  }
+
+  /** One request at a time on this machine: the project written out, the work done, the folder gone. */
+  private async turn<T>(files: Array<{ path: string; bytes: Buffer }>, work: (dir: string) => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; status: 503; message: string }> {
     this.pending++;
     try {
       const previous = this.tail;
@@ -88,9 +126,8 @@ export class StillsDesk {
       }
       const dir = await fs.mkdtemp(path.join(this.deps.root, 'stills-'));
       try {
-        await writeProject(dir, project.files);
-        const shots = await this.deps.stiller({ dir, times, ...size });
-        return { ok: true, stills: shots.map((b, i) => ({ t: times[i], data: b.toString('base64') })) };
+        await writeProject(dir, files);
+        return { ok: true, value: await work(dir) };
       } finally {
         release();
         await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
