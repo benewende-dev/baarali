@@ -182,7 +182,7 @@ function ExportSheet({ project, duration, onClose, call, share, save }: {
   project: string; duration: number; onClose: () => void; call: Call; share: (p: string) => Promise<void>; save: (p: string) => Promise<boolean>;
 }) {
   const [format, setFormat] = useState<(typeof FORMATS)[number]['id']>('mp4');
-  const [left, setLeft] = useState<string | null>(null);
+  const [left, setLeft] = useState<{ min: number; week: boolean } | null>(null);
   const [state, setState] = useState<{ kind: 'idle' } | { kind: 'running'; progress: number } | { kind: 'done'; done: Done } | { kind: 'error'; message: string }>({ kind: 'idle' });
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
@@ -191,8 +191,7 @@ function ExportSheet({ project, duration, onClose, call, share, save }: {
     call('export_minutes', {}).then(({ data }) => {
       const a = data?.allowance;
       if (a && alive.current) {
-        const min = Math.max(0, Math.floor((a.totalSeconds - a.usedSeconds) / 60));
-        setLeft(`${Math.round(duration)} s · ${min} min of export left this ${a.period}`);
+        setLeft({ min: Math.max(0, Math.floor((a.totalSeconds - a.usedSeconds) / 60)), week: a.period === 'week' });
       }
     }).catch(() => {});
   }, [call, duration]);
@@ -222,7 +221,7 @@ function ExportSheet({ project, duration, onClose, call, share, save }: {
       {state.kind === 'done' ? <Results done={state.done} share={share} save={save} /> : (
         <>
           {FORMATS.map((f) => <Option key={f.id} title={f.name} sub={f.use} on={format === f.id} onPress={() => setFormat(f.id)} disabled={state.kind === 'running'} />)}
-          {state.kind === 'error' ? <Note error>{state.message}</Note> : <Note>{left ?? ' '}</Note>}
+          {state.kind === 'error' ? <Note error>{state.message}</Note> : <Note>{left ? (left.week ? `${Math.round(duration)} s · ${left.min} min of export left this week` : `${Math.round(duration)} s · ${left.min} min of export left this month`) : ' '}</Note>}
           <Button main label={state.kind === 'running' ? `Exporting… ${Math.round(state.progress * 100)} %` : 'Export'} onPress={start} disabled={state.kind === 'running'} tall />
         </>
       )}

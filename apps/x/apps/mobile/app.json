@@ -58,8 +58,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Rowboat saves the videos and posters you make to your photos.",
-          "savePhotosPermission": "Rowboat saves the videos and posters you make to your photos.",
+          "photosPermission": "Saves the videos and posters you make to your photos.",
+          "savePhotosPermission": "Saves the videos and posters you make to your photos.",
           "isAccessMediaLocationEnabled": false
         }
       ]
