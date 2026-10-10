@@ -112,14 +112,15 @@ export default function HomeScreen() {
             </View>
           ) : null}
         </Pressable>
+        {/* BAARALI(10/10/2026): « New chat » in words, as on the computer (mockup validated). */}
         <Pressable
           onPress={() => openChat({})}
           accessibilityRole="button"
-          accessibilityLabel="New chat"
           hitSlop={6}
-          style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondaryBackground }}
+          style={{ height: 36, paddingHorizontal: 14, borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accent }}
         >
-          <Image source="sf:plus" style={{ width: 18, height: 18 }} contentFit="contain" tintColor={colors.label} />
+          <Image source="sf:plus" style={{ width: 14, height: 14 }} contentFit="contain" tintColor={colors.onAccent} />
+          <Text style={{ fontSize: 15, fontWeight: '600', color: colors.onAccent }}>New chat</Text>
         </Pressable>
       </View>
 

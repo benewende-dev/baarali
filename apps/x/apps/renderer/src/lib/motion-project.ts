@@ -172,8 +172,9 @@ export function underVoice(music: NonNullable<Composition['music']>): number {
 
 /** The other formats made of a project by `reformat`: siblings named <project>-1x1, -16x9, -4x5. */
 export function siblingFormats(project: string, folders: string[]): Array<{ ratio: string; project: string }> {
-  const base = project.replace(/^motion\//, '').replace(/-(1x1|16x9|4x5)$/, '')
+  const base = project.replace(/^motion\//, '').replace(/-(1x1|16x9|4x5|A3|A4|A5|A6|carte)$/, '')
   const out = [{ ratio: '9:16', project: `motion/${base}` }]
-  for (const r of ['1x1', '4x5', '16x9']) out.push({ ratio: r.replace('x', ':'), project: `motion/${base}-${r}` })
+  // Paper too (posters, 10/10/2026): A3 to A6 and the business card.
+  for (const r of ['1x1', '4x5', '16x9', 'A3', 'A4', 'A5', 'A6', 'carte']) out.push({ ratio: r.replace('x', ':'), project: `motion/${base}-${r}` })
   return out.filter((f) => folders.includes(f.project.replace(/^motion\//, '')))
 }

@@ -52,7 +52,17 @@
         }
       ],
       "expo-font",
-      "expo-image"
+      "expo-image",
+      "expo-video",
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Rowboat saves the videos and posters you make to your photos.",
+          "savePhotosPermission": "Rowboat saves the videos and posters you make to your photos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
