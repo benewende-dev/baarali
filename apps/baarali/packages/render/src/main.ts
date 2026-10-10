@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import process from 'node:process';
 import { serve } from '@hono/node-server';
-import { hyperframesRenderer, hyperframesStills } from './hyperframes.js';
+import { hyperframesPoster, hyperframesRenderer, hyperframesStills } from './hyperframes.js';
 import { RenderQueue } from './queue.js';
 import { createApp } from './server.js';
 import { StillsDesk } from './stills.js';
@@ -26,7 +26,7 @@ const queue = new RenderQueue({
   ttlMs: 2 * 60 * 60 * 1000,
   now: Date.now,
 });
-const stills = new StillsDesk({ root, stiller: hyperframesStills() });
+const stills = new StillsDesk({ root, stiller: hyperframesStills(), poster: hyperframesPoster({ ffmpeg: process.env.HYPERFRAMES_FFMPEG_PATH ?? 'ffmpeg' }) });
 setInterval(() => void queue.sweep().catch((err) => console.error('[render] sweep', err)), 5 * 60 * 1000).unref();
 
 // The machine stops itself once idle, never in the middle of a render: Fly's
@@ -50,7 +50,7 @@ serve({
   fetch: (req: Request) => {
     // Fly's health checks are not work: they must not keep the machine up.
     const p = new URL(req.url).pathname;
-    if (p.startsWith('/jobs') || p === '/stills') lastActivity = Date.now();
+    if (p.startsWith('/jobs') || p === '/stills' || p === '/poster') lastActivity = Date.now();
     return app.fetch(req);
   },
   port,

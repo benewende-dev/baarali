@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { REVIEW_MODEL, underHourlyLimit } from '../src/motion-review.js';
+import { POSTERS_PER_HOUR, REVIEW_MODEL, underHourlyLimit } from '../src/motion-review.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
 
 const T0 = Date.UTC(2026, 9, 9, 12, 0, 0);
@@ -26,7 +26,9 @@ function setup(respond: (s: Seen) => Response, opts: { render?: boolean; account
   const project = JSON.stringify({ files: [{ path: 'index.html', data: 'PGh0bWw+' }] });
   const review = (q: string) =>
     app.request(`/v1/motion/review?${q}`, { method: 'POST', body: project, headers: { authorization: 'Bearer me', 'content-type': 'application/json', 'content-length': String(project.length) } });
-  return { store, seen, review, project };
+  const poster = (q: string) =>
+    app.request(`/v1/motion/poster?${q}`, { method: 'POST', body: project, headers: { authorization: 'Bearer me', 'content-type': 'application/json', 'content-length': String(project.length) } });
+  return { store, seen, review, poster, project };
 }
 
 const stills = () => Response.json({ stills: [{ t: 2, data: 'AAA' }, { t: 6, data: 'BBB' }] });
@@ -71,5 +73,28 @@ describe('/v1/motion/review', () => {
     for (let i = 0; i < 3; i++) expect(underHourlyLimit('loop', T0 + i, 3)).toBe(true);
     expect(underHourlyLimit('loop', T0 + 10, 3)).toBe(false);
     expect(underHourlyLimit('loop', T0 + 3_600_001, 3)).toBe(true);
+  });
+});
+
+describe('/v1/motion/poster', () => {
+  it('relays the project to the render service, free, logged, and bounded per hour', async () => {
+    const { poster, seen, store, project } = setup(() => Response.json({ pngs: [{ t: 3.9, data: 'PNG' }], pdf: 'PDF' }), { account: 'po-1' });
+    const res = await poster('times=1.95,3.95&title=Carte%20Awa');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ pngs: [{ t: 3.9, data: 'PNG' }], pdf: 'PDF' });
+    expect(seen[0].url).toBe('http://render.test/poster?times=1.95%2C3.95&title=Carte+Awa');
+    expect(seen[0].init.headers).toMatchObject({ authorization: 'Bearer rs' });
+    expect(seen[0].body).toBe(project);
+    expect(store.usage.filter((u) => u.accountId === 'po-1')).toMatchObject([{ path: '/motion/poster', status: 200, credits: 0 }]);
+    for (let i = 1; i < POSTERS_PER_HOUR; i++) await poster('times=1');
+    expect(await (await poster('times=1')).json()).toMatchObject({ error: { code: 'too_many_posters' } });
+  });
+
+  it('says why a poster could not be made', async () => {
+    const bad = setup(() => Response.json({ error: 'data-print-mm does not match the page' }, { status: 400 }), { account: 'po-2' });
+    expect(await (await bad.poster('times=1')).json()).toMatchObject({ error: { code: 'invalid_project', message: 'data-print-mm does not match the page' } });
+    const none = setup(() => Response.json({}), { render: false, account: 'po-3' });
+    expect((await none.poster('times=1')).status).toBe(503);
+    expect((await bad.poster('times=x')).status).toBe(400);
   });
 });

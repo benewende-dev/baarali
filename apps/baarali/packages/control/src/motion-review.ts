@@ -160,3 +160,60 @@ export async function reviewMotion(deps: ReviewDeps, account: Account, req: Requ
   }
   return Response.json({ stills, review, model });
 }
+
+// Posters (step 3, decided 10/10/2026): the render service's /poster, a few
+// seconds of its machine, free within the plan's usage like a preview
+// without its review; bounded per hour so a loop cannot run up the machine.
+export const POSTERS_PER_HOUR = 40;
+const recentPosters = new Map<string, number[]>();
+
+/**
+ * POST /v1/motion/poster?times=3.9&title=…, the body the project. Answers
+ * {pngs: [{t, data}], pdf}: pdf is the printer's file when the composition
+ * is on paper (data-print-mm), else null.
+ */
+export async function posterMotion(deps: ReviewDeps, account: Account, req: Request): Promise<Response> {
+  if (!deps.render) return error(503, 'poster_unavailable', 'Posters are not configured');
+  const q = new URL(req.url).searchParams;
+  const times = q.get('times') ?? '';
+  if (!/^[\d.,]{1,40}$/.test(times)) return error(400, 'invalid_request', 'times is a list of seconds, e.g. 3.9');
+  const title = (q.get('title') ?? '').slice(0, 120);
+  const length = Number(req.headers.get('content-length'));
+  if (!Number.isFinite(length) || length <= 0) return error(411, 'length_required', 'Send the project with its content-length');
+  if (length > MAX_UPLOAD_BYTES) return error(413, 'too_large', 'The project is over 150 MB');
+  if (!req.body) return error(400, 'invalid_request', 'The project is missing');
+
+  const plan = await deps.store.plan(account.planId);
+  if (!plan) return error(403, 'no_plan', 'Account has no active plan');
+  const before = (await deps.store.quotaState(account.id)) ?? initialState(account.createdAt);
+  const admission = admit(before, budgetsForWeek(plan.weekCredits), deps.now());
+  if (!admission.ok) return error(429, 'quota_reached', `Usage limit reached for this ${admission.window}`);
+  const now = deps.now();
+  const kept = (recentPosters.get(account.id) ?? []).filter((t) => now - t < HOUR_MS);
+  if (kept.length >= POSTERS_PER_HOUR) return error(429, 'too_many_posters', `At most ${POSTERS_PER_HOUR} posters an hour`);
+  recentPosters.set(account.id, [...kept, now]);
+
+  let status = 502;
+  try {
+    const res = await deps.fetch(`${deps.render.url}/poster?${new URLSearchParams({ times, title })}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${deps.render.secret}`, 'content-type': 'application/json', 'content-length': String(length) },
+      body: req.body,
+      duplex: 'half',
+    } as RequestInit);
+    status = res.status;
+    const body = (await res.json().catch(() => ({}))) as { pngs?: unknown; pdf?: unknown; error?: string };
+    if (res.status === 400) return error(400, 'invalid_project', body.error ?? 'The project cannot be made into a poster');
+    if (res.status === 503) return error(503, 'preview_busy', body.error ?? 'The render machine is busy; try again in a minute');
+    if (!res.ok || !Array.isArray(body.pngs)) return error(502, 'poster_failed', 'The poster could not be made');
+    return Response.json({ pngs: body.pngs, pdf: typeof body.pdf === 'string' ? body.pdf : null });
+  } catch (err) {
+    console.error('[motion] poster', err);
+    return error(502, 'poster_unavailable', 'The render service is unreachable');
+  } finally {
+    await deps.store.appendUsage({
+      accountId: account.id, at: deps.now(), path: '/motion/poster', model: null, requestedModel: null,
+      status, credits: 0, estimated: false, useCase: 'motion', agentName: null,
+    });
+  }
+}

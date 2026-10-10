@@ -1,5 +1,5 @@
 import { createRender, getRender, motionAllowance, renderFile, type MotionDeps } from './motion.js';
-import { reviewMotion } from './motion-review.js';
+import { posterMotion, reviewMotion } from './motion-review.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -439,6 +439,7 @@ export function createApp(deps: ControlDeps) {
   app.get('/v1/motion/renders/:id', (c) => getRender(deps, c.get('account'), c.req.param('id')));
   app.get('/v1/motion/renders/:id/file', (c) => renderFile(deps, c.get('account'), c.req.param('id')));
   app.post('/v1/motion/review', (c) => reviewMotion({ ...deps, model: deps.motionReviewModel }, c.get('account'), c.req.raw));
+  app.post('/v1/motion/poster', (c) => posterMotion(deps, c.get('account'), c.req.raw));
 
   // Devices (security §2): only a signed-in person adds one, with the
   // access token of their sign-in, never an instance with its own token.

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { compose, contrast, DEFAULT_BRAND, FORMATS, PALETTE_LIMIT, TEMPLATES, type BrandKit, type Format } from './motion-templates.js';
+import { compose, contrast, DEFAULT_BRAND, FORMATS, isPrint, PALETTE_LIMIT, PRINT_SIZES, TEMPLATES, type BrandKit, type Format } from './motion-templates.js';
 import type { ToolDef, ToolResult } from './media-mcp.js';
 import { CAPTIONS_FILE, CAPTIONS_START, captionsBlock, findVoice, injectCaptions, POSITIONS, rootOf, type CaptionsFile, type CaptionWord, type Position } from './motion-captions.js';
 import { audioClips, fittedLane, isMusic, speechSpans, withLane } from './motion-mix.js';
@@ -69,6 +69,23 @@ export function previewTimes(html: string, max = MAX_PREVIEW_FRAMES): number[] {
   if (unique.length === 0) return duration > 0 ? [0.15, 0.4, 0.65, 0.9].map((f) => Math.round(duration * f * 10) / 10) : [0];
   if (unique.length <= max) return unique;
   return Array.from({ length: max }, (_, i) => unique[Math.round((i * (unique.length - 1)) / (max - 1))]);
+}
+
+/**
+ * The frames a poster takes: those asked for, else the template's pages
+ * (data-poster-at), else the last frame — a video's final pose. Null when
+ * the root has no duration.
+ */
+export function posterTimes(html: string, asked?: unknown): number[] | null {
+  const root = /<[a-z]+\b[^>]*\bdata-composition-id\s*=[^>]*>/i.exec(html)?.[0] ?? '';
+  const duration = Number(/\bdata-duration\s*=\s*["']?([\d.]+)/i.exec(root)?.[1]);
+  if (!Number.isFinite(duration) || duration <= 0) return null;
+  const last = Math.floor((duration - 1 / 30) * 100) / 100;
+  const keep = (ts: number[]) => [...new Set(ts.filter((t) => Number.isFinite(t) && t >= 0).map((t) => Math.min(t, last)))].slice(0, 4);
+  const given = Array.isArray(asked) ? keep(asked.filter((t): t is number => typeof t === 'number')) : [];
+  if (given.length) return given;
+  const pages = keep((/\bdata-poster-at="([\d.,]+)"/.exec(root)?.[1] ?? '').split(',').filter(Boolean).map(Number));
+  return pages.length ? pages : [last];
 }
 
 /** A project folder as the render service receives it, without its exports, previews and sidecar files. */
@@ -140,7 +157,7 @@ export const MOTION_TOOLS: ToolDef[] = [
       properties: {
         template: { type: 'string', description: 'A template id from list_templates.' },
         title: { type: 'string', description: 'A short title for the project, in the user’s words.' },
-        format: { type: 'string', enum: Object.keys(FORMATS), description: '9:16 for TikTok, Reels and WhatsApp Status (default); 1:1 or 4:5 for a feed; 16:9 for YouTube or a screen.' },
+        format: { type: 'string', enum: Object.keys(FORMATS), description: '9:16 for TikTok, Reels and WhatsApp Status; 1:1 or 4:5 for a feed; 16:9 for YouTube, a banner or a screen. Paper, for a poster to print: A3, A4, A5, A6, carte (business card 85 × 55 mm). Default: the template’s own (9:16 for videos).' },
         values: { type: 'object', description: 'Slot key → text. A list slot takes one item per line. Missing slots keep the template example: always fill them from the user’s request.' },
         speed: { type: 'number', description: 'Rhythm: 0.8 calm, 1 normal, 1.2 punchy. Default from the brand tone.' },
       },
@@ -157,6 +174,19 @@ export const MOTION_TOOLS: ToolDef[] = [
         format: { type: 'string', enum: Object.keys(FORMATS) },
       },
       required: ['project', 'format'],
+    },
+  },
+  {
+    name: 'poster',
+    description:
+      'Export a motion project as a still image: a poster, a status, a post, a flyer, a business card. On a screen format (9:16, 1:1, 4:5, 16:9), a PNG at full size (1080 px wide) for WhatsApp and the networks. On paper (A3, A4, A5, A6, carte), a PDF for the printer — vector, at the true size in millimetres, 3 mm of bleed and crop marks — and a PNG at 300 dpi cut to size. Takes the frame given by `at`; by default the poster templates’ own pages (a card’s two sides), else the last frame of the video (its final pose). For several formats, call reformat, then poster on each project. Call preview first, as for a video. Free within the plan’s usage.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'The project folder, e.g. motion/nuit-du-faso-jazz-a3.' },
+        at: { type: 'array', items: { type: 'number' }, description: 'The times to take, in seconds, one page each (up to 4). Default: the template’s pages, else the last frame.' },
+      },
+      required: ['project'],
     },
   },
   {
@@ -538,7 +568,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
 
     if (name === 'list_templates') {
       return text(TEMPLATES.map((t) =>
-        `- ${t.id} — ${t.name}: ${t.use} ${t.duration} s${t.transparent ? ', transparent background' : ''}.\n  slots: ${t.slots.map((s) => (s.image ? `${s.key} (the workspace path of an image, optional)` : `${s.key}${s.list ? ' (one per line)' : ''}${s.imageField !== undefined ? ` (fields split by |; field ${s.imageField + 1} is the workspace path of an image, optional)` : ''} e.g. "${s.example.replace(/\n/g, ' / ')}"`)).join('; ')}`,
+        `- ${t.id} — ${t.name}: ${t.use} ${t.poster ? `Poster (still; default format ${t.format ?? '9:16'})` : `${t.duration} s`}${t.transparent ? ', transparent background' : ''}.\n  slots: ${t.slots.map((s) => (s.image ? `${s.key} (the workspace path of an image, optional)` : `${s.key}${s.list ? ' (one per line)' : ''}${s.imageField !== undefined ? ` (fields split by |; field ${s.imageField + 1} is the workspace path of an image, optional)` : ''} e.g. "${s.example.replace(/\n/g, ' / ')}"`)).join('; ')}`,
       ).join('\n'));
     }
 
@@ -546,7 +576,7 @@ export function createMotionTools(deps: MotionToolsDeps) {
       const template = TEMPLATES.find((t) => t.id === args.template);
       if (!template) return text(`Unknown template. Call list_templates; ids: ${TEMPLATES.map((t) => t.id).join(', ')}.`, true);
       const title = typeof args.title === 'string' && args.title.trim() ? args.title.trim().slice(0, 80) : template.name;
-      const format = (typeof args.format === 'string' && args.format in FORMATS ? args.format : '9:16') as Format;
+      const format = (typeof args.format === 'string' && args.format in FORMATS ? args.format : (template.format ?? '9:16')) as Format;
       const values = Object.fromEntries(
         Object.entries((args.values ?? {}) as Record<string, unknown>).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, (v as string).slice(0, 600)]),
       );
@@ -556,7 +586,8 @@ export function createMotionTools(deps: MotionToolsDeps) {
       const missing = template.slots.filter((s) => !(s.key in values) && s.example).map((s) => s.key);
       const brand = await readBrand();
       return text([
-        `Created ${rel(dir)}/index.html — ${template.name}, ${format} (${FORMATS[format].width}×${FORMATS[format].height}), ${duration} s.`,
+        `Created ${rel(dir)}/index.html — ${template.name}, ${format} (${isPrint(format) ? `${PRINT_SIZES[format].join(' × ')} mm, 3 mm of bleed` : `${FORMATS[format].width}×${FORMATS[format].height}`}), ${duration} s.`,
+        template.poster || isPrint(format) ? 'A poster: call preview, then poster to export it (PNG, and the printer’s PDF on paper).' : '',
         missing.length ? `These slots kept the template's example text: ${missing.join(', ')}. Fill them from the user's request unless they fit.` : '',
         brand.name ? '' : 'The brand kit is empty: the default colours were used. Ask the user for their brand and call brand_kit.',
         `Show it to the user with the path in a \`\`\`filepath block (${rel(dir)}/index.html); it plays in the app.`,
@@ -768,6 +799,74 @@ export function createMotionTools(deps: MotionToolsDeps) {
       ].join('\n\n'), { preview: { stills: saved, review } });
     }
 
+    if (name === 'poster') {
+      const dir = projectDir(args.project);
+      if (!dir) return text('Give the project folder, e.g. motion/nuit-du-faso-jazz.', true);
+      if (!deps.control) return text('Posters are not available here.', true);
+      let html: string;
+      try {
+        html = await fs.readFile(path.join(dir, 'index.html'), 'utf8');
+      } catch {
+        return text(`No index.html in ${rel(dir)}.`, true);
+      }
+      const errors = (await checkComposition(html, dir)).filter((f) => f.severity === 'error');
+      if (errors.length > 0) return text(`Fix these first, then export the poster:\n${errors.map((f) => `- ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n')}`, true);
+      const times = posterTimes(html, args.at);
+      if (!times) return text('The composition root has no data-duration.', true);
+      const root = /<[a-z]+\b[^>]*\bdata-composition-id\s*=[^>]*>/i.exec(html)?.[0] ?? '';
+      const paper = /\bdata-print-mm="(\d+)x(\d+)"/.exec(root);
+      let title = path.basename(dir);
+      try {
+        title = String((JSON.parse(await fs.readFile(path.join(dir, 'project.json'), 'utf8')) as ProjectMeta).title ?? title);
+      } catch {
+        // Made by hand: the folder names it.
+      }
+      const { files, total } = await packProject(dir, { sound: false });
+      if (total > MAX_EXPORT_BYTES) return text(`The project is ${Math.round(total / 1024 / 1024)} MB without its sound; posters take 150 MB at most. Use lighter pictures.`, true);
+      const body = JSON.stringify({ files });
+      let res: Response;
+      try {
+        res = await deps.control.fetch(`${deps.control.url}/v1/motion/poster?${new URLSearchParams({ times: times.join(','), title: title.slice(0, 120) })}`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${deps.control.token}`, 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) },
+          body,
+          signal: AbortSignal.timeout(PREVIEW_TIMEOUT_MS),
+        });
+      } catch {
+        return text('The poster took too long (the render machine was starting). Call poster again: it is warm now.', true);
+      }
+      const data = (await res.json().catch(() => ({}))) as { pngs?: Array<{ t: number; data: string }>; pdf?: string | null; error?: { code?: string; message?: string } };
+      if (!res.ok || !Array.isArray(data.pngs)) {
+        const code = data.error?.code;
+        if (code === 'quota_reached') return text('No poster: the usage limit of the plan is reached for now.', true);
+        if (code === 'preview_busy') return text('The render machine is busy: call poster again in a minute.', true);
+        if (code === 'too_many_posters') return text('Enough posters for this hour: try again later.', true);
+        return text(`No poster: ${data.error?.message ?? `error ${res.status}`}.`, true);
+      }
+      const base = path.basename(dir);
+      const out = path.join(dir, EXPORTS_DIR);
+      await fs.mkdir(out, { recursive: true });
+      const saved: Array<{ file: string; kind: 'pdf' | 'png'; label: string }> = [];
+      const many = data.pngs.length > 1;
+      const sides = data.pngs.length === 2 && paper ? ['recto', 'verso'] : null;
+      if (paper && typeof data.pdf === 'string') {
+        const file = path.join(out, `${base}.pdf`);
+        await fs.writeFile(file, Buffer.from(data.pdf, 'base64'));
+        saved.push({ file: rel(file), kind: 'pdf', label: `PDF for the printer, ${paper[1]} × ${paper[2]} mm, 3 mm bleed, crop marks${many ? `, ${data.pngs.length} pages` : ''}` });
+      }
+      for (const [i, png] of data.pngs.entries()) {
+        const suffix = many ? `-${sides ? sides[i] : i + 1}` : '';
+        const file = path.join(out, `${base}${suffix}${paper ? '-300dpi' : ''}.png`);
+        await fs.writeFile(file, Buffer.from(png.data, 'base64'));
+        saved.push({ file: rel(file), kind: 'png', label: paper ? `PNG 300 dpi, cut to size${suffix ? ` (${suffix.slice(1)})` : ''}` : `PNG${suffix ? ` (${suffix.slice(1)})` : ''}` });
+      }
+      return answer([
+        `Poster of ${rel(dir)} at ${times.join(', ')} s:`,
+        ...saved.map((f) => `- ${f.file} — ${f.label}`),
+        `Show each file to the user in a \`\`\`filepath block; it opens and downloads in the app.${paper ? ' Tell them the PDF is the one for the print shop.' : ''}`,
+      ].join('\n'), { poster: { files: saved, print: paper ? { width: Number(paper[1]), height: Number(paper[2]), bleed: 3 } : null } });
+    }
+
     if (name === 'check') {
       const dir = projectDir(args.project);
       if (!dir) return text('Give the project folder, e.g. motion/promo-week-end.', true);
@@ -861,6 +960,9 @@ export function createMotionTools(deps: MotionToolsDeps) {
         return answer(`Not exported: fix these first.\n${errors.map((f) => `- ${f.code}: ${f.message} Fix: ${f.fix}`).join('\n')}`, { refused: { code: 'composition_errors', errors: errors.map((f) => f.message) } }, true);
       }
       const root = /<[a-z]+\b[^>]*\bdata-composition-id\s*=[^>]*>/i.exec(html)?.[0] ?? '';
+      if (/\bdata-print-mm=/.test(root)) {
+        return answer('Not exported: this project is on paper (a print format). Export it with poster; for a video of it, call reformat to 9:16, 1:1, 4:5 or 16:9 first.', { refused: { code: 'print_format', message: 'print format' } }, true);
+      }
       const seconds = Number(/\bdata-duration\s*=\s*["']?([\d.]+)/i.exec(root)?.[1]);
       if (!Number.isFinite(seconds) || seconds <= 0) return text('The composition root has no data-duration.', true);
       const fps = args.fps === 60 ? 60 : 30;
