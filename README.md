@@ -69,6 +69,9 @@ Les documents de conception, à lire dans l'ordre, sont dans [`docs/baarali/`](d
 | [`apps/x`](apps/x) | L'app de bureau (Electron), le serveur de l'agent, et l'app mobile (Expo). |
 | [`apps/harbor`](apps/harbor) | Harbor, le serveur des Espaces, et son protocole. |
 | [`docs/baarali`](docs/baarali) | Les documents de conception de Baarali. |
+| [`marketing`](marketing/00-LISEZ-MOI.md) | Le kit marketing : identité, captures, scripts et consignes de communication. |
+
+Les copies de travail locales sont regroupées dans `.worktrees/`, ignoré par Git. Leur historique appartient au même dépôt ; les fichiers non commités y restent conservés. Le dossier `marketing/`, ignoré par Git, est la source locale du kit : l’ancien dossier local `~/Baarali-Marketing` contient seulement une indication de ce nouvel emplacement.
 
 ### Travailler sur le code
 

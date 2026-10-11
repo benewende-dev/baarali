@@ -12,3 +12,9 @@ data/
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Local worktrees preserved during consolidation (11/10/2026).
+/.worktrees/
+
+# Marketing stays local by owner decision (11/10/2026).
+/marketing/

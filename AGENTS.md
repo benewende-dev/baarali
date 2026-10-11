@@ -1,12 +1,14 @@
-# Rowboat monorepo
+# Baarali / Rowboat monorepo
 
-Two applications, each its own pnpm workspace, plus product docs. Each area keeps its own guide; this file holds only what is true everywhere.
+Three pnpm workspaces, plus product docs and a marketing kit. Each area keeps its own guide; this file holds only what is true everywhere.
 
 | Path | What | Guide |
 |---|---|---|
 | `apps/x/` | The Rowboat desktop app (Electron + React) and its packages, including the mobile app | none yet — read `apps/x/package.json` scripts and the package READMEs |
 | `apps/harbor/` | Harbor, the Spaces server, and the spaces protocol package | [`apps/harbor/AGENTS.md`](apps/harbor/AGENTS.md) |
+| `apps/baarali/` | Baarali control plane, instances, render service, desktop branding and Spaces deployment | [`apps/baarali/AGENTS.md`](apps/baarali/AGENTS.md) |
 | `docs/` | Product docs that belong to no one app (the Spaces design language, notes) | — |
+| `marketing/` | Brand assets, product communication, screenshots and campaign briefs | — |
 
 ## How the two apps relate
 
