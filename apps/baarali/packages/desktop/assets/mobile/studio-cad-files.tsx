@@ -5,10 +5,11 @@ import { useConnection } from '@/lib/connection';
 import { shareFile, useWorkspaceFiles } from '@/lib/motion';
 import { useColors } from '@/theme/colors';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
+import { StudioCadEditor } from './studio-cad-editor';
 
 // BAARALI(13/10/2026): CAD files live beside the Motion exports, so the
 // phone can use the same real STEP/STL/GLB/SVG files as the Mac.
-export function StudioCadFiles({ project }: { project: string }) {
+export function StudioCadFiles({ project, onProject }: { project: string; onProject: (project: string) => void }) {
   const { rpc } = useConnection();
   const { url, headers } = useWorkspaceFiles();
   const colors = useColors();
@@ -35,9 +36,12 @@ export function StudioCadFiles({ project }: { project: string }) {
     finally { setBusy(false); }
   };
   return <>
+    <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 12, alignItems: 'center' }}>
+    <StudioCadEditor project={project} onProject={onProject} />
     <Pressable accessibilityRole="button" onPress={() => setOpen(true)} style={{ flex: 1, height: 40, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: '#2c2c2e' }}>
       <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>{translate('3D files')}</Text>
     </Pressable>
+    </View>
     <Modal visible={open} animationType="slide" onRequestClose={() => { if (!busy) setOpen(false); }}>
       <SafeAreaProvider><SafeAreaView style={{ flex: 1, backgroundColor: colors.background, padding: 24, gap: 14 }}>
         <Text style={{ color: colors.label, fontSize: 22, fontWeight: '600' }}>{translate('3D files')}</Text>

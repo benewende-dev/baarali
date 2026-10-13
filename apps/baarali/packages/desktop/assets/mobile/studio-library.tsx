@@ -8,6 +8,7 @@ import { useConnection } from '@/lib/connection';
 import { motionProject } from '@/lib/motion-project';
 import { useColors } from '@/theme/colors';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
+import { StudioCadEditor } from './studio-cad-editor';
 
 // BAARALI(12/10/2026): the new More entry must open a real project chooser,
 // while chat file cards keep going straight to the existing Studio player.
@@ -57,6 +58,7 @@ export function StudioLibrary() {
     refreshControl={<RefreshControl refreshing={loading} onRefresh={() => setVersion(version + 1)} />}>
     <Text style={{ fontSize: 27, fontWeight: '700', color: colors.label }}>Your motion projects</Text>
     <Text style={{ fontSize: 15, lineHeight: 21, color: colors.secondaryLabel }}>Open a project to preview, adjust its scenes or export it.</Text>
+    <StudioCadEditor onProject={project => router.push({ pathname: '/studio', params: { project } })} />
     {error && <View style={{ gap: 8 }}><Text style={{ color: colors.destructive }}>Could not load projects. Try again.</Text>
       <Pressable accessibilityRole="button" onPress={() => setVersion(version + 1)} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.accent }}>Retry</Text></Pressable></View>}
     {loading && projects.length === 0 ? <View style={{ alignItems: 'center', paddingVertical: 24 }} accessible accessibilityLabel="Loading…"><BaaraliMark size={44} motion="loading" /></View> : projects.map(project => <Pressable key={project.path} accessibilityRole="button"

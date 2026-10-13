@@ -140,6 +140,8 @@ Le script refuse d'écrire sans `--yes`. Chaque ancre doit se trouver exactement
 
 **Publier une version** : Actions › `baarali-desktop` › *Run workflow*, avec la version (`0.1.0`). Le workflow fait un brouillon de release `v0.1.0` : Mac arm64 et Intel, Windows. On le vérifie, puis on le publie. Le site pointe vers `releases/latest/download/` : `Baarali-mac-arm64.dmg`, `Baarali-mac-intel.dmg`, `Baarali-windows-setup.exe`. Les mises à jour automatiques passent par update.electronjs.org, qui lit ces releases.
 
+**Le modeleur 3D du Studio** (13/10/2026) partage sa page embarquée et son schéma de scène entre Mac et mobile, dans `desktop/assets/motion/` et `instance/src/cad-scene.ts`. Les calculs passent par le MCP Motion de l’instance ; les limites, variantes et exports sont décrits dans [CADQUERY.md](../../docs/baarali/CADQUERY.md).
+
 **Signature (🧑).** Sans certificat, l'app Mac est signée ad hoc : macOS la dit « non vérifiée », et il faut l'autoriser une fois dans *Réglages › Confidentialité et sécurité*. Pour une app signée et notarisée, il faut un compte Apple Developer (99 $/an) et les secrets `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` et `APPLE_TEAM_ID`. Windows affiche un avertissement SmartScreen tant que l'app n'est pas signée.
 
 Ce qui reste en anglais : l'interface upstream, jusqu'à `@baarali/i18n` (archi §3.12).

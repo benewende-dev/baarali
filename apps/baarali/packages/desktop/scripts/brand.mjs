@@ -397,7 +397,9 @@ export function desktopPlan() {
   return {
     edits: [
       edit("apps/x/apps/main/src/ipc.ts", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';\nimport { requireWorkChannel } from '@x/core/dist/baarali/work-runtime.js';"),
-      edit(`${renderer}/components/motion-studio.tsx`, "import '@hyperframes/player'", "import '@hyperframes/player'\nimport { isMotionImage, canPreviewMotionExport } from './motion-export-image'"),
+      edit(`${renderer}/components/motion-studio.tsx`, "import '@hyperframes/player'", "import '@hyperframes/player'\nimport { isMotionImage, canPreviewMotionExport } from './motion-export-image'\nimport { CadEditor } from './cad-editor'"),
+      edit(`${renderer}/components/motion-studio.tsx`, '<button type="button" onClick={onReload}', '<CadEditor onProject={onProject} />\n        <button type="button" onClick={onReload}'),
+      edit(`${renderer}/components/motion-studio.tsx`, '<ExportPanel project={project}', '<CadEditor project={project} onProject={onProject} />\n          <ExportPanel project={project}'),
       edit(`${renderer}/components/motion-studio.tsx`, '    if (!holder) return', '    if (!holder || (watching && isMotionImage(watching))) return'),
       edit(`${renderer}/components/motion-studio.tsx`, '<div ref={holderRef} className="absolute inset-0" />', '<div ref={holderRef} className="absolute inset-0">{watching && isMotionImage(watching) ? <img src={url(watching)} alt="Export preview" className="h-full w-full object-contain" /> : null}</div>'),
       edit(`${renderer}/components/motion-studio.tsx`, '<button type="button" aria-label="Play" onClick={() => setWatching(f.path)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground"><PlayIcon className="size-3" /></button>', '{canPreviewMotionExport(f.path) && <button type="button" aria-label="Play" onClick={() => setWatching(f.path)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground"><PlayIcon className="size-3" /></button>}'),
@@ -510,6 +512,10 @@ export function desktopPlan() {
       ['../control/src/oval-b.ts', `${renderer}/lib/baarali-oval-motion.ts`],
       ['assets/motion/baarali-mark.tsx', `${renderer}/components/baarali-mark.tsx`],
       ['assets/motion/motion-export-image.ts', `${renderer}/components/motion-export-image.ts`],
+      ['assets/motion/cad-editor.tsx', `${renderer}/components/cad-editor.tsx`],
+      ['assets/motion/cad-editor-page.ts', `${renderer}/components/cad-editor-page.ts`],
+      ['assets/motion/cad-editor-client.ts', `${renderer}/components/cad-editor-client.ts`],
+      ['../instance/src/cad-scene.ts', `${renderer}/components/cad-scene.ts`],
       ['assets/motion/baarali-logo.tsx', `${renderer}/components/baarali-logo.tsx`],
       ['assets/motion/turn-activity-indicator.tsx', `${renderer}/components/turn-activity-indicator.tsx`],
       ['assets/motion/onboarding-duo.tsx', `${renderer}/components/baarali-onboarding/duo.tsx`],
@@ -661,7 +667,7 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/chat.tsx`, "top: insets.top + 6, left: 64, right: 16", "top: insets.top + 56, left: 20, right: 16"),
       edit(`${mobile}/src/app/studio.tsx`, "import { phoneLang } from '@/lib/baarasseurs';", "import { phoneLang } from '@/lib/baarasseurs';\nimport { StudioLibrary } from '@/components/studio-library';"),
       edit(`${mobile}/src/app/studio.tsx`, "import { StudioLibrary } from '@/components/studio-library';", "import { StudioLibrary } from '@/components/studio-library';\nimport { StudioCadFiles } from '@/components/studio-cad-files';"),
-      edit(`${mobile}/src/app/studio.tsx`, '<Button label="Retouch" onPress={() => retouch(fr ? `Dans « ${name} », ` : `In « ${name} », `)} />', '<Button label="Retouch" onPress={() => retouch(fr ? `Dans « ${name} », ` : `In « ${name} », `)} />\n        <StudioCadFiles project={project} />'),
+      edit(`${mobile}/src/app/studio.tsx`, '<Button label="Retouch" onPress={() => retouch(fr ? `Dans « ${name} », ` : `In « ${name} », `)} />\n      </View>', '<Button label="Retouch" onPress={() => retouch(fr ? `Dans « ${name} », ` : `In « ${name} », `)} />\n      </View>\n      <StudioCadFiles project={project} onProject={(next) => { setTime(0); setPlaying(false); setProject(next); }} />'),
       edit(`${mobile}/src/app/studio.tsx`, 'export default function StudioScreen() {', 'export default function StudioScreen() {\n  const { project } = useLocalSearchParams<{ project?: string }>();\n  return project ? <StudioProjectScreen /> : <StudioLibrary />;\n}\n\nfunction StudioProjectScreen() {'),
       edit(`${mobile}/src/app/studio.tsx`, "import { StudioLibrary } from '@/components/studio-library';", "import { StudioLibrary } from '@/components/studio-library';\nimport { WorkGate } from '@/components/work-gate';"),
       edit(`${mobile}/src/app/studio.tsx`, '  return project ? <StudioProjectScreen /> : <StudioLibrary />;', '  return <WorkGate>{project ? <StudioProjectScreen /> : <StudioLibrary />}</WorkGate>;'),
@@ -798,6 +804,9 @@ export function mobilePlan() {
       ['assets/mobile/agent-documents.tsx', `${mobile}/src/components/agent-documents.tsx`],
       ['assets/mobile/studio-library.tsx', `${mobile}/src/components/studio-library.tsx`],
       ['assets/mobile/studio-cad-files.tsx', `${mobile}/src/components/studio-cad-files.tsx`],
+      ['assets/mobile/studio-cad-editor.tsx', `${mobile}/src/components/studio-cad-editor.tsx`],
+      ['assets/motion/cad-editor-page.ts', `${mobile}/src/lib/cad-editor-page.ts`],
+      ['../instance/src/cad-scene.ts', `${mobile}/src/lib/cad-scene.ts`],
       ['assets/mobile/reply-actions.tsx', `${mobile}/src/components/reply-actions.tsx`],
       ['assets/mobile/space-tabs.tsx', `${mobile}/src/components/space-tabs.tsx`],
       ['assets/mobile/group-new.tsx', `${mobile}/src/app/(tabs)/spaces/new.tsx`],
@@ -812,6 +821,7 @@ export function mobilePlan() {
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
     ],
     writes: [
+      [`${mobile}/src/lib/cad-editor-client.ts`, fs.readFileSync(path.join(PKG, 'assets/motion/cad-editor-client.ts'), 'utf8').replace("'./cad-scene.js'", "'./cad-scene'")],
       // Metro resolves './fr' but not './fr.js' to fr.ts: the imports lose their extension.
       ...[['mobile/runtime.ts', 'mobile/runtime.ts'], ['translate.ts', 'translate.ts'], ['fr.ts', 'fr.ts']].map(([from, to]) => [
         `${mobile}/src/baarali-i18n/${to}`,

@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createCadTools, pythonCadRunner, validCadMesh, type CadRunner } from '../src/cad-mcp.js';
 import { CAD_VIEWER_JS } from '../src/cad-viewer.js';
+import { defaultCadPart, validCadScene } from '../src/cad-scene.js';
 import { createMotionTools, checkComposition } from '../src/motion-mcp.js';
 import { DEFAULT_BRAND } from '../src/motion-templates.js';
 
@@ -26,6 +27,18 @@ const fixture: CadRunner = async (folder, health) => {
 };
 afterEach(async () => { await Promise.all(folders.splice(0).map(folder => fs.rm(folder, { recursive: true, force: true }))); });
 describe('CadQuery Motion integration', () => {
+  it('validates declarative operations before starting the CAD engine', async () => {
+    const { cad, workDir } = await setup(fixture);
+    const part = defaultCadPart();
+    expect(validCadScene({ version: 1, parts: [part] })).toBe(true);
+    for (const parts of [[{ ...part, operation: 'cut' }], [{ ...part, width: 0 }], [{ ...part, fillet: 11 }], [part,part], [{ ...part, rz: NaN }]]) {
+      expect((await cad.run('cad_scene', { title: 'Pièce', scene: { version: 1, parts } })).structuredContent).toMatchObject({ refused: { code: 'invalid_scene' } });
+    }
+    const result = await cad.run('cad_scene', { title: 'Pièce', scene: { version: 1, parts: [part] } });
+    const data = result.structuredContent!.cad as { project: string };
+    expect(JSON.parse(await fs.readFile(path.join(workDir,data.project,'scene.json'),'utf8'))).toEqual({ version: 1, parts: [part] });
+    expect(data.project).toMatch(/^motion\/piece-3d-/);
+  });
   it('publishes a complete variant only after the engine validates and exports it', async () => {
     const { workDir, cad } = await setup(fixture);
     const call = () => cad.run('cad_project', { script: 'model.py', title: 'Mon produit', parameters: { width: 20 }, format: '16:9' });
@@ -92,6 +105,24 @@ describe('CadQuery Motion integration', () => {
 // BAARALI(13/10/2026): opt-in real engine check, separate from the portable
 // contract tests; run in release validation with the same pinned Python fork.
 describe.skipIf(!process.env.BAARALI_TEST_CAD_PYTHON)('real CadQuery engine', () => {
+  it('rebuilds a scene with a real cut and preserves its previous variant', async () => {
+    const { workDir } = await setup();
+    const cad = createCadTools({ workDir, readBrand: async () => DEFAULT_BRAND, python: process.env.BAARALI_TEST_CAD_PYTHON });
+    const base = { ...defaultCadPart(), width: 24, depth: 12, height: 8 };
+    const hole = { ...defaultCadPart('hole'), operation: 'cut' as const, width: 8, depth: 4, height: 10 };
+    const first = await cad.run('cad_scene', { title: 'Pièce découpée', scene: { version: 1, parts: [base,hole] }, duration: 6 });
+    expect(first.isError,JSON.stringify(first)).toBeUndefined();
+    const original = (first.structuredContent!.cad as { project: string }).project;
+    expect(JSON.parse(await fs.readFile(path.join(workDir,original,'scene.json'),'utf8')).parts).toHaveLength(2);
+    const second = await cad.run('cad_scene', { title: 'Pièce découpée', scene: { version: 1, parts: [{ ...base, width: 30 },hole] }, duration: 6 });
+    expect(second.isError,JSON.stringify(second)).toBeUndefined();
+    const next = (second.structuredContent!.cad as { project: string }).project;
+    expect(next).not.toBe(original);
+    for (const [folder,width,volume] of [[original,24,2048],[next,30,2624]] as const) {
+      const { stdout } = await promisify(execFile)(process.env.BAARALI_TEST_CAD_PYTHON!, ['-I','-c','import cadquery as cq,sys,json;s=cq.importers.importStep(sys.argv[1]).val();print(json.dumps({"width":s.BoundingBox().xlen,"volume":s.Volume()}))',path.join(workDir,folder,'exports/model.step')], { timeout: 15_000 });
+      expect(JSON.parse(stdout).width).toBeCloseTo(width,5);expect(JSON.parse(stdout).volume).toBeCloseTo(volume,4);
+    }
+  }, 55_000);
   it('builds and reimports a dimensional model, exports CAD formats and passes Motion checks', async () => {
     const { workDir } = await setup();
     const cad = createCadTools({ workDir, readBrand: async () => DEFAULT_BRAND, python: process.env.BAARALI_TEST_CAD_PYTHON });
@@ -106,6 +137,9 @@ describe.skipIf(!process.env.BAARALI_TEST_CAD_PYTHON)('real CadQuery engine', ()
     const { stdout } = await promisify(execFile)(process.env.BAARALI_TEST_CAD_PYTHON!, ['-I', '-c', 'import cadquery as cq,sys,json; s=cq.importers.importStep(sys.argv[1]).val(); b=s.BoundingBox(); print(json.dumps({"width":b.xlen,"depth":b.ylen,"height":b.zlen,"volume":s.Volume()}))', path.join(workDir, data.project, 'exports/model.step')], { timeout: 15_000 });
     expect(JSON.parse(stdout)).toMatchObject({ width: 24, depth: 12, height: 8 });
     expect(JSON.parse(stdout).volume).toBeCloseTo(2304, 4);
+    const updated = await cad.run('cad_parameters', { project: data.project, parameters: { width: 30 } });
+    expect(updated.isError,JSON.stringify(updated)).toBeUndefined();
+    expect((updated.structuredContent!.cad as { project: string }).project).not.toBe(data.project);
     const health = await pythonCadRunner(process.env.BAARALI_TEST_CAD_PYTHON!)(workDir, true);
     expect(health.ok).toBe(true);
   }, 55_000);
