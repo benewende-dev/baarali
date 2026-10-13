@@ -65,15 +65,24 @@ importers:
 
   packages/desktop:
     devDependencies:
+      '@rowboat/spaces-protocol':
+        specifier: link:../../../harbor/packages/protocol
+        version: link:../../../harbor/packages/protocol
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.0
+      '@x/shared':
+        specifier: link:../../../x/packages/shared
+        version: link:../../../x/packages/shared
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
       vitest:
         specifier: 4.1.7
         version: 4.1.7(@types/node@24.19.0)(vite@8.3.1(@types/node@24.19.0))
+      zod:
+        specifier: 4.2.1
+        version: 4.2.1
 
   packages/instance:
     devDependencies:
@@ -1632,7 +1641,7 @@ snapshots:
       - '@types/node'
       - canvas
 
-  '@hyperframes/engine@0.8.141(@types/node@24.19.0)':
+  '@hyperframes/engine@0.8.141':
     dependencies:
       '@hono/node-server': 2.1.4(hono@4.13.12)
       '@hyperframes/core': 0.8.141(@types/node@24.19.0)
@@ -1642,7 +1651,6 @@ snapshots:
       puppeteer: 25.13.0
       puppeteer-core: 25.13.0
     transitivePeerDependencies:
-      - '@types/node'
       - bufferutil
       - canvas
       - proxy-agent
@@ -1676,7 +1684,7 @@ snapshots:
     dependencies:
       '@hono/node-server': 2.1.4(hono@4.13.12)
       '@hyperframes/core': 0.8.141(@types/node@24.19.0)
-      '@hyperframes/engine': 0.8.141(@types/node@24.19.0)
+      '@hyperframes/engine': 0.8.141
       '@hyperframes/lint': 0.8.141
       '@hyperframes/parsers': 0.8.141
       '@hyperframes/studio-server': 0.8.141(@types/node@24.19.0)

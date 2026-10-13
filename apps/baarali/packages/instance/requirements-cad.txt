@@ -1,0 +1,2 @@
+# BAARALI(13/10/2026): use the founder's fork at an immutable commit.
+cadquery @ git+https://github.com/benewende-dev/cadquery.git@62d2e72fd2285102b029d35391f2bf37bb44658d

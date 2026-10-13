@@ -374,10 +374,10 @@ describe('the sign-in page', () => {
     // Sign-up is the same door: the page says so (02/10/2026).
     expect(page).toContain('Content de vous revoir');
     expect(page).toContain('ou créez votre compte');
-    // The two above the form, who guide and say the errors (sign-in-duo.ts).
+    // BAARALI(11/10/2026): the furry guide uses formal error messages.
     expect(page).toContain('class="duo-stage"');
-    expect(page).toContain('Hmm, il est où le @\u00a0?');
-    expect(page).toContain('Ce code ne marche pas');
+    expect(page.includes('Ajoutez le signe @ et le domaine.')).toBe(true);
+    expect(page.includes('Code incorrect ou expiré.')).toBe(true);
     // The site is a showcase: nothing sends the person back there.
     expect(page).not.toContain('Retour à l’accueil');
     // A code or a password (02/10/2026).

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { KIT_DOC } from './motion-kit.js';
+import { CAD_SKILL_SECTION } from './cad-skill.js';
 
 // Prepares an instance workdir before rowboat-server boots (roadmap phase 0,
 // 30/09/2026). Only files the upstream already reads are written, in their
@@ -83,7 +84,7 @@ When it succeeds, show the saved path in a \`\`\`filepath code block, with one s
 // voice and music from the media server. Rendering comes with the render service.
 export const MOTION_SKILL = `---
 name: Motion design
-description: Make motion design and motion graphics — an animated promo or ad, kinetic typography, an animated logo, animated figures or charts, word-by-word captions, a lower third, a countdown, a social video for TikTok, Reels, WhatsApp Status or YouTube — exact text, prices and logo, in the user's brand. Load whenever the user asks for an animation, a motion design, an animated video or post, an animated text or logo, or captions.
+description: Make motion design, motion graphics and parametric 3D product models with CadQuery — an animated promo or ad, kinetic typography, an animated logo, animated figures or charts, word-by-word captions, a lower third, a countdown, a social video for TikTok, Reels, WhatsApp Status or YouTube — exact text, prices and logo, in the user's brand. Load whenever the user asks for an animation, a motion design, an animated video or post, an animated text or logo, captions, a CAD model or a dimensional 3D object.
 tools: [listMcpTools, executeMcpTool, file-readText, file-editText, file-writeText, file-list, file-copy]
 ---
 
@@ -203,7 +204,7 @@ export async function seedWorkdir(opts: SeedOptions): Promise<void> {
     await writeJson(mcpFile, { ...mcp, mcpServers: { ...servers, [MOTION_SERVER_NAME]: { type: 'stdio', ...opts.motionServer } } });
     const skillDir = path.join(opts.workDir, 'skills', MOTION_SKILL_DIR);
     await fs.mkdir(skillDir, { recursive: true });
-    await fs.writeFile(path.join(skillDir, 'SKILL.md'), MOTION_SKILL);
+    await fs.writeFile(path.join(skillDir, 'SKILL.md'), MOTION_SKILL + CAD_SKILL_SECTION);
   }
 
   // Ours, rewritten on every boot like the media skill.

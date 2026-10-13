@@ -51,11 +51,13 @@ describe('the baarasseurs (06/10/2026)', () => {
     });
 
     it('remembers a rule once, keeps the rest of the file, and shows it in the next prompt', async () => {
-        await write([mariama, { id: 'ibrahim', name: 'Ibrahim', createdAt: 'x', extra: 1 }]);
+        // BAARALI(11/10/2026): learning a rule must preserve the avatar selected in the app.
+        await write([{ ...mariama, avatar: 'street' }, { id: 'ibrahim', name: 'Ibrahim', createdAt: 'x', extra: 1 }]);
         expect(await rememberFor('mariama', '  Livraison offerte   au-delà de 50 sacs ')).toEqual(['Livraison offerte au-delà de 50 sacs']);
         expect(await rememberFor('mariama', 'Livraison offerte au-delà de 50 sacs')).toHaveLength(1);
         expect(await rememberFor('nobody', 'x')).toBeNull();
         const raw = JSON.parse(await fs.readFile(path.join(workDir, 'config', 'baarasseurs.json'), 'utf8'));
+        expect(raw.baarasseurs[0].avatar).toBe('street');
         expect(raw.baarasseurs[1]).toEqual({ id: 'ibrahim', name: 'Ibrahim', createdAt: 'x', extra: 1 });
         const agent = await loadAgent('baarasseur-mariama');
         expect(agent.instructions).toContain('- Livraison offerte au-delà de 50 sacs');

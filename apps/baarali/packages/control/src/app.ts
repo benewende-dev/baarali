@@ -198,6 +198,15 @@ export function createApp(deps: ControlDeps) {
   app.use('/v1/llm/*', authed);
   app.use('/v1/media/*', authed);
   app.use('/v1/motion/*', authed);
+  // BAARALI(13/10/2026): Studio belongs to Work. Media credits do not
+  // unlock Studio; existing exports remain readable after a downgrade.
+  app.use('/v1/motion/*', async (c, next) => {
+    if (c.req.method === 'POST') {
+      const plan = await deps.store.plan(c.get('account').planId);
+      if (plan?.category !== 'starter' && plan?.category !== 'pro') return c.json({ error: { code: 'work_plan_required', message: 'Work requires an active paid plan.' } }, 403);
+    }
+    await next();
+  });
   app.use('/v1/spaces/*', authed);
   app.use('/v1/voice/*', authed);
   app.use('/v1/announcement', authed);

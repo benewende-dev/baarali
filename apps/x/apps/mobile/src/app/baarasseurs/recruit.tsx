@@ -10,6 +10,8 @@ import { baarasseurs as shared } from '@x/shared';
 import { BaarasseurAvatar, phoneLang, useBaarasseurs, useTint, type Baarasseur } from '@/lib/baarasseurs';
 import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
+import { AvatarTile } from '@/components/agent-avatar';
+import { preferredAgentAvatar } from '@/lib/agent-avatar-preference';
 
 // BAARALI(06/10/2026): recruiting (or editing) a baarasseur on the phone, as
 // the validated mockup draws it: a sentence the Mac turns into the form, the
@@ -51,7 +53,14 @@ export default function RecruitScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing?.id, params.template]);
   const [b, setB] = useState<Baarasseur>(initial);
+  const [avatarChanged, setAvatarChanged] = useState(false);
   useEffect(() => setB(initial), [initial]);
+  useEffect(() => {
+    if (!isNew || params.template || avatarChanged) return;
+    let alive = true;
+    void preferredAgentAvatar().then((avatar) => { if (alive) setB((cur) => ({ ...cur, avatar })); });
+    return () => { alive = false; };
+  }, [isNew, params.template, avatarChanged]);
   const set = (patch: Partial<Baarasseur>) => setB((cur) => ({ ...cur, ...patch }));
 
   const [sentence, setSentence] = useState('');
@@ -160,7 +169,7 @@ export default function RecruitScreen() {
 
         <View style={group}>
           <View style={[rowStyle, { paddingVertical: 12 }]}>
-            <BaarasseurAvatar b={{ name: b.name || '?', color: b.color }} size={52} />
+            <BaarasseurAvatar b={{ name: b.name || '?', color: b.color, avatar: b.avatar }} size={52} />
             <View style={{ flex: 1, gap: 4 }}>
               <TextInput value={b.name} onChangeText={(name) => set({ name })} placeholder="Name" placeholderTextColor={colors.tertiaryLabel} maxLength={40}
                 style={{ fontSize: 17, fontWeight: '600', color: colors.label }} accessibilityLabel="Name" />
@@ -170,6 +179,24 @@ export default function RecruitScreen() {
           </View>
           <View style={[rowStyle, { borderBottomWidth: 0, gap: 8 }]} accessibilityRole="radiogroup" accessibilityLabel="Colour">
             {shared.COLORS.map((c) => <Swatch key={c} color={c} on={b.color === c} onPress={() => set({ color: c })} />)}
+          </View>
+        </View>
+
+        <View>
+          <Text style={label}>Agent avatar</Text>
+          <View accessibilityRole="radiogroup" accessibilityLabel="Choose an avatar" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {shared.AGENT_AVATARS.map((choice) => (
+              <Pressable key={choice.id} accessibilityRole="radio" aria-checked={b.avatar === choice.id} accessibilityLabel={choice.label} accessibilityState={{ checked: b.avatar === choice.id }}
+                onPress={() => { setAvatarChanged(true); set({ avatar: choice.id }); }}
+                style={{ width: '30%', flexGrow: 1, minHeight: 98, maxWidth: '33%', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 8, borderRadius: 16, backgroundColor: colors.background, borderWidth: 2, borderColor: b.avatar === choice.id ? colors.accent : 'transparent' }}>
+                <AvatarTile avatar={choice.id} size={58} />
+                <Text style={{ fontSize: 12, color: colors.label }}>{choice.label}</Text>
+              </Pressable>
+            ))}
+            <Pressable accessibilityRole="radio" aria-checked={!b.avatar} accessibilityState={{ checked: !b.avatar }} onPress={() => { setAvatarChanged(true); set({ avatar: undefined }); }}
+              style={{ minHeight: 44, width: '100%', justifyContent: 'center', paddingHorizontal: 12 }}>
+              <Text style={{ fontSize: 14, color: colors.accent }}>Use initials</Text>
+            </Pressable>
           </View>
         </View>
 

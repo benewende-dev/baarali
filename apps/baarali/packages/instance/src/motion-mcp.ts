@@ -4,6 +4,7 @@ import { compose, contrast, DEFAULT_BRAND, FORMATS, isPrint, PALETTE_LIMIT, PRIN
 import type { ToolDef, ToolResult } from './media-mcp.js';
 import { CAPTIONS_FILE, CAPTIONS_START, captionsBlock, findVoice, injectCaptions, POSITIONS, rootOf, type CaptionsFile, type CaptionWord, type Position } from './motion-captions.js';
 import { audioClips, fittedLane, isMusic, speechSpans, withLane } from './motion-mix.js';
+import { createCadTools, type CadOptions } from './cad-mcp.js';
 
 // The Studio Motion's tools (decided 08/10/2026): an MCP server the instance
 // registers beside baarali-media, so every chat — the assistant, each
@@ -22,6 +23,7 @@ export const BRAND_FILE = 'config/brand.json';
 export interface MotionToolsDeps {
   workDir: string;
   now: () => number;
+  cad?: CadOptions;
   /** The control plane, for exports; unset: `render` says export is unavailable. */
   control?: { url: string; token: string; fetch: typeof fetch; sleep: (ms: number) => Promise<void> };
 }
@@ -520,8 +522,10 @@ export function createMotionTools(deps: MotionToolsDeps) {
   }
 
   const rel = (dir: string) => path.relative(deps.workDir, dir);
+  const cad = createCadTools({ ...deps.cad, workDir: deps.workDir, readBrand });
 
   async function run(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+    if (cad.tools.some(tool => tool.name === name)) return cad.run(name, args);
     if (name === 'brand_kit') {
       const current = await readBrand();
       const set = args.set as Partial<BrandKit> | undefined;
@@ -994,5 +998,5 @@ export function createMotionTools(deps: MotionToolsDeps) {
     return text(`Unknown tool: ${name}`, true);
   }
 
-  return { tools: MOTION_TOOLS, run };
+  return { tools: [...MOTION_TOOLS, ...cad.tools], run };
 }

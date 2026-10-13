@@ -33,7 +33,9 @@ await seedWorkdir({
   motionServer: {
     command: process.execPath,
     args: [fileURLToPath(new URL('./motion-mcp-main.js', import.meta.url))],
-    env: { ROWBOAT_WORKDIR: workDir, API_URL: required('API_URL') },
+    // BAARALI(13/10/2026): MCP stdio keeps a limited environment, so the
+    // dedicated CAD interpreter must be passed explicitly to this server.
+    env: { ROWBOAT_WORKDIR: workDir, API_URL: required('API_URL'), BAARALI_CAD_PYTHON: process.env.BAARALI_CAD_PYTHON ?? 'python3' },
   },
 });
 

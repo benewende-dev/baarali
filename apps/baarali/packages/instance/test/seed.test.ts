@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { CAD_SKILL_SECTION } from '../src/cad-skill.js';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -149,7 +150,7 @@ describe('seedWorkdir', () => {
     const mcp = JSON.parse(await fs.readFile(path.join(dir, 'config', 'mcp.json'), 'utf8'));
     expect(Object.keys(mcp.mcpServers)).toEqual(['baarali-media', 'baarali-motion']);
     expect(mcp.mcpServers['baarali-motion']).toEqual({ type: 'stdio', ...motionServer });
-    expect(await fs.readFile(path.join(dir, 'skills', 'baarali-motion', 'SKILL.md'), 'utf8')).toBe(MOTION_SKILL);
+    expect(await fs.readFile(path.join(dir, 'skills', 'baarali-motion', 'SKILL.md'), 'utf8')).toBe(MOTION_SKILL + CAD_SKILL_SECTION);
     expect(MOTION_SKILL).toContain('Never GSAP');
     expect(MEDIA_SKILL).toContain('nor for motion design');
   });

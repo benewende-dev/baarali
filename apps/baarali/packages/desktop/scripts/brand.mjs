@@ -335,6 +335,16 @@ export function corePlan() {
   return {
     edits: [
       edit(`${core}/runtime/assembly/compose-instructions.ts`, 'const USER_CONTEXT_SYSTEM_INSTRUCTIONS = `# Hidden User Context', `const USER_CONTEXT_SYSTEM_INSTRUCTIONS = \`${LANGUAGE.replace(/`/g, '\\`')}# Hidden User Context`),
+      edit("apps/x/apps/server/src/router.ts", "import { isRpcChannel, type RpcHandlers } from './channels.js';", "import { isRpcChannel, type RpcHandlers } from './channels.js';\nimport { requireWorkChannel, WorkAccessError, WorkCheckError } from '@x/core/dist/baarali/work-runtime.js';"),
+      edit("apps/x/apps/server/src/router.ts", "    try {\n      // eslint-disable-next-line @typescript-eslint/no-explicit-any", "    try {\n      await requireWorkChannel(channel, args);\n      // eslint-disable-next-line @typescript-eslint/no-explicit-any"),
+      edit("apps/x/apps/server/src/router.ts", "    } catch (err) {\n      const message = err instanceof Error ? err.message : String(err);", "    } catch (err) {\n      if (err instanceof WorkAccessError || err instanceof WorkCheckError) return c.json({ error: { code: err.code, message: err.message } }, err.status);\n      const message = err instanceof Error ? err.message : String(err);"),
+      edit(`${core}/runtime/assembly/registry.ts`, "export async function loadAgent(id: string): Promise<z.infer<typeof Agent>> {", "export async function loadAgent(id: string): Promise<z.infer<typeof Agent>> {\n    if (!Object.hasOwn(builtinAgents, id)) {\n        const { requireWork } = await import(\"../../baarali/work-runtime.js\");\n        await requireWork();\n    }"),
+      edit(`${core}/runtime/assembly/headless.ts`, "    async start(options: HeadlessAgentOptions): Promise<HeadlessAgentHandle> {", "    async start(options: HeadlessAgentOptions): Promise<HeadlessAgentHandle> {\n        if (options.subUseCase === \"scheduled\" || options.useCase === \"background_task_agent\" || options.useCase === \"live_note_agent\" || options.useCase === \"todo_item_agent\") {\n            const { requireWork } = await import(\"../../baarali/work-runtime.js\");\n            await requireWork();\n        }"),
+      edit(`${core}/runtime/tools/catalog.ts`, "// Native ToolDescriptors for a skill's declared tools.", "// BAARALI(13/10/2026): Work tools stay paid even when invoked from Chat,\n// a loaded skill, a legacy run or a resumed task. Preserve catalog order.\nfor (const name of new Set([\n    ...Object.keys(shellTools), ...Object.keys(codeAgentRunTools), ...Object.keys(codeTaskTools),\n    ...Object.keys(backgroundTaskTools), ...Object.keys(todoTools), ...Object.keys(baarasseurTools),\n    ...Object.keys(liveNoteTools), ...Object.keys(appDataTools), \"addMcpServer\", SPAWN_AGENT_TOOL_NAME,\n])) {\n    const tool = BuiltinTools[name];\n    const execute = tool?.execute;\n    if (execute) tool.execute = async (input, ctx) => {\n        const { requireWork } = await import(\"../../baarali/work-runtime.js\");\n        await requireWork();\n        return execute(input, ctx);\n    };\n}\n\n// Native ToolDescriptors for a skill's declared tools."),
+      edit(`${core}/runtime/turns/bridges/real-tool-registry.ts`, "                    return runSpawnedAgent(input, {", "                    const { requireWork } = await import(\"../../../baarali/work-runtime.js\");\n                    await requireWork();\n                    return runSpawnedAgent(input, {"),
+      edit(`${core}/mcp/mcp.ts`, "export async function executeTool(serverName: string, toolName: string, input: Record<string, unknown>): Promise<unknown> {", "export async function executeTool(serverName: string, toolName: string, input: Record<string, unknown>): Promise<unknown> {\n    const { freeMediaServer, requireWork } = await import(\"../baarali/work-runtime.js\");\n    if (!freeMediaServer(serverName)) await requireWork();"),
+      edit(`${core}/runtime/tools/exec-tool.ts`, "    switch (agentTool.type) {", "    const { reservedWorkPath, requireWork } = await import(\"../../baarali/work-runtime.js\");\n    if (agentTool.type === \"builtin\" && [\"file-writeText\", \"file-editText\", \"file-remove\", \"file-rename\", \"file-copy\", \"file-mkdir\"].includes(agentTool.name) && [input.path, input.from, input.to].some(reservedWorkPath)) await requireWork();\n\n    switch (agentTool.type) {"),
+
       // The first to-do list a person sees, written into their todo.md once.
       edit(
         `${core}/todo/fileops.ts`,
@@ -372,14 +382,34 @@ export function corePlan() {
         "items.find(t => /planner|planificateur/.test(t.name.toLowerCase()) || /planner|planificateur/.test(t.slug))",
       ),
     ],
+    copies: [
+      ['assets/mobile/work-access.ts', `${core}/baarali/work-access.ts`],
+      ['assets/mobile/work-policy.ts', `${core}/baarali/work-policy.ts`],
+      ['assets/work-runtime.ts', `${core}/baarali/work-runtime.ts`],
+    ],
   };
 }
+
 
 export function desktopPlan() {
   const main = 'apps/x/apps/main';
   const renderer = 'apps/x/apps/renderer/src';
   return {
     edits: [
+      edit("apps/x/apps/main/src/ipc.ts", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';\nimport { requireWorkChannel } from '@x/core/dist/baarali/work-runtime.js';"),
+      edit(`${renderer}/components/motion-studio.tsx`, "import '@hyperframes/player'", "import '@hyperframes/player'\nimport { isMotionImage, canPreviewMotionExport } from './motion-export-image'\nimport { CadEditor } from './cad-editor'"),
+      edit(`${renderer}/components/motion-studio.tsx`, '<button type="button" onClick={onReload}', '<CadEditor onProject={onProject} />\n        <button type="button" onClick={onReload}'),
+      edit(`${renderer}/components/motion-studio.tsx`, '<ExportPanel project={project}', '<CadEditor project={project} onProject={onProject} />\n          <ExportPanel project={project}'),
+      edit(`${renderer}/components/motion-studio.tsx`, '    if (!holder) return', '    if (!holder || (watching && isMotionImage(watching))) return'),
+      edit(`${renderer}/components/motion-studio.tsx`, '<div ref={holderRef} className="absolute inset-0" />', '<div ref={holderRef} className="absolute inset-0">{watching && isMotionImage(watching) ? <img src={url(watching)} alt="Export preview" className="h-full w-full object-contain" /> : null}</div>'),
+      edit(`${renderer}/components/motion-studio.tsx`, '<button type="button" aria-label="Play" onClick={() => setWatching(f.path)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground"><PlayIcon className="size-3" /></button>', '{canPreviewMotionExport(f.path) && <button type="button" aria-label="Play" onClick={() => setWatching(f.path)} className="rounded border border-border p-1 text-muted-foreground hover:text-foreground"><PlayIcon className="size-3" /></button>}'),
+      edit("apps/x/apps/main/src/ipc.ts", "      // Call handler (or the migrated channel's HTTP twin)", "      if (!forwarded) await requireWorkChannel(channel, args);\n\n      // Call handler (or the migrated channel's HTTP twin)"),
+
+      edit(`${renderer}/components/plans-dialog.tsx`, "import type { BillingInfo, PlanOffer, PlanOffers } from '@x/shared/src/billing.js'", "import type { BillingInfo, PlanOffer, PlanOffers } from '@x/shared/src/billing.js'\nimport { withPlanAccess } from '@/lib/plan-access-copy'"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "                setOffers(result)", "                setOffers(result ? withPlanAccess(result) : null)"),
+      edit(`${renderer}/components/settings/account-settings.tsx`, "import { openPlans } from '@/lib/plans-window'", "import { openPlans } from '@/lib/plans-window'\nimport { withPlanAccess } from '@/lib/plan-access-copy'"),
+      edit(`${renderer}/components/settings/account-settings.tsx`, "setOffers(result?.plans ?? null)", "setOffers(result ? withPlanAccess(result).plans : null)"),
+
       edit(`${main}/forge.config.cjs`, "appBundleId: 'com.rowboat.app',", `appBundleId: '${BRAND.bundleId}',`),
       edit(`${main}/forge.config.cjs`, "authors: 'rowboatlabs',", `authors: '${BRAND.publisher}',`),
       edit(
@@ -469,8 +499,26 @@ export function desktopPlan() {
       edit(`${renderer}/hooks/useMeetingTranscription.ts`, 'if (exists) notePath = `knowledge/Meetings/rowboat/${dateFolder}/${filename}-${timestamp}.md`;', 'if (exists) notePath = `knowledge/Meetings/baarali/${dateFolder}/${filename}-${timestamp}.md`;'),
       edit(`${renderer}/components/todo-view.tsx`, '<Bot className="size-3" />\n              rowboat\n', '<Bot className="size-3" />\n              baarali\n'),
       edit(`${renderer}/components/spaces/composer-editor.ts`, "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'rowboat' })", "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'baarali' })"),
+      // BAARALI(11/10/2026): Chargement keeps the B compact and readable
+      // throughout page and chat waits, as requested by the founder.
+      edit(`${renderer}/components/work-steps.tsx`, "import * as React from 'react'", "import * as React from 'react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
+      edit(`${renderer}/components/work-steps.tsx`, '<span className="text-foreground">Baarali is working…</span>', '<BaaraliMark motion="loading" size={32} className="text-foreground" />\n            <span className="text-foreground">Baarali is working…</span>'),
+      edit(`${renderer}/components/reasoning-row.tsx`, "import { ChevronDownIcon, LoaderIcon } from 'lucide-react'", "import { ChevronDownIcon } from 'lucide-react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
+      edit(`${renderer}/components/reasoning-row.tsx`, '<span className={quietRowGlyphSlotClass}>', '<span className={cn(quietRowGlyphSlotClass, isStreaming && "!h-8 !w-8")}>'),
+      edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={32} className="text-foreground" />'),
     ],
     copies: [
+      ['../control/src/plan-access-copy.ts', `${renderer}/lib/plan-access-copy.ts`],
+      ['../control/src/oval-b.ts', `${renderer}/lib/baarali-oval-motion.ts`],
+      ['assets/motion/baarali-mark.tsx', `${renderer}/components/baarali-mark.tsx`],
+      ['assets/motion/motion-export-image.ts', `${renderer}/components/motion-export-image.ts`],
+      ['assets/motion/cad-editor.tsx', `${renderer}/components/cad-editor.tsx`],
+      ['assets/motion/cad-editor-page.ts', `${renderer}/components/cad-editor-page.ts`],
+      ['assets/motion/cad-editor-client.ts', `${renderer}/components/cad-editor-client.ts`],
+      ['../instance/src/cad-scene.ts', `${renderer}/components/cad-scene.ts`],
+      ['assets/motion/baarali-logo.tsx', `${renderer}/components/baarali-logo.tsx`],
+      ['assets/motion/turn-activity-indicator.tsx', `${renderer}/components/turn-activity-indicator.tsx`],
+      ['assets/motion/onboarding-duo.tsx', `${renderer}/components/baarali-onboarding/duo.tsx`],
       ['assets/icon.icns', `${main}/icons/icon.icns`],
       ['assets/icon.ico', `${main}/icons/icon.ico`],
       ['assets/icon.png', `${main}/icons/icon.png`],
@@ -542,15 +590,42 @@ export function mobilePlan() {
   const mobile = 'apps/x/apps/mobile';
   return {
     edits: [
+      edit(`${mobile}/src/app/_layout.tsx`, "    </GestureHandlerRootView>", "      </AppThemeProvider>\n    </GestureHandlerRootView>"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />", "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />\n            <Stack.Screen name=\"plans\" options={{ title: 'Plans' }} />"),
+      edit(`${mobile}/src/lib/voice.ts`, "import { useCallback, useEffect, useRef, useState } from 'react';", "import { useCallback, useEffect, useRef, useState } from 'react';\nimport { DeviceEventEmitter } from 'react-native';"),
+      edit(`${mobile}/src/lib/voice.ts`, "  const set = useCallback((next: boolean) => {", "  useEffect(() => { const sub = DeviceEventEmitter.addListener('baarali:readAloud', setOn); return () => sub.remove(); }, []);\n  const set = useCallback((next: boolean) => {"),
+      edit(`${mobile}/src/lib/voice.ts`, "    setOn(next);\n    if (!next)", "    setOn(next);\n    DeviceEventEmitter.emit('baarali:readAloud', next);\n    if (!next)"),
+      edit(`${mobile}/src/app/inbox.tsx`, "  // The plan and the week's use live in Settings on the phone.\n  else if (n.target === 'plans' || n.target === 'usage') router.push('/settings');", "  // BAARALI(13/10/2026): mobile notifications open the same quota or offer shown on desktop.\n  else if (n.target === 'plans') router.push('/plans');\n  else if (n.target === 'usage') router.push({ pathname: '/settings', params: { section: 'usage' } });"),
+      edit(`${mobile}/src/components/announcement-banner.tsx`, "  // The plan and the week's use live in Settings on the phone.\n  else if (a.target === 'plans' || a.target === 'usage') router.push('/settings');", "  // BAARALI(13/10/2026): mobile notifications open the same quota or offer shown on desktop.\n  else if (a.target === 'plans') router.push('/plans');\n  else if (a.target === 'usage') router.push({ pathname: '/settings', params: { section: 'usage' } });"),
       // The accent: the brand's blue on the system's neutrals, as on the desktop.
-      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#000000',\n  onAccent: '#ffffff',", "  accent: '#1a6dff',\n  onAccent: '#ffffff',"),
-      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#ffffff',\n  onAccent: '#000000',", "  accent: '#4d8dff',\n  onAccent: '#ffffff',"),
-      // The upstream's sailboat, its logo, becomes ours (tinted like a symbol).
-      // The mark as it is, the blue tile (02/10/2026): drawn in one tint, it
-      // read black by day and white by night.
-      edit(`${mobile}/src/app/onboarding.tsx`, "    icon: 'sf:sailboat',", "    icon: require('../../assets/images/baarali-tile.png'),"),
-      edit(`${mobile}/src/app/onboarding.tsx`, '<Image source={slide.icon} style={{ width: 64, height: 64, marginBottom: 8 }} tintColor={colors.label} />', "<Image source={slide.icon} style={{ width: 64, height: 64, marginBottom: 8 }} tintColor={typeof slide.icon === 'string' ? colors.label : undefined} />"),
-      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, '<Image source="sf:sailboat" style={{ width: 48, height: 48 }} tintColor={colors.label} />', "<Image source={require('../../../../assets/images/baarali-tile.png')} style={{ width: 48, height: 48 }} />"),
+      // BAARALI(12/10/2026): normal-size action labels need 4.5:1 contrast;
+      // dark mode keeps a brighter blue with dark text, including chat bubbles.
+      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#000000',\n  onAccent: '#ffffff',", "  accent: '#196bff',\n  onAccent: '#ffffff',"),
+      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#ffffff',\n  onAccent: '#000000',", "  accent: '#4d8dff',\n  onAccent: '#000000',"),
+      // BAARALI(12/10/2026): Expo config uses a global status bar, so its
+      // declarative component follows appearance changes across all routes.
+      edit(`${mobile}/src/app/_layout.tsx`, "import * as SplashScreen from 'expo-splash-screen';", "import * as SplashScreen from 'expo-splash-screen';\nimport { StatusBar } from 'expo-status-bar';\nimport { AppThemeProvider } from '@/lib/app-theme';"),
+      edit(`${mobile}/src/app/_layout.tsx`, "    <GestureHandlerRootView style={{ flex: 1 }}>", "    <GestureHandlerRootView style={{ flex: 1 }}>\n      <AppThemeProvider>\n      <StatusBar style=\"auto\" />"),
+      // BAARALI(13/10/2026): Work checks paid plan entitlement at its own
+      // routes, including deep links, before protected children mount.
+      edit(`${mobile}/src/app/_layout.tsx`, "import { SpacesAccountProvider } from '@/lib/spaces/account';", "import { SpacesAccountProvider } from '@/lib/spaces/account';\nimport { WorkAccessProvider } from '@/lib/work-access-provider';"),
+      edit(`${mobile}/src/app/_layout.tsx`, '          <PushRegistrar />', '          <WorkAccessProvider>\n          <PushRegistrar />'),
+      edit(`${mobile}/src/app/_layout.tsx`, '          </SpacesAccountProvider>', '          </WorkAccessProvider>\n          </SpacesAccountProvider>'),
+      ...[['tasks', 'TasksScreen'], ['routines', 'RoutinesScreen'], ['projects', 'ProjectsScreen'], ['apps', 'AppsScreen']].flatMap(([route, name]) => [
+        edit(`${mobile}/src/app/${route}.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { WorkGate } from '@/components/work-gate';"),
+        edit(`${mobile}/src/app/${route}.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate chrome={false}><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
+      ]),
+      ...[['baarasseurs', 'BaarasseursLayout'], ['notes', 'NotesLayout']].flatMap(([route, name]) => [
+        edit(`${mobile}/src/app/${route}/_layout.tsx`, "import { BackButton } from '@/components/back-button';", "import { BackButton } from '@/components/back-button';\nimport { WorkGate } from '@/components/work-gate';"),
+        edit(`${mobile}/src/app/${route}/_layout.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
+      ]),
+      edit(`${mobile}/src/app/projects.tsx`, 'params: { id: sessionId }', "params: { id: sessionId, mode: 'work' }"),
+      edit(`${mobile}/src/app/projects.tsx`, 'params: { id: c.id }', "params: { id: c.id, mode: 'work' }"),
+      edit(`${mobile}/src/app/apps.tsx`, "params: { id: '', draft: text }", "params: { id: '', draft: text, mode: 'work' }"),
+      edit(`${mobile}/src/app/routines.tsx`, "params: { id: '' }", "params: { id: '', mode: 'work' }"),
+      edit(`${mobile}/src/app/studio.tsx`, "params: { id: params.chat ?? '', draft }", "params: { id: params.chat ?? '', draft, mode: 'work' }"),
+      // BAARALI(11/10/2026): the approved furry sign-in guide owns its image;
+      // the previous welcome-page sailboat anchor is no longer on this route.
       // Never the upstream's Spaces fleet: ours (decided 02/10/2026,
       // packages/spaces). A build with EXPO_PUBLIC_SPACES_APEX empty opens on
       // « Connect your Mac » and Spaces says it is coming.
@@ -562,20 +637,191 @@ export function mobilePlan() {
       ),
       edit(`${mobile}/src/app/index.tsx`, "import { ONBOARDED_KEY } from './onboarding';", "import { ONBOARDED_KEY } from './onboarding';\nimport { APEX_URL } from '@/lib/spaces/account';"),
       edit(`${mobile}/src/app/index.tsx`, "<Redirect href={onboarded ? '/spaces' : '/onboarding'} />", "<Redirect href={onboarded ? (APEX_URL ? '/spaces' : '/pairing') : '/onboarding'} />"),
-      edit(`${mobile}/src/app/onboarding.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { APEX_URL } from '@/lib/spaces/account';"),
-      edit(`${mobile}/src/app/onboarding.tsx`, "    router.replace('/spaces');", "    router.replace(APEX_URL ? '/spaces' : '/pairing');"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { APEX_URL } from '@/lib/spaces/account';"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "    router.replace('/spaces');", "    router.replace(APEX_URL ? '/spaces' : '/pairing');"),
+      // BAARALI(11/10/2026): Chargement accompanies onboarding and chat
+      // without unfolding across the page. Avatars keep their own images.
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "import { BaaraliMascot, BaaraliMascotImage } from '@/components/baarali-mascot';", "import { BaaraliMark } from '@/components/baarali-mark';"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, '<BaaraliMascotImage size={32} />', '<BaaraliMark size={32} motion="loading" color="#FFFFFF" />'),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, '<BaaraliMascot size={70} motion="focus" />', '<BaaraliMark size={48} motion="loading" color="#FFFFFF" />'),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, '<BaaraliMascot size={mascotSize} motion="welcome" />', '<BaaraliMark size={mascotSize} motion="loading" color="#FFFFFF" />'),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, '<BaaraliMascot size={62} motion="success" />', '<BaaraliMark size={62} motion="loading" color="#FFFFFF" />'),
+      // BAARALI(12/10/2026): the approved B also guides sign-in; keep the form
+      // and its live instructions attached to the existing account flow.
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, "import { BaaraliMascot, type MascotMotion } from './baarali-mascot';", "import { BaaraliMark } from './baarali-mark';\nimport { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';"),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, '{hint}</Text>', '{translate(hint)}</Text>'),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, "import { useState } from 'react';\n", ''),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, '  const [focused, setFocused] = useState(false);\n', ''),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, "  const motion: MascotMotion = error ? 'error' : busy ? 'waiting' : step === 'code' && code.length === 6 ? 'success' : focused ? 'focus' : step === 'code' ? 'idle' : 'welcome';\n", ''),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, '<BaaraliMascot size={168} motion={motion} />', '<BaaraliMark size={168} motion="loading" />'),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, 'onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} placeholderTextColor={colors.tertiaryLabel}\n              autoCapitalize=', 'placeholderTextColor={colors.tertiaryLabel}\n              autoCapitalize='),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, 'onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} placeholderTextColor={colors.tertiaryLabel}\n              keyboardType=', 'placeholderTextColor={colors.tertiaryLabel}\n              keyboardType='),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, 'onPress={() => { setFocused(false); onChange(); }}', 'onPress={onChange}'),
+      // BAARALI(13/10/2026): Chat / Work and the sidebar replace
+      // bottom navigation. Deeper team and email routes keep native back.
+      edit(`${mobile}/src/app/_layout.tsx`, "import { BackButton } from '@/components/back-button';", "import { TopNavigation } from '@/components/top-navigation';"),
+      edit(`${mobile}/src/app/_layout.tsx`, '                headerLeft: () => <BackButton />,', "                header: ({ route }) => <TopNavigation mode={(route.params as { mode?: string } | undefined)?.mode === 'work' ? 'work' : 'chat'} />,"),
+      edit(`${mobile}/src/app/(tabs)/email/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack } from 'expo-router';\nimport { TopNavigation } from '@/components/top-navigation';"),
+      edit(`${mobile}/src/app/(tabs)/email/_layout.tsx`, "options={{ title: 'Email', headerLargeTitle: true }}", "options={{ title: 'Email', header: () => <TopNavigation mode=\"work\" /> }}"),
+      edit(`${mobile}/src/app/chat.tsx`, "  const top = embedded ? 8 : insets.top + 52;", "  const top = embedded ? 8 : insets.top + (baarasseur && id ? 100 : 60);"),
+      edit(`${mobile}/src/app/chat.tsx`, "top: insets.top + 6, left: 64, right: 16", "top: insets.top + 56, left: 20, right: 16"),
+      edit(`${mobile}/src/app/studio.tsx`, "import { phoneLang } from '@/lib/baarasseurs';", "import { phoneLang } from '@/lib/baarasseurs';\nimport { StudioLibrary } from '@/components/studio-library';"),
+      edit(`${mobile}/src/app/studio.tsx`, "import { StudioLibrary } from '@/components/studio-library';", "import { StudioLibrary } from '@/components/studio-library';\nimport { StudioCadFiles } from '@/components/studio-cad-files';"),
+      edit(`${mobile}/src/app/studio.tsx`, '<Button label="Retouch" onPress={() => retouch(fr ? `Dans « ${name} », ` : `In « ${name} », `)} />\n      </View>', '<Button label="Retouch" onPress={() => retouch(fr ? `Dans « ${name} », ` : `In « ${name} », `)} />\n      </View>\n      <StudioCadFiles project={project} onProject={(next) => { setTime(0); setPlaying(false); setProject(next); }} />'),
+      edit(`${mobile}/src/app/studio.tsx`, 'export default function StudioScreen() {', 'export default function StudioScreen() {\n  const { project } = useLocalSearchParams<{ project?: string }>();\n  return project ? <StudioProjectScreen /> : <StudioLibrary />;\n}\n\nfunction StudioProjectScreen() {'),
+      edit(`${mobile}/src/app/studio.tsx`, "import { StudioLibrary } from '@/components/studio-library';", "import { StudioLibrary } from '@/components/studio-library';\nimport { WorkGate } from '@/components/work-gate';"),
+      edit(`${mobile}/src/app/studio.tsx`, '  return project ? <StudioProjectScreen /> : <StudioLibrary />;', '  return <WorkGate>{project ? <StudioProjectScreen /> : <StudioLibrary />}</WorkGate>;'),
+      edit(`${mobile}/src/components/turn-view.tsx`, "import { useState } from 'react';", "import { useState } from 'react';\nimport { BaaraliMark } from './baarali-mark';\nimport { useColors } from '@/theme/colors';"),
+      edit(`${mobile}/src/components/turn-view.tsx`, "import { ChatMarkdown } from './markdown';", "import { ChatMarkdown } from './markdown';\nimport { ReplyActions } from './reply-actions';"),
+      edit(`${mobile}/src/components/turn-view.tsx`, '  onAskHuman?: (toolCallId: string, answer: string) => void;', '  onAskHuman?: (toolCallId: string, answer: string) => void;\n  onRetry?: () => void;'),
+      edit(`${mobile}/src/components/turn-view.tsx`, 'export function TurnView({ state, liveText, streaming, onPermission, onAskHuman }: TurnViewProps)', 'export function TurnView({ state, liveText, streaming, onPermission, onAskHuman, onRetry }: TurnViewProps)'),
+      edit(`${mobile}/src/components/turn-view.tsx`, '          {answerCall.error && <Text style={styles.error}>{answerCall.error}</Text>}', '          {answerCall.error && <Text style={styles.error}>{answerCall.error}</Text>}\n          {state.terminal && <ReplyActions text={assistantText(answerCall.response!)} onRetry={onRetry} />}'),
+      edit(`${mobile}/src/components/turn-view.tsx`, "      {state.terminal?.type === 'turn_cancelled' && <Text style={styles.meta}>Stopped.</Text>}", "      {state.terminal?.type === 'turn_cancelled' && <Text style={styles.meta}>Stopped.</Text>}\n      {state.terminal && !answerCall && onRetry && <ReplyActions text=\"\" onRetry={onRetry} />}"),
+      edit(`${mobile}/src/components/turn-view.tsx`, 'function WorkBlock({ steps, active, started, ended }: { steps: PhoneStep[]; active: boolean; started: string; ended?: string }) {', 'function WorkBlock({ steps, active, started, ended, paused }: { steps: PhoneStep[]; active: boolean; started: string; ended?: string; paused: boolean }) {\n  const colors = useColors();'),
+      edit(`${mobile}/src/components/turn-view.tsx`, '          active={!state.terminal && !!streaming}', '          active={!state.terminal && !!streaming}\n          paused={!!suspended}'),
+      edit(`${mobile}/src/components/turn-view.tsx`, '<Text style={styles.workNow}>Baarali is working…</Text>', '<View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><BaaraliMark size={32} motion={paused ? "static" : "loading"} color={colors.label} /><Text style={[styles.workNow, { color: colors.accent }]}>Baarali is working…</Text></View>'),
+      edit(`${mobile}/src/components/turn-view.tsx`, 'streaming && !liveText && !state.terminal && !suspended && (', 'streaming && !liveText && !state.terminal && !suspended && steps.length === 0 && ('),
+      edit(`${mobile}/src/components/turn-view.tsx`, '<Text style={styles.thinking}>Thinking…</Text>', '<View style={styles.workHead} accessible accessibilityRole="text"><BaaraliMark size={32} motion="loading" /><Text style={styles.thinking}>Thinking…</Text></View>'),
+      // BAARALI(12/10/2026): the real chat also waits for its first snapshot
+      // and for send acknowledgement. Both use the approved loading mark.
+      edit(`${mobile}/src/app/chat.tsx`, "import { TurnView } from '@/components/turn-view';", "import { TurnView } from '@/components/turn-view';\nimport { BaaraliMark } from '@/components/baarali-mark';\nimport type { turns } from '@x/shared';"),
+      // Only the home composer's explicit Send starts a turn on opening;
+      // suggestion cards fill a draft for review. Wait for the saved model.
+      edit(`${mobile}/src/lib/use-models.ts`, 'return { providers, defaultChoice, current, display, pick, refresh, loading };', 'return { providers, defaultChoice, current, display, pick, refresh, loading, ready: picked !== undefined };'),
+      edit(`${mobile}/src/app/chat.tsx`, 'id?: string; agent?: string; draft?: string; talk?: string', 'id?: string; agent?: string; draft?: string; talk?: string; submit?: string; mode?: string'),
+      edit(`${mobile}/src/app/chat.tsx`, "import { TurnView } from '@/components/turn-view';", "import { TurnView } from '@/components/turn-view';\nimport { WorkGate } from '@/components/work-gate';"),
+      edit(`${mobile}/src/app/chat.tsx`, '  return (\n    <ChatView', "  return (\n    <WorkGate enabled={params.mode === 'work' || (!!params.agent && params.agent !== 'copilot')} chrome={false}>\n    <ChatView"),
+      edit(`${mobile}/src/app/chat.tsx`, '    />\n  );\n}\n\n/**', '    />\n    </WorkGate>\n  );\n}\n\n/**'),
+      edit(`${mobile}/src/app/chat.tsx`, "      talk={params.talk === '1'}", "      talk={params.talk === '1'}\n      submit={params.submit === '1'}"),
+      edit(`${mobile}/src/app/chat.tsx`, "initialDraft, talk = false }: {", "initialDraft, talk = false, submit = false }: {"),
+      edit(`${mobile}/src/app/chat.tsx`, "  talk?: boolean;\n  /** Text put", "  talk?: boolean;\n  submit?: boolean;\n  /** Text put"),
+      edit(`${mobile}/src/app/chat.tsx`, '  // Seed the model pill\'s label once connected.', '  const submitted = useRef(false);\n  useEffect(() => {\n    if (!submit || !initialDraft?.trim() || !sessions || !models.ready || submitted.current) return;\n    submitted.current = true;\n    void send();\n  }, [submit, initialDraft, sessions, models.ready, send]);\n\n  // Seed the model pill\'s label once connected.'),
+      // Retry is a new turn in the same chat: preserve the full user input
+      // (including attachments) and agent, and honor the current model pick.
+      edit(`${mobile}/src/app/chat.tsx`, 'function Turn({ turnId, isLatest, onStreaming, onFinished }: {', 'function Turn({ turnId, isLatest, onStreaming, onFinished, onRetry }: {'),
+      edit(`${mobile}/src/app/chat.tsx`, '  onStreaming?: (streaming: boolean) => void;', "  onStreaming?: (streaming: boolean) => void;\n  onRetry?: (definition: turns.TurnState['definition']) => void;"),
+      edit(`${mobile}/src/app/chat.tsx`, '      onAskHuman={onAskHuman}', '      onAskHuman={onAskHuman}\n      onRetry={onRetry ? () => onRetry(state.definition) : undefined}'),
+      edit(`${mobile}/src/app/chat.tsx`, '  const stop = useCallback(() => {', '  const retrying = useRef(false);\n  const retry = useCallback(async (definition: turns.TurnState["definition"]) => {\n    if (!id || !sessions || sending || latestStreaming || retrying.current) return;\n    retrying.current = true;\n    setSending(true);\n    setError(null);\n    try {\n      const requested = definition.agent.requested;\n      const model = models.current ? { provider: models.current.provider, model: models.current.model } : undefined;\n      const agent = "inline" in requested ? { inline: { ...requested.inline, model } } : { ...requested, overrides: { ...requested.overrides, model } };\n      await sessions.sendMessage(id, definition.input, { agent });\n      await refresh();\n    } catch (err) {\n      setError(err instanceof Error ? err.message : String(err));\n    } finally {\n      setSending(false);\n      retrying.current = false;\n    }\n  }, [id, sessions, sending, latestStreaming, models.current, refresh]);\n\n  const stop = useCallback(() => {'),
+      edit(`${mobile}/src/app/chat.tsx`, '                onFinished={onFinished}', '                onFinished={onFinished}\n                onRetry={ref.turnId === latestTurnId && !sending && !latestStreaming ? (definition) => void retry(definition) : undefined}'),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { SpaceTabs } from '@/components/space-tabs';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, '      {messages === null && !error ? (', '      <SpaceTabs selected="messages" onMessages={() => {}} onFiles={() => router.push({ pathname: "/spaces/files", params: { org, space, title, me } })} />\n      {messages === null && !error ? ('),
+      edit(`${mobile}/src/app/(tabs)/spaces/files.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { SpaceTabs } from '@/components/space-tabs';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/files.tsx`, 'org: string; space: string; title: string', 'org: string; space: string; title: string; me?: string'),
+      edit(`${mobile}/src/app/(tabs)/spaces/files.tsx`, '  const { org, space, title } = params;', '  const { org, space, title, me } = params;'),
+      edit(`${mobile}/src/app/(tabs)/spaces/files.tsx`, "      <Stack.Screen options={{ title: title ? `${title} files` : 'Files' }} />", "      <Stack.Screen options={{ title: title ? `${title} files` : 'Files' }} />\n      <SpaceTabs selected=\"files\" onFiles={() => {}} onMessages={() => { if (router.canGoBack()) router.back(); else router.replace({ pathname: '/spaces/chat', params: { org, space, title, me: me ?? '' } }); }} />"),
+      edit(`${mobile}/src/app/chat.tsx`, '  if (!state) return <ActivityIndicator style={{ marginVertical: 12 }} />;', '  if (!state) return <View style={{ marginVertical: 12, alignItems: "center" }} accessible accessibilityRole="progressbar" accessibilityLabel="Loading…"><BaaraliMark size={32} motion="loading" /></View>;'),
+      edit(`${mobile}/src/app/chat.tsx`, '            {turnRefs.map((ref) => (', '            {!session && !error && !sending && <View style={{ marginVertical: 12, alignItems: "center" }} accessible accessibilityRole="progressbar" accessibilityLabel="Loading…"><BaaraliMark size={32} motion="loading" /></View>}\n            {turnRefs.map((ref) => ('),
+      edit(`${mobile}/src/app/chat.tsx`, '        {/* Composer — Claude-style card: input on top, model pill + send below */}', '        {sending && turnRefs.length === 0 && <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 8 }} accessible accessibilityRole="text"><BaaraliMark size={32} motion="loading" /><Text style={{ color: colors.secondaryLabel }}>Sending…</Text></View>}\n\n        {/* Composer — Claude-style card: input on top, model pill + send below */}'),
+      // BAARALI(12/10/2026): a completed turn stops requesting deltas when a
+      // new turn starts. Preserve its snapshot so history does not blink away;
+      // changing the turn or account connection still clears the old state.
+      edit(`${mobile}/src/lib/use-live-turn.ts`, "  const liveTextRef = useRef('');", "  const liveTextRef = useRef('');\n  const followed = useRef({ turnId, sessions, events });"),
+      edit(`${mobile}/src/lib/use-live-turn.ts`, '  useEffect(() => {\n    setState(null);', '  useEffect(() => {\n    const previous = followed.current;\n    if (previous.turnId !== turnId || previous.sessions !== sessions || previous.events !== events) setState(null);\n    followed.current = { turnId, sessions, events };'),
       // Our sign-in server takes a phone app's redirect only in the form of
       // RFC 8252 §7.1, its reverse-domain scheme (control src/auth.ts).
       edit(`${mobile}/src/lib/spaces/oauth.ts`, "export const REDIRECT_URI = 'rowboat://oauth-callback';", `export const REDIRECT_URI = '${MOBILE_ID}:/oauth-callback';`),
       // A sign-in of its own, not Safari's: after « Se déconnecter », the next
       // sign-in asks who you are instead of reopening the last account.
       edit(`${mobile}/src/lib/spaces/oauth.ts`, 'WebBrowser.openAuthSessionAsync(authorize.toString(), REDIRECT_URI);', 'WebBrowser.openAuthSessionAsync(authorize.toString(), REDIRECT_URI, { preferEphemeralSession: true });'),
+      // BAARALI(12/10/2026): shared composers, real file transfers and a compact model picker.
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "  const stamp = `${today ? 'Today' : posted.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${posted.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;", "  const stamp = `${today ? translate('Today') : posted.toLocaleDateString([], { month: 'short', day: 'numeric' })} \u00b7 ${posted.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;"),
+      edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, "<Stack.Screen name=\"new\" options={{ presentation: 'modal', title: 'New group' }} />", "<Stack.Screen name=\"new\" options={{ presentation: 'modal', title: 'New group', headerShown: false }} />"),
+      edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, "<Stack.Screen name=\"index\" options={{ title: 'Spaces' }} />", "<Stack.Screen name=\"index\" options={{ title: 'Spaces', headerShown: false }} />"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "          headerRight: () => (\n            <Pressable\n              hitSlop={10}\n              onPress={() => router.push({ pathname: '/spaces/files', params: { org, space, title } })}\n            >\n              <Image source=\"sf:folder\" style={{ width: 20, height: 20 }} tintColor={colors.label} />\n            </Pressable>\n          ),", "          headerRight: () => (\n            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>\n              <GroupInfoButton client={client} space={space} orgAddress={org} me={me} title={title} onMembers={people => setMembers(new Map(people.map(person => [person.id, person])))} />\n              <Pressable accessibilityRole=\"button\" accessibilityLabel=\"Files\" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }} onPress={() => router.push({ pathname: '/spaces/files', params: { org, space, title, me } })}>\n                <Image source=\"sf:folder\" style={{ width: 20, height: 20 }} tintColor={colors.label} />\n              </Pressable>\n            </View>\n          ),"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "import { SpaceTabs } from '@/components/space-tabs';", "import { SpaceTabs } from '@/components/space-tabs';\nimport { GroupInfoButton } from '@/components/group-info';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, "import { BaaraliSignInView } from '@/components/baarali-sign-in-view';", "import { BaaraliSignInView } from '@/components/baarali-sign-in-view';\nimport { TeamSpacesHome } from '@/components/team-spaces-home';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, "  return <OrgList />;", "  return <TeamSpacesHome />;"),
+      edit(`${mobile}/src/components/space-message.tsx`, "{onOpenThread && message.replyCount > 0 ? (", "{onOpenThread ? ("),
+      edit(`${mobile}/src/components/space-message.tsx`, "<Text style={{ fontSize: 13, fontWeight: '600', color: '#0a84ff' }}>\n              {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'} \u203a\n            </Text>", "<Text style={{ fontSize: 13, fontWeight: '500', color: colors.accent }}>\n              {message.replyCount > 0 ? <>{message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'} \u203a</> : <Text>Reply</Text>}\n            </Text>"),
+      edit(`${mobile}/src/components/space-message.tsx`, "<Pressable onPress={() => onOpenThread(message)} hitSlop={6} style={{ marginTop: 4, alignSelf: 'flex-start' }}>", "<Pressable accessibilityRole=\"button\" accessibilityLabel=\"Reply in thread\" onPress={() => onOpenThread(message)} style={{ marginTop: 4, minHeight: 36, justifyContent: 'center', alignSelf: 'flex-start' }}>"),
+      edit(`${mobile}/src/app/chat.tsx`, "function RoundButton({ icon, onPress, disabled, label }: { icon: string; onPress: () => void; disabled?: boolean; label?: string }) {\n  const colors = useColors();\n  return (\n    <Pressable\n      accessibilityRole=\"button\"\n      accessibilityLabel={label}\n      onPress={onPress}\n      disabled={disabled}\n      hitSlop={6}\n      style={{\n        width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',\n        backgroundColor: colors.accent, opacity: disabled ? 0.3 : 1, marginBottom: 2,\n      }}\n    >\n      <Image source={icon} style={{ width: 15, height: 15 }} tintColor={colors.onAccent} />\n    </Pressable>\n  );\n}\n", ""),
+      edit(`${mobile}/src/app/chat.tsx`, "  TextInput,\n", ""),
+      edit(`${mobile}/src/app/chat.tsx`, "import { BaaraliMark } from '@/components/baarali-mark';", "import { BaaraliMark } from '@/components/baarali-mark';\nimport { BaaraliLogo } from '@/components/baarali-logo';"),
+      edit(`${mobile}/src/app/chat.tsx`, "<Text style={{ fontSize: 22, fontWeight: '600', color: colors.label }}>Rowboat</Text>", "<BaaraliLogo />"),
+      edit(`${mobile}/src/app/chat.tsx`, "import { Redirect, router, useLocalSearchParams } from 'expo-router';", "import { Redirect, router, useLocalSearchParams, useFocusEffect } from 'expo-router';"),
+      edit(`${mobile}/src/app/chat.tsx`, "  // Opened by the voice button of the home tab: listening at once, once.", "  useFocusEffect(useCallback(() => () => {\n    if (conversationOn.current) endConversation();\n    void voiceRef.current.cancel();\n  }, [endConversation, rpc]));\n\n  // Opened by the voice button of the home tab: listening at once, once."),
+      edit(`${mobile}/src/components/model-picker.tsx`, "        onPress={() => setOpen(true)}", "        accessibilityRole=\"button\"\n        accessibilityLabel={display?.name ?? 'Choose model'}\n        hitSlop={{ top: 7, bottom: 7 }}\n        onPress={() => setOpen(true)}"),
+      edit(`${mobile}/src/components/model-picker.tsx`, "borderCurve: 'continuous', paddingHorizontal: 12, height: 30,", "borderCurve: 'continuous', paddingHorizontal: 9, height: 28, maxWidth: 144, alignSelf: 'flex-start', flexShrink: 1,"),
+      edit(`${mobile}/src/components/model-picker.tsx`, "fontSize: 13, fontWeight: '500', color: colors.secondaryLabel", "fontSize: 12, fontWeight: '500', color: colors.secondaryLabel, flexShrink: 1"),
+      edit(`${mobile}/src/app/chat.tsx`, "import { ModelPill } from '@/components/model-picker';", "import { ModelPill } from '@/components/model-picker';\nimport { ChatComposer, ComposerButton } from '@/components/chat-composer';\nimport { useComposerAttachments } from '@/lib/composer-attachments';\nimport { attachmentContent } from '@/lib/attachment-content';"),
+      edit(`${mobile}/src/app/chat.tsx`, "talk?: string; submit?: string", "talk?: string; submit?: string; attachments?: string"),
+      edit(`${mobile}/src/app/chat.tsx`, "      submit={params.submit === '1'}", "      submit={params.submit === '1'}\n      attachmentsKey={params.attachments}"),
+      edit(`${mobile}/src/app/chat.tsx`, "talk = false, submit = false }: {", "talk = false, submit = false, attachmentsKey }: {"),
+      edit(`${mobile}/src/app/chat.tsx`, "  submit?: boolean;", "  submit?: boolean;\n  attachmentsKey?: string;"),
+      edit(`${mobile}/src/app/chat.tsx`, "  const [search, setSearch] = useState(false);", "  const [search, setSearch] = useState(false);\n  const [optionsOpen, setOptionsOpen] = useState(false);\n  const [dictating, setDictating] = useState(false);\n  const attachments = useComposerAttachments(attachmentsKey);\n  const sendingRef = useRef(false);\n  const createdSession = useRef<string | null>(null);"),
+      edit(`${mobile}/src/app/chat.tsx`, "    if (!content || !sessions) return false;", "    if ((!content && (spoken !== undefined || !attachments.files.length)) || !sessions || sendingRef.current) return false;\n    sendingRef.current = true;"),
+      edit(`${mobile}/src/app/chat.tsx`, "      let sessionId = id;", "      const files = spoken === undefined && rpc ? await attachments.toWorkspace(rpc) : [];\n      if (spoken === undefined && attachments.files.length && !rpc) throw new Error(\"The connection is unavailable. Please try again.\");\n      let sessionId = id ?? createdSession.current;"),
+      edit(`${mobile}/src/app/chat.tsx`, "        onCreated(sessionId);", "        createdSession.current = sessionId;\n        onCreated(sessionId);"),
+      edit(`${mobile}/src/app/chat.tsx`, "await sessions.sendMessage(sessionId, { role: 'user', content }, {", "await sessions.sendMessage(sessionId, { role: 'user', content: attachmentContent(content, files) }, {"),
+      edit(`${mobile}/src/app/chat.tsx`, "      analytics.mobileMessageSent();", "      if (spoken === undefined) attachments.clear();\n      analytics.mobileMessageSent();"),
+      edit(`${mobile}/src/app/chat.tsx`, "    } finally {\n      setSending(false);\n    }\n  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent, search, readAloud, onCreated]);", "    } finally {\n      setSending(false);\n      sendingRef.current = false;\n    }\n  }, [draft, sessions, id, turnRefs, refresh, models.current, params.agent, search, readAloud, onCreated, rpc, attachments.files, attachments.toWorkspace, attachments.clear]);"),
+      edit(`${mobile}/src/app/chat.tsx`, "!initialDraft?.trim() || !sessions || !models.ready", "(!initialDraft?.trim() && !attachments.files.length) || !sessions || !models.ready"),
+      edit(`${mobile}/src/app/chat.tsx`, "[submit, initialDraft, sessions, models.ready, send]", "[submit, initialDraft, sessions, models.ready, send, attachments.files.length]"),
+      edit(`${mobile}/src/app/chat.tsx`, "  // Leaving the chat hangs up.", "  const dictate = async () => {\n    if (!rpc || dictating) return;\n    setDictating(true);\n    try {\n      if (voice.state === 'recording') {\n        const text = await voice.finish();\n        if (text) setDraft(previous => `${previous.trim()}${previous.trim() ? ' ' : ''}${text}`);\n      } else if (await voice.start() === 'denied') {\n        Alert.alert('Microphone access', 'Allow microphone access in Settings to dictate a message.');\n      }\n    } catch {\n      await voice.cancel();\n      setError('Your message could not be transcribed. Please try again.');\n    } finally { setDictating(false); }\n  };\n\n  // Leaving the chat hangs up."),
+      edit(`${mobile}/src/app/chat.tsx`, "    if (conversationOn.current) endConversation();\n  }, [endConversation]);", "    if (conversationOn.current) endConversation();\n    void voiceRef.current.cancel();\n  }, [endConversation]);"),
+      edit(`${mobile}/src/app/chat.tsx`, "          <>\n          <TextInput\n            style={{ fontSize: 16, color: colors.label, maxHeight: 120, paddingHorizontal: 2 }}\n            placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}\n            placeholderTextColor={colors.tertiaryLabel}\n            value={draft}\n            onChangeText={setDraft}\n            multiline\n          />\n          <View style={{ flexDirection: 'row', alignItems: 'center' }}>\n            <Pressable\n              accessibilityRole=\"switch\"\n              accessibilityState={{ checked: search }}\n              accessibilityLabel=\"Web search\"\n              onPress={() => setSearch((on) => !on)}\n              hitSlop={6}\n              style={{\n                width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 6,\n                backgroundColor: search ? colors.accent : 'transparent',\n                borderWidth: search ? 0 : 1, borderColor: colors.separator,\n              }}\n            >\n              <Image source=\"sf:globe\" style={{ width: 16, height: 16 }} tintColor={search ? colors.onAccent : colors.secondaryLabel} />\n            </Pressable>\n            <Pressable\n              accessibilityRole=\"switch\"\n              accessibilityState={{ checked: readAloud }}\n              accessibilityLabel=\"Read replies aloud\"\n              onPress={() => setReadAloud(!readAloud)}\n              hitSlop={6}\n              style={{\n                width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginRight: 6,\n                backgroundColor: readAloud ? colors.accent : 'transparent',\n                borderWidth: readAloud ? 0 : 1, borderColor: colors.separator,\n              }}\n            >\n              <Image source=\"sf:speaker.wave.2\" style={{ width: 16, height: 16 }} tintColor={readAloud ? colors.onAccent : colors.secondaryLabel} />\n            </Pressable>\n            <ModelPill models={models} />\n            <View style={{ flex: 1 }} />\n            {sending || latestStreaming ? (\n              <RoundButton icon=\"sf:stop.fill\" onPress={stop} />\n            ) : draft.trim() ? (\n              <RoundButton icon=\"sf:arrow.up\" onPress={() => void send()} />\n            ) : (\n              <RoundButton\n                icon=\"sf:waveform\"\n                onPress={() => void startConversation()}\n                disabled={!rpc}\n                label=\"Talk with Rowboat\"\n              />\n            )}\n          </View>\n          </>", "          <ChatComposer embedded draft={draft} onChange={setDraft}\n            placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}\n            files={attachments.files} onRemove={attachments.remove} onAttach={() => void attachments.pick()} picking={attachments.picking}\n            busy={sending || latestStreaming || dictating} onSend={() => void send()} onStop={latestStreaming ? stop : undefined}\n            onVoice={rpc ? () => void dictate() : undefined} voiceActive={voice.state === 'recording'} voiceLabel={voice.state === 'recording' ? 'Finish dictation' : 'Dictate a message'}\n            leading={<><ModelPill models={models} /><ComposerButton icon=\"sf:ellipsis\" label=\"Chat options\" active={optionsOpen || search || readAloud} onPress={() => setOptionsOpen(value => !value)} /></>}\n            extra={<>\n              {voice.state !== 'idle' && <Text style={{ fontSize: 12, color: colors.secondaryLabel }}>{voice.state === 'recording' ? 'Tap the microphone to finish dictation.' : 'Transcribing…'}</Text>}\n              {optionsOpen && <View style={{ gap: 8, paddingTop: 4 }}>\n                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>\n                  <ComposerButton icon=\"sf:globe\" label=\"Web search\" active={search} onPress={() => setSearch(value => !value)} />\n                  <Text style={{ color: colors.secondaryLabel, fontSize: 13 }}>Web search</Text>\n                </View>\n                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>\n                  <ComposerButton icon=\"sf:speaker.wave.2\" label=\"Read replies aloud\" active={readAloud} onPress={() => setReadAloud(!readAloud)} />\n                  <Text style={{ color: colors.secondaryLabel, fontSize: 13 }}>Read replies aloud</Text>\n                </View>\n                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>\n                  <ComposerButton icon=\"sf:waveform\" label=\"Talk with Rowboat\" disabled={!rpc || sending || latestStreaming || voice.state !== 'idle'} onPress={() => void startConversation()} />\n                  <Text style={{ color: colors.secondaryLabel, fontSize: 13 }}>Talk with Rowboat</Text>\n                </View>\n              </View>}\n            </>} />"),
+      edit(`${mobile}/src/app/chat.tsx`, "        {/* Composer — Claude-style card: input on top, model pill + send below */}", "        {!id && error && <Text style={{ color: colors.destructive, paddingHorizontal: 16 }}>{error}</Text>}\n        {/* Composer — Claude-style card: input on top, model pill + send below */}"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { SpaceComposer } from '@/components/space-composer';\nimport { useComposerAttachments } from '@/lib/composer-attachments';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "  const [draft, setDraft] = useState('');", "  const [draft, setDraft] = useState('');\n  const attachments = useComposerAttachments();\n  const sendingRef = useRef(false);"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "    if (!body || sending) return;", "    if ((!body && !attachments.files.length) || sendingRef.current) return;\n    sendingRef.current = true;"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "      // BAARALI(07/10/2026): « @Name » typed here names the member for real.", "      const links = await attachments.toSpace(client, org, space);\n      const messageBody = [tokenizeMentions(body, members.values()), ...links].filter(Boolean).join('\\n\\n');\n      // BAARALI(07/10/2026): « @Name » typed here names the member for real."),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "body: tokenizeMentions(body, members.values())", "body: messageBody"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "    } catch (err) {\n      setDraft(body);", "      attachments.clear();\n    } catch (err) {\n      setDraft(body);"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "    } finally {\n      setSending(false);\n    }", "    } finally {\n      setSending(false);\n      sendingRef.current = false;\n    }"),
+      edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "      {/* Composer */}\n      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <TextInput\n          style={{\n            flex: 1, minHeight: 40, maxHeight: 120, paddingHorizontal: 14, paddingVertical: 10,\n            fontSize: 16, color: colors.label, backgroundColor: colors.secondaryBackground,\n            borderRadius: 20, borderCurve: 'continuous',\n          }}\n          placeholder={`Message #${title ?? ''}`}\n          placeholderTextColor={colors.tertiaryLabel}\n          value={draft}\n          onChangeText={setDraft}\n          multiline\n        />\n        <Pressable\n          onPress={() => void send()}\n          disabled={!draft.trim() || sending}\n          style={{ opacity: draft.trim() && !sending ? 1 : 0.35, paddingBottom: 4 }}\n        >\n          <Image source=\"sf:arrow.up.circle.fill\" style={{ width: 32, height: 32 }} tintColor={colors.label} />\n        </Pressable>\n      </View>", "      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <SpaceComposer draft={draft} onChange={setDraft} placeholder={`Message #${title ?? \"\"}`} attachments={attachments} sending={sending} onSend={() => void send()} />\n      </View>"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { SpaceComposer } from '@/components/space-composer';\nimport { useComposerAttachments } from '@/lib/composer-attachments';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "  const [draft, setDraft] = useState('');", "  const [draft, setDraft] = useState('');\n  const attachments = useComposerAttachments();\n  const sendingRef = useRef(false);"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "    if (!body || sending) return;", "    if ((!body && !attachments.files.length) || sendingRef.current) return;\n    sendingRef.current = true;"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "      // BAARALI(07/10/2026): « @Name » typed here names the member for real.", "      const links = await attachments.toSpace(client, org, space, root);\n      const messageBody = [tokenizeMentions(body, members.values()), ...links].filter(Boolean).join('\\n\\n');\n      // BAARALI(07/10/2026): « @Name » typed here names the member for real."),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "body: tokenizeMentions(body, members.values())", "body: messageBody"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "    } catch (err) {\n      setDraft(body);", "      attachments.clear();\n    } catch (err) {\n      setDraft(body);"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "    } finally {\n      setSending(false);\n    }", "    } finally {\n      setSending(false);\n      sendingRef.current = false;\n    }"),
+      edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "      {/* Composer — Slack's single rounded field; send arrow appears with a draft */}\n      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <View\n          style={{\n            flexDirection: 'row', alignItems: 'flex-end',\n            backgroundColor: colors.secondaryBackground, borderRadius: 24, borderCurve: 'continuous',\n            paddingLeft: 16, paddingRight: 6, minHeight: 46,\n          }}\n        >\n          <TextInput\n            ref={inputRef}\n            style={{ flex: 1, maxHeight: 120, fontSize: 16, color: colors.label, paddingVertical: 12 }}\n            placeholder=\"Add a reply\"\n            placeholderTextColor={colors.tertiaryLabel}\n            value={draft}\n            onChangeText={setDraft}\n            multiline\n          />\n          {draft.trim() ? (\n            <Pressable onPress={() => void send()} disabled={sending} style={{ padding: 6, opacity: sending ? 0.4 : 1 }}>\n              <Image source=\"sf:arrow.up.circle.fill\" style={{ width: 30, height: 30 }} tintColor={colors.label} />\n            </Pressable>\n          ) : null}\n        </View>\n      </View>", "      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <SpaceComposer draft={draft} onChange={setDraft} placeholder={\"Add a reply\"} attachments={attachments} sending={sending} onSend={() => void send()} inputRef={inputRef} />\n      </View>"),
+      edit(`${mobile}/src/components/turn-view.tsx`, "        <Text style={styles.userText}>{userText(state.definition.input)}</Text>", "        {!!userText(state.definition.input) && <Text style={styles.userText}>{userText(state.definition.input)}</Text>}\n        {Array.isArray(state.definition.input.content) && state.definition.input.content.map((part, index) => part.type === 'attachment' ? <Text key={index} style={styles.meta}>📎 {part.filename}</Text> : null)}"),
     ],
     copies: [
+      ['assets/mobile/settings.tsx', `${mobile}/src/app/settings.tsx`],
+      ['../control/src/plan-access-copy.ts', `${mobile}/src/lib/plan-access-copy.ts`],
+      ['assets/mobile/plans.tsx', `${mobile}/src/app/plans.tsx`],
+      ['assets/mobile/say.ts', `${mobile}/src/lib/say.ts`],
+      ['assets/mobile/usage-metrics.ts', `${mobile}/src/lib/usage-metrics.ts`],
+      ['assets/mobile/usage-panel.tsx', `${mobile}/src/components/usage-panel.tsx`],
+      ['assets/mobile/app-theme.tsx', `${mobile}/src/lib/app-theme.tsx`],
+      [path.relative(PKG, path.join(ROOT, 'apps/x/apps/renderer/src/lib/usage-reset.ts')), `${mobile}/src/lib/usage-reset.ts`],
+      [path.relative(PKG, path.join(ROOT, 'apps/x/apps/renderer/src/lib/media-credits.ts')), `${mobile}/src/lib/media-credits.ts`],
+      ['../control/src/oval-b.ts', `${mobile}/src/lib/baarali-oval-motion.ts`],
+      ['assets/motion/baarali-mark.native.tsx', `${mobile}/src/components/baarali-mark.tsx`],
+      ['assets/motion/baarali-logo.native.tsx', `${mobile}/src/components/baarali-logo.tsx`],
+      ['assets/mobile/home.tsx', `${mobile}/src/app/(tabs)/home.tsx`],
+      ['assets/mobile/tabs-layout.tsx', `${mobile}/src/app/(tabs)/_layout.tsx`],
+      ['assets/mobile/work-home.tsx', `${mobile}/src/app/(tabs)/more.tsx`],
+      ['assets/mobile/top-navigation.tsx', `${mobile}/src/components/top-navigation.tsx`],
+      ['assets/mobile/work-access.ts', `${mobile}/src/lib/work-access.ts`],
+      ['assets/mobile/work-access-provider.tsx', `${mobile}/src/lib/work-access-provider.tsx`],
+      ['assets/mobile/work-gate.tsx', `${mobile}/src/components/work-gate.tsx`],
+      ['assets/mobile/recruit.tsx', `${mobile}/src/app/baarasseurs/recruit.tsx`],
+      ['assets/mobile/agent-documents.tsx', `${mobile}/src/components/agent-documents.tsx`],
+      ['assets/mobile/studio-library.tsx', `${mobile}/src/components/studio-library.tsx`],
+      ['assets/mobile/studio-cad-files.tsx', `${mobile}/src/components/studio-cad-files.tsx`],
+      ['assets/mobile/studio-cad-editor.tsx', `${mobile}/src/components/studio-cad-editor.tsx`],
+      ['assets/motion/cad-editor-page.ts', `${mobile}/src/lib/cad-editor-page.ts`],
+      ['../instance/src/cad-scene.ts', `${mobile}/src/lib/cad-scene.ts`],
+      ['assets/mobile/reply-actions.tsx', `${mobile}/src/components/reply-actions.tsx`],
+      ['assets/mobile/space-tabs.tsx', `${mobile}/src/components/space-tabs.tsx`],
+      ['assets/mobile/group-new.tsx', `${mobile}/src/app/(tabs)/spaces/new.tsx`],
+      ['assets/mobile/group-info.tsx', `${mobile}/src/components/group-info.tsx`],
+      ['assets/mobile/team-spaces-home.tsx', `${mobile}/src/components/team-spaces-home.tsx`],
+      ['assets/mobile/team-directory.ts', `${mobile}/src/lib/team-directory.ts`],
+      ['assets/mobile/attachment-content.ts', `${mobile}/src/lib/attachment-content.ts`],
+      ['assets/mobile/composer-attachments.ts', `${mobile}/src/lib/composer-attachments.ts`],
+      ['assets/mobile/chat-composer.tsx', `${mobile}/src/components/chat-composer.tsx`],
+      ['assets/mobile/space-composer.tsx', `${mobile}/src/components/space-composer.tsx`],
       ...['icon.png', 'splash-icon.png', 'android-icon-foreground.png', 'android-icon-monochrome.png', 'baarali-mark.png', 'baarali-tile.png'].map((f) => [`assets/mobile/${f}`, `${mobile}/assets/images/${f}`]),
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
     ],
     writes: [
+      [`${mobile}/src/lib/cad-editor-client.ts`, fs.readFileSync(path.join(PKG, 'assets/motion/cad-editor-client.ts'), 'utf8').replace("'./cad-scene.js'", "'./cad-scene'")],
       // Metro resolves './fr' but not './fr.js' to fr.ts: the imports lose their extension.
       ...[['mobile/runtime.ts', 'mobile/runtime.ts'], ['translate.ts', 'translate.ts'], ['fr.ts', 'fr.ts']].map(([from, to]) => [
         `${mobile}/src/baarali-i18n/${to}`,
@@ -707,6 +953,15 @@ export function apply({ root = ROOT, only, write = false }) {
     }
   }
 
+  // BAARALI(13/10/2026): the instance and desktop build copies need the
+  // same entitlement implementation before their runtime imports are built.
+  if (only !== 'mobile') for (const [from, to] of corePlan().copies) {
+    changes.push(`copy ${from} → ${to}`);
+    if (write) {
+      fs.mkdirSync(path.dirname(path.join(root, to)), { recursive: true });
+      fs.copyFileSync(path.join(PKG, from), path.join(root, to));
+    }
+  }
   for (const e of only === 'mobile' ? [] : corePlan().edits) {
     const text = current(e.file);
     const count = text.split(e.from).length - 1;

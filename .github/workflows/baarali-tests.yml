@@ -25,6 +25,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  cad-runtime:
+    name: Instance Linux + real CadQuery
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      # BAARALI(13/10/2026): cover the actual Docker branding inputs and
+      # Python wheels as well as the portable Node tests below.
+      - name: Build the instance image
+        run: docker build -t baarali-instance-check -f apps/baarali/packages/instance/Dockerfile .
+      - name: Validate the actual CAD engine and exports
+        run: >-
+          docker run --rm --entrypoint node
+          -v "${{ github.workspace }}/apps/baarali/packages/instance/scripts/check-cad-runtime.mjs:/tmp/check-cad-runtime.mjs:ro"
+          baarali-instance-check /tmp/check-cad-runtime.mjs
+
   apps-baarali:
     name: apps/baarali typecheck + tests
     runs-on: ubuntu-latest
@@ -67,7 +83,9 @@ jobs:
         working-directory: apps/baarali
 
       - name: Test
-        run: pnpm test
+        # 13/10/2026: full source scans share the runner with PGlite suites;
+        # bound concurrency so CPU contention does not masquerade as a failure.
+        run: pnpm --workspace-concurrency=1 -r test --maxWorkers=2
         working-directory: apps/baarali
 
       - name: Build

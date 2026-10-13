@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire, registerHooks } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { ROOT, brandText, mobilePlan } from './brand.mjs';
+import { ROOT, brandText, desktopPlan, mobilePlan } from './brand.mjs';
 
 const require = createRequire(import.meta.url);
 const ts = require('typescript');
@@ -102,8 +102,23 @@ export function extract(root = RENDERER) {
     n.templateSpans.forEach((span, i) => (out += `$${i + 1}` + span.literal.text));
     return out;
   };
-  for (const file of walkFiles(root)) {
-    const src = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const files = new Map(walkFiles(root).map(file => [file, fs.readFileSync(file, 'utf8')]));
+  // 13/10/2026: check the shipped desktop copy before packaging too. The
+  // mobile check already overlays its brand-owned screens; desktop must
+  // catch copied helpers and controls rather than fail only on Windows.
+  if (root === RENDERER) {
+    const plan = desktopPlan();
+    const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    for (const [from,to] of plan.copies) if (to.startsWith('apps/x/apps/renderer/src/') && /\.tsx?$/.test(to) && !to.includes('/baarali-i18n/')) {
+      files.set(path.join(ROOT,to),fs.readFileSync(path.join(pkg,from),'utf8'));
+    }
+    for (const e of plan.edits) if (e.file.startsWith('apps/x/apps/renderer/src/')) {
+      const file=path.join(ROOT,e.file), code=files.get(file);
+      if (code?.includes(e.from)) files.set(file,code.replace(e.from,()=>e.to));
+    }
+  }
+  for (const [file,code] of files) {
+    const src = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const visit = (n) => {
       if (ts.isJsxText(n)) add(n.text, file);
       else if (ts.isJsxAttribute(n) && VISIBLE_ATTRS.has(n.name.getText(src)) && n.initializer) {
@@ -157,11 +172,21 @@ export function extractMobile(root = MOBILE) {
   const babel = mobileBabel(root);
   const plugin = require('../src/i18n/mobile/babel-plugin.cjs');
   // The code as the build compiles it: with the brand's edits (new messages included).
-  const edits = mobilePlan().edits;
+  const plan = mobilePlan();
+  const edits = plan.edits;
+  const files = new Map(walkFiles(root).map(file => [file, fs.readFileSync(file, 'utf8')]));
+  // BAARALI(12/10/2026): CI checks the copied mobile UI as it will ship,
+  // including brand-owned screens that replace or extend upstream routes.
+  if (root === MOBILE) {
+    const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    for (const [from, to] of plan.copies) {
+      if (to.startsWith('apps/x/apps/mobile/src/') && /\.tsx?$/.test(to)) files.set(path.join(ROOT, to), fs.readFileSync(path.join(pkg, from), 'utf8'));
+    }
+  }
   const found = new Map();
-  for (const file of walkFiles(root)) {
+  for (const [file, source] of files) {
     const collect = new Set();
-    let code = fs.readFileSync(file, 'utf8');
+    let code = source;
     for (const e of edits) if (path.join(ROOT, e.file) === file && code.includes(e.from)) code = code.replace(e.from, () => e.to);
     babel.transformSync(code, {
       filename: file,

@@ -31,8 +31,9 @@ serveStdio(
     createMotionTools({
       workDir,
       now: Date.now,
+      cad: { python: process.env.BAARALI_CAD_PYTHON ?? 'python3' },
       control: token ? { url: controlUrl, token, fetch: globalThis.fetch, sleep: (ms) => new Promise((r) => setTimeout(r, ms)) } : undefined,
     }),
-    { name: 'baarali-motion', version: '0.0.8' },
+    { name: 'baarali-motion', version: '0.0.9' },
   ),
 );
