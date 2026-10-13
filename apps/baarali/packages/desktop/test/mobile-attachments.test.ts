@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { attachmentContent, safeFilename, uploadSpaceAttachments, uploadWorkspaceAttachments, MAX_FILE_BYTES, type ComposerAttachment } from '../assets/mobile/attachment-content';
+import { attachmentContent, safeFilename, uploadSpaceAttachments, uploadWorkspaceAttachments, MAX_FILE_BYTES, type ComposerAttachment } from '../assets/mobile/attachment-content.js';
 
 const file: ComposerAttachment = { id: 'id-1', uri: 'file:///cache/brief.pdf', name: 'Brief.pdf', mime: 'application/pdf', size: 3, path: 'Attachments/mobile/id-1/Brief.pdf' };
 const bytes = new Uint8Array([0, 128, 255]);

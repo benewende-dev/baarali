@@ -66,7 +66,7 @@ describe('branded Work HTTP gate', () => {
   it('allows a free Chat document with a nested apps directory but refuses the real Work apps root', async () => {
     setBilling(billing('free'));
     const written: string[] = [];
-    const app = createRpcRoutes({ 'workspace:writeFile': async ({ path }) => { written.push(path); return { path, etag: 'fixture', stat: { kind: 'file', size: 4, mtimeMs: 0, ctimeMs: 0 } }; } });
+    const app = createRpcRoutes({ 'workspace:writeFile': async ({ path }: { path: string }) => { written.push(path); return { path, etag: 'fixture', stat: { kind: 'file', size: 4, mtimeMs: 0, ctimeMs: 0 } }; } });
     expect((await call(app, 'workspace:writeFile', { path: 'Documents/apps/notes.md', data: 'Note' })).status).toBe(200);
     expect((await call(app, 'workspace:writeFile', { path: 'apps/demo/index.html', data: 'App' })).status).toBe(403);
     expect(written).toEqual(['Documents/apps/notes.md']);

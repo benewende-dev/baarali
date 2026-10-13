@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canUseWork, isWorkRoute } from '../assets/mobile/work-access';
+import { canUseWork, isWorkRoute } from '../assets/mobile/work-access.js';
 
 const plans = [{ id: 'decouverte', category: 'free' }, { id: 'semaine', category: 'starter' }, { id: 'essentiel', category: 'starter' }, { id: 'pro-100', category: 'pro' }, { id: 'future-paid', category: 'starter' }];
 const info = (id: string | null, status: string | null = 'active', expires: string | null = null) => ({ catalog: { plans }, subscriptionPlanId: id, subscriptionStatus: status, trialExpiresAt: expires });

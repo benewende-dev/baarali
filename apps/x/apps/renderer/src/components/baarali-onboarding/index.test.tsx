@@ -16,6 +16,10 @@ let calls: Array<[string, unknown]>
 let state: { signedIn: boolean; mode: 'child' | 'remote'; notes: string }
 
 beforeEach(() => {
+  // BAARALI(13/10/2026): JSDOM has no media-query API; functional
+  // onboarding tests use the supported reduced-motion preference.
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+  vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} });
   store = new Map()
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => store.get(k) ?? null,

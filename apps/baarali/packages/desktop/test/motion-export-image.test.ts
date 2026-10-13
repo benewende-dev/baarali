@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isMotionImage } from '../assets/motion/motion-export-image';
+import { isMotionImage } from '../assets/motion/motion-export-image.js';
 
 describe('Motion export preview media', () => {
   it('routes GIF and still exports away from the video decoder', () => {

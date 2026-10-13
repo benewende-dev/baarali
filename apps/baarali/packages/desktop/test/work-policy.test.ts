@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createWorkGuard, WorkAccessError, WorkCheckError, workChannel, reservedWorkPath, freeMediaServer } from '../assets/mobile/work-policy';
+import { createWorkGuard, WorkAccessError, WorkCheckError, workChannel, reservedWorkPath, freeMediaServer } from '../assets/mobile/work-policy.js';
 const info = (category = 'starter', status = 'active') => ({ subscriptionPlanId: 'plan', subscriptionStatus: status, catalog: { plans: [{ id: 'plan', category }] } });
 describe('Work execution entitlement', () => {
   it('accepts paid work and rechecks after a downgrade without caching access', async () => {

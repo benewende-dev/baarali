@@ -23,10 +23,18 @@ export type ComposerAttachment = { id: string; uri: string; name: string; mime: 
 type LocalFile = { size: number; base64(): Promise<string>; bytes(): Promise<Uint8Array> };
 type ReadFile = (uri: string) => LocalFile;
 type UploadCache = Map<string, AttachmentPart | string>;
-import type { RpcClient } from '@x/client';
-import type { SpacesClient } from '@/lib/spaces/client';
+// BAARALI(13/10/2026): the upload helpers need only these transport ports;
+// portable contract tests must not import the phone's app or Expo runtime.
+interface WorkspaceUploadClient {
+  call(channel: 'workspace:getRoot', args: null): Promise<{ root: string }>;
+  call(channel: 'workspace:writeFile', args: { path: string; data: string; opts: { encoding: 'base64'; mkdirp: true; atomic: true } }): Promise<unknown>;
+}
+interface SpaceUploadClient {
+  uploadBlob(space: string, bytes: Uint8Array, opts: { declaredMime: string }): Promise<{ hash: string }>;
+  createAsset(space: string, args: { path: string; blob: string; threadRootId?: string; actingMode: 'direct' }): Promise<{ asset: { id: string } }>;
+}
 
-export async function uploadWorkspaceAttachments(files: ComposerAttachment[], rpc: RpcClient, read: ReadFile, cache: UploadCache): Promise<AttachmentPart[]> {
+export async function uploadWorkspaceAttachments(files: ComposerAttachment[], rpc: WorkspaceUploadClient, read: ReadFile, cache: UploadCache): Promise<AttachmentPart[]> {
   if (!files.length) return [];
   const { root } = await rpc.call('workspace:getRoot', null);
   const parts: AttachmentPart[] = [];
@@ -45,7 +53,7 @@ export async function uploadWorkspaceAttachments(files: ComposerAttachment[], rp
   return parts;
 }
 
-export async function uploadSpaceAttachments(files: ComposerAttachment[], client: SpacesClient, org: string, space: string, threadRootId: string | undefined, read: ReadFile, cache: UploadCache): Promise<string[]> {
+export async function uploadSpaceAttachments(files: ComposerAttachment[], client: SpaceUploadClient, org: string, space: string, threadRootId: string | undefined, read: ReadFile, cache: UploadCache): Promise<string[]> {
   const links: string[] = [];
   for (const file of files) {
     const key = `${org}:${space}:${file.id}`;

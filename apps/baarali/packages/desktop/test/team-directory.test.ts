@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterDirectory } from '../assets/mobile/team-directory';
+import { filterDirectory } from '../assets/mobile/team-directory.js';
 
 const spaces = [
   { id: 'one', name: 'Équipe commerciale', kind: 'shared' },

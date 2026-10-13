@@ -9,8 +9,11 @@
     "brand": "node scripts/brand.mjs"
   },
   "devDependencies": {
+    "@rowboat/spaces-protocol": "link:../../../harbor/packages/protocol",
+    "@x/shared": "link:../../../x/packages/shared",
     "@types/node": "^24.0.0",
     "typescript": "^5.9.3",
-    "vitest": "4.1.7"
+    "vitest": "4.1.7",
+    "zod": "4.2.1"
   }
 }

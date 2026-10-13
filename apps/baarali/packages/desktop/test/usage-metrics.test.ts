@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { usedPercent, usageMetrics } from '../assets/mobile/usage-metrics';
+import { usedPercent, usageMetrics } from '../assets/mobile/usage-metrics.js';
 describe('mobile quota windows', () => {
   it('bounds consumption and handles a plan without an allowance', () => {
     expect(usedPercent({ sanctionedCredits: 100, usedCredits: 150 })).toBe(100);
