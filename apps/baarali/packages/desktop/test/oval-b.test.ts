@@ -14,6 +14,7 @@ describe('approved oval B motion', () => {
     }
   });
 
+  // 13/10/2026: keep all 2,002 sampled poses under CPU contention in CI.
   it('does not clip any oval or generate invalid transforms throughout either loop', () => {
     for (const mode of ['rotation', 'loading'] as const) {
       for (let frame = 0; frame <= 1000; frame++) {
@@ -27,7 +28,7 @@ describe('approved oval B motion', () => {
         });
       }
     }
-  });
+  }, 30_000);
 
   it('keeps the onboarding B readable and the loading loop seamless', () => {
     OVALS.forEach((oval, i) => {

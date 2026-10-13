@@ -83,7 +83,9 @@ jobs:
         working-directory: apps/baarali
 
       - name: Test
-        run: pnpm test
+        # 13/10/2026: full source scans share the runner with PGlite suites;
+        # bound concurrency so CPU contention does not masquerade as a failure.
+        run: pnpm --workspace-concurrency=1 -r test --maxWorkers=2
         working-directory: apps/baarali
 
       - name: Build

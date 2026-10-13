@@ -11,10 +11,11 @@ describe('the French dictionary', () => {
   // The guarantee asked for on 02/10/2026: no English left in the interface.
   // A string the upstream adds fails this test, and the release with it,
   // until it is translated; the installed app is never stopped by it.
+  // 13/10/2026: the complete AST scan can exceed 5 s on shared CI runners.
   it('translates every string the interface shows', () => {
     const lacking = missing(extract(), FR);
     expect(lacking, `not translated yet:\n${lacking.join('\n')}`).toEqual([]);
-  });
+  }, 30_000);
 
   it('translates the menus, the tray and the dialogs too', () => {
     const lacking = missing(extract(MAIN), FR_MAIN);
