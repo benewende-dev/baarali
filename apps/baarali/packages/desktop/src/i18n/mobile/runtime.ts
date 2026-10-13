@@ -32,3 +32,15 @@ export function __baaraliT(key: string, values?: unknown[]): string {
     return fill(key, raw);
   }
 }
+
+// BAARALI(12/10/2026): a narrow tab keeps its short label while the screen
+// and accessibility label retain the full team-space title.
+export function tabLabel(name: string, label: string): string {
+  return name === 'spaces' && lang === 'fr' ? FR.exact['Spaces (tab)'] ?? label : __baaraliT(label);
+}
+
+// BAARALI(13/10/2026): quota sentences and media labels come from the
+// desktop's shared helpers, so their composed text uses the same templates.
+export function interfaceText(text: string): string {
+  return lang === 'fr' ? translate(FR, text, 'attr') ?? text : text;
+}

@@ -24,6 +24,10 @@ RUN cd apps/harbor && pnpm install --frozen-lockfile --filter @rowboat/spaces-pr
 # core only, the repository keeps the upstream text (desktop/scripts/brand.mjs).
 COPY apps/x apps/x
 COPY apps/baarali/packages/desktop/scripts/brand.mjs apps/baarali/packages/desktop/scripts/brand.mjs
+# BAARALI(13/10/2026): core branding also installs the shared Work policy.
+COPY apps/baarali/packages/desktop/assets/mobile/work-access.ts apps/baarali/packages/desktop/assets/mobile/work-access.ts
+COPY apps/baarali/packages/desktop/assets/mobile/work-policy.ts apps/baarali/packages/desktop/assets/mobile/work-policy.ts
+COPY apps/baarali/packages/desktop/assets/work-runtime.ts apps/baarali/packages/desktop/assets/work-runtime.ts
 RUN node apps/baarali/packages/desktop/scripts/brand.mjs --yes --only core
 RUN cd apps/x && pnpm install --frozen-lockfile --filter "@x/server..." \
  && (cd packages/shared && npm run build) \
@@ -43,12 +47,18 @@ FROM node:22-bookworm-slim
 # HOME on the volume: git's identity, caches and an engine's sign-in
 # survive a restart, like the work itself.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git python3 python3-pip python3-venv ca-certificates \
+ && apt-get install -y --no-install-recommends git python3 python3-pip python3-venv ca-certificates libgl1 libglu1-mesa libxrender1 libxext6 libgomp1 \
  && rm -rf /var/lib/apt/lists/*
+COPY apps/baarali/packages/instance/requirements-cad.txt /tmp/requirements-cad.txt
+RUN python3 -m venv /opt/baarali-cad \
+ && /opt/baarali-cad/bin/pip install --no-cache-dir -r /tmp/requirements-cad.txt \
+ && /opt/baarali-cad/bin/python -c "import cadquery; print(cadquery.__version__)" \
+ && rm /tmp/requirements-cad.txt
 ENV NODE_ENV=production \
     ROWBOAT_WORKDIR=/data \
     ROWBOAT_SERVER_ENTRY=/app/server/rowboat-server.cjs \
     HOME=/data/home \
+    BAARALI_CAD_PYTHON=/opt/baarali-cad/bin/python \
     PORT=8080
 WORKDIR /app
 COPY --from=build /src/apps/x/apps/server/dist-headless ./server

@@ -5,7 +5,7 @@
 
 import { PASSWORD_MAX, PASSWORD_MIN } from './password-limits.js';
 import { DUO_CSS, DUO_JS, duoStage } from './sign-in-duo.js';
-import { FAVICON, logoTile, logoWord, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
+import { FAVICON, logoTileLive, logoWord, LOGO_ALIVE_CSS, LOGO_ALIVE_JS } from './logo.js';
 
 export interface SignInMethods {
   email: boolean;
@@ -23,34 +23,35 @@ const STRINGS = {
     lead: 'Connectez-vous, ou créez votre compte : c’est gratuit.',
     emailPlaceholder: 'nom@exemple.com',
     passwordPlaceholder: '8 caractères au moins',
-    // The two above the form (sign-in-duo.ts): [first, second] voice.
+    // BAARALI(11/10/2026): one furry guide; keep the response tuples for the
+    // existing sign-in flow, with concise, formal directions.
     duo: {
-      hello: ['Bonjour 👋', 'On vous attendait'],
-      emailEmpty: ['Ah, vous revoilà !', 'Allez-y, on regarde 👀'],
-      noAt: ['Hmm, il est où le @ ?', 'Une adresse en a toujours un, comme nom@exemple.com'],
-      noEnd: ['Presque…', 'Il manque la fin, comme .com ou .ci'],
-      emailOk: 'Ça, c’est une vraie adresse ! ✓',
-      thenCode: 'Cliquez, on vous envoie un code ✉️',
-      thenPassword: 'Le mot de passe, maintenant 🔐',
-      notLooking: ['On ne regarde pas 🙈', 'Promis, les yeux fermés'],
+      hello: ['Bonjour.', 'Saisissez votre adresse email.'],
+      emailEmpty: ['Votre adresse email.', 'Saisissez votre adresse email.'],
+      noAt: ['Adresse incomplète.', 'Ajoutez le signe @ et le domaine.'],
+      noEnd: ['Adresse incomplète.', 'Complétez le domaine de votre adresse.'],
+      emailOk: 'Adresse renseignée.',
+      thenCode: 'Vous pouvez recevoir le code.',
+      thenPassword: 'Saisissez votre mot de passe.',
+      notLooking: ['Saisissez votre mot de passe.', 'Votre mot de passe reste confidentiel.'],
       more: ['Encore $n caractère', 'Encore $n caractères'],
-      atLeast: '8 au moins, continuez !',
-      passwordOk: ['Parfait 👍', 'Appuyez sur Se connecter 🙌'],
-      wrongPassword: ['Hmm, ça ne correspond pas', 'Vérifiez l’adresse, ou recevez un code à la place'],
-      phoneEmpty: ['Votre numéro ?', 'Avec l’indicatif, comme +225 07…'],
-      phonePrefix: ['Il manque l’indicatif', 'Commencez par +, comme +226 ou +225'],
-      phoneOk: ['Bon numéro ✓', 'Cliquez, on vous envoie un code par SMS 📱'],
-      sentEmail: ['Le code est parti ✉️', 'Regardez vos emails, même les indésirables'],
-      sentSms: ['Le code est parti 📱', 'Il arrive par SMS'],
+      atLeast: 'Saisissez au moins huit caractères.',
+      passwordOk: ['Mot de passe renseigné.', 'Vous pouvez vous connecter.'],
+      wrongPassword: ['Identifiants incorrects.', 'Vérifiez votre adresse et votre mot de passe.'],
+      phoneEmpty: ['Votre numéro de téléphone.', 'Ajoutez l’indicatif de votre pays.'],
+      phonePrefix: ['Indicatif manquant.', 'Commencez par + suivi de l’indicatif.'],
+      phoneOk: ['Numéro renseigné.', 'Vous pouvez recevoir le code par SMS.'],
+      sentEmail: ['Code envoyé.', 'Consultez votre email et vos indésirables.'],
+      sentSms: ['Code envoyé.', 'Consultez vos SMS.'],
       digits: ['Encore $n chiffre', 'Encore $n chiffres'],
-      codeOk: ['Les 6 y sont 👍', 'Appuyez sur Se connecter'],
-      wrongCode: ['Ce code ne marche pas', 'Il vaut 5 minutes. Besoin d’un autre ? Utilisez un autre moyen.'],
-      forgot: ['Pas de souci', 'Un code d’abord, puis vous choisissez votre mot de passe'],
-      choose: ['Choisissez-en un bon 🔐', '8 caractères au moins, on ne regarde pas'],
-      chooseShort: ['Un peu court', '8 caractères au moins pour le mot de passe'],
-      tooMany: ['Doucement 😅', 'Trop d’essais : patientez une minute'],
-      failed: ['Ça n’a pas marché', 'Vérifiez votre connexion et réessayez'],
-      done: ['Bienvenue ! 🎉', 'On vous ramène dans l’app'],
+      codeOk: ['Code renseigné.', 'Vous pouvez vous connecter.'],
+      wrongCode: ['Code incorrect ou expiré.', 'Vérifiez le code ou demandez-en un nouveau.'],
+      forgot: ['Vérifiez votre adresse par un code.', 'Vous pourrez ensuite choisir un mot de passe.'],
+      choose: ['Choisissez votre mot de passe.', 'Saisissez au moins huit caractères.'],
+      chooseShort: ['Mot de passe trop court.', 'Saisissez au moins huit caractères.'],
+      tooMany: ['Trop de tentatives.', 'Patientez une minute avant de réessayer.'],
+      failed: ['Connexion impossible.', 'Vérifiez votre connexion et réessayez.'],
+      done: ['Connexion confirmée.', 'Votre espace est prêt.'],
     },
     continueWith: 'Continuer avec',
     or: 'ou',
@@ -200,12 +201,12 @@ button:disabled { opacity:.6; cursor:default; }
 .hint { font-size:13px; }
 .error { color:var(--error); font-size:14px; }
 .link { border:none; padding:0; font-weight:400; text-decoration:underline; color:var(--muted); justify-self:start; }
-/* Said by the two above the form; kept for a screen reader. */
+/* The guide's error is also available to a screen reader. */
 .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .lead { text-align:center; margin-top:-8px; }
 ${extra.header ? 'h1 { text-align:center; }' : ''}
-${LOGO_ALIVE_CSS}
 ${extra.css ?? ''}
+${LOGO_ALIVE_CSS}
 </style>
 </head>
 <body>
@@ -215,6 +216,7 @@ ${body}
 </main>
 <script nonce="${nonce}">
 "use strict";
+${LOGO_ALIVE_JS}
 // Better Auth signs the authorization request into this page's query; it
 // comes back with every call so the flow resumes once the person is in.
 const oauthQuery = location.search.slice(1);
@@ -224,6 +226,8 @@ const forAdmin = location.hash === "#admin";
 // The partner space does the same (partner-routes.ts).
 const backTo = forAdmin ? "/admin" : location.hash === "#partenaire" ? "/partenaire" : null;
 async function post(path, body) {
+  window.duo?.wait(true);
+  try {
   const res = await fetch("/auth/v1" + path, {
     method: "POST",
     credentials: "same-origin",
@@ -233,13 +237,13 @@ async function post(path, body) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error("failed"), { status: res.status });
   return data;
+  } finally { window.duo?.wait(false); }
 }
 function follow(data) {
   if (data && typeof data.url === "string") location.assign(data.url);
 }
 ${extra.js ?? ''}
 ${script}
-${LOGO_ALIVE_JS}
 </script>
 </body>
 </html>`;
@@ -293,7 +297,7 @@ ${methods.email ? `<button class="link" type="button" id="mode">${escape(t.usePa
 const t = ${JSON.stringify({ failed: t.failed, tooMany: t.tooMany, badPassword: t.badPassword, shortPassword: t.shortPassword, sendCode: t.sendCode, signIn: t.signIn, usePassword: t.usePassword, useCode: t.useCode, choosePassword: t.choosePassword, newPassword: t.newPassword, done: t.done })};
 const s = ${JSON.stringify(t.duo)};
 const MIN = ${PASSWORD_MIN};
-// The two of them (sign-in-duo.ts) say each step, and each error, aloud;
+// The furry guide (sign-in-duo.ts) presents each step and error;
 // the hidden #error says it again for a screen reader.
 const duo = window.duo || { say() {}, act() {}, shut() {}, watch() {} };
 const plural = (n, one, many) => (n > 1 ? many : one).replace("$n", n);
@@ -311,7 +315,7 @@ function finish(data) {
   document.getElementById("done").hidden = false;
 }
 const error = document.getElementById("error");
-// A refusal: the two say what to do, with a shake.
+// A refusal: the guide says what to do, with a small shake.
 function fail(e, line) {
   const said = line || (e && e.status === 429 ? s.tooMany : s.failed);
   error.textContent = said.join(" ");

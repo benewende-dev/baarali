@@ -3,8 +3,9 @@ import { Image } from 'expo-image';
 import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
+import { BaaraliSignInView } from '@/components/baarali-sign-in-view';
 import { JoinWithLink } from '@/components/join-with-link';
 import { Face } from '@/components/member-face';
 import { useSpacesAccount, type SpacesOrg } from '@/lib/spaces/account';
@@ -47,6 +48,7 @@ function SignIn() {
   const say = (err: unknown) => setError(err instanceof SignInError ? problemText(err.reason) : err instanceof Error ? err.message : String(err));
 
   const askCode = async () => {
+    if (busy) return;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError('Enter your email address.');
       return;
@@ -66,7 +68,7 @@ function SignIn() {
   };
 
   const checkCode = async (typed = code) => {
-    if (typed.trim().length < 6) return;
+    if (busy || !/^\d{6}$/.test(typed.trim())) return;
     setBusy(true);
     setError(null);
     try {
@@ -91,6 +93,7 @@ function SignIn() {
   };
 
   const go = async () => {
+    if (busy) return;
     if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
     setBusy(true);
     setError(null);
@@ -104,119 +107,17 @@ function SignIn() {
   };
 
   return (
-    <View style={{ flex: 1, paddingHorizontal: 28, backgroundColor: colors.background }}>
-      {/* Welcome (the one-screen onboarding, Apple's pattern): identity,
-          three feature rows, one primary action. */}
-      <View style={{ flex: 1, justifyContent: 'center', gap: 28 }}>
-        <View style={{ alignItems: 'center', gap: 10 }}>
-          <Image source="sf:sailboat" style={{ width: 48, height: 48 }} tintColor={colors.label} />
-          <View style={{ alignItems: 'center', gap: 4 }}>
-            <Text style={{ fontSize: 26, fontWeight: '700', color: colors.label }}>Welcome to Spaces</Text>
-            <Text style={{ fontSize: 14, color: colors.tertiaryLabel }}>by Rowboat</Text>
-          </View>
-        </View>
-
-        <View style={{ gap: 20, marginTop: 8 }}>
-          <FeatureRow
-            icon="sf:bubble.left.and.bubble.right.fill"
-            title="Talk with your team"
-            detail="Every space has one stream — messages, threads, reactions."
-          />
-          <FeatureRow
-            icon="sf:folder.fill"
-            title="Files everyone can see"
-            detail="Plans, notes, and decisions live next to the conversation."
-          />
-          <FeatureRow
-            icon="sf:sparkles"
-            title="Agents included"
-            detail="Mention @rowboat and your agent picks it up — as you, for you."
-          />
-        </View>
-      </View>
-
-      <View style={{ paddingBottom: 40, gap: 14 }}>
-        {step === 'email' ? (
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Your email"
-            placeholderTextColor={colors.tertiaryLabel}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            returnKeyType="send"
-            onSubmitEditing={() => void askCode()}
-            editable={!busy}
-            style={{
-              fontSize: 17, color: colors.label, paddingVertical: 14, paddingHorizontal: 16,
-              borderRadius: 14, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.separator,
-            }}
-          />
-        ) : (
-          <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 14, textAlign: 'center', color: colors.secondaryLabel }}>
-              Enter the code sent to {email.trim()}
-            </Text>
-            <TextInput
-              value={code}
-              onChangeText={(next) => {
-                const digits = next.replace(/\D/g, '').slice(0, 6);
-                setCode(digits);
-                if (digits.length === 6) void checkCode(digits);
-              }}
-              placeholder="123456"
-              placeholderTextColor={colors.tertiaryLabel}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              autoComplete="one-time-code"
-              autoFocus
-              editable={!busy}
-              style={{
-                fontSize: 26, letterSpacing: 8, textAlign: 'center', color: colors.label, paddingVertical: 12,
-                borderRadius: 14, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.separator,
-              }}
-            />
-          </View>
-        )}
-        <Pressable
-          disabled={busy}
-          onPress={() => void (step === 'email' ? askCode() : checkCode())}
-          style={({ pressed }) => ({
-            paddingVertical: 14, borderRadius: 14, borderCurve: 'continuous', alignItems: 'center',
-            backgroundColor: colors.label, opacity: pressed || busy ? 0.7 : 1,
-          })}
-        >
-          {busy
-            ? <ActivityIndicator color={colors.background} />
-            : <Text style={{ fontSize: 16, fontWeight: '600', color: colors.background }}>{step === 'email' ? 'Get a sign-in code' : 'Sign in'}</Text>}
-        </Pressable>
-        {step === 'code' ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 24 }}>
-            <Pressable disabled={busy} onPress={() => void askCode()} hitSlop={8}>
-              <Text style={{ fontSize: 14, color: colors.label, fontWeight: '600' }}>Send a new code</Text>
-            </Pressable>
-            <Pressable disabled={busy} onPress={() => { setStep('email'); setError(null); }} hitSlop={8}>
-              <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>Change email</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable disabled={busy} onPress={() => void go()} style={{ alignItems: 'center', padding: 4 }}>
-            <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>Other ways: Google, Apple…</Text>
-          </Pressable>
-        )}
-        <Pressable onPress={() => router.push('/pairing')} style={{ alignItems: 'center', padding: 4 }}>
-          <Text style={{ fontSize: 14, color: colors.secondaryLabel }}>
-            Use Rowboat on your Mac? <Text style={{ fontWeight: '600', color: colors.label }}>Connect your Mac</Text>
-          </Text>
-        </Pressable>
-        {error ? <Text style={{ fontSize: 13, textAlign: 'center', color: colors.destructive }}>{error}</Text> : null}
-      </View>
-    </View>
+    <BaaraliSignInView
+      step={step} email={email} code={code} busy={busy} error={error}
+      onEmail={value => { setEmail(value); setError(null); }}
+      onCode={value => { setCode(value.replace(/\D/g, '').slice(0, 6)); setError(null); }}
+      onSend={() => void askCode()} onConfirm={() => void checkCode()}
+      onChange={() => { setStep('email'); setCode(''); setError(null); }}
+      onOther={() => void go()} onPair={() => router.push('/pairing')}
+    />
   );
 }
+
 
 /** What went wrong, for the person. */
 function problemText(problem: SignInProblem): string {
@@ -238,19 +139,6 @@ function problemText(problem: SignInProblem): string {
     default:
       return 'Sign-in didn’t work. Try again.';
   }
-}
-
-function FeatureRow({ icon, title, detail }: { icon: string; title: string; detail: string }) {
-  const colors = useColors();
-  return (
-    <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-      <Image source={icon} style={{ width: 30, height: 30 }} tintColor={colors.label} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ fontSize: 15, fontWeight: '600', color: colors.label }}>{title}</Text>
-        <Text style={{ fontSize: 13, lineHeight: 18, color: colors.secondaryLabel }}>{detail}</Text>
-      </View>
-    </View>
-  );
 }
 
 function OrgList() {

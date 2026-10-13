@@ -83,7 +83,7 @@ function WelcomeStep({ signedIn, connecting, onSignIn, onContinue }: { signedIn:
   ]
   return (
     <div className="flex flex-col gap-6">
-      <Duo first="Hello 👋" second="We were waiting for you" motion="bob" />
+      <Duo first="Welcome." second="Sign in to continue." motion="bob" />
       <div className="flex flex-col items-center gap-2 text-center">
         <h2 className="text-3xl font-semibold tracking-tight">Welcome to Baarali</h2>
         <p className="max-w-md text-base leading-relaxed text-muted-foreground">Your work assistant. It handles your emails, prepares your documents and does the tasks you hand over.</p>

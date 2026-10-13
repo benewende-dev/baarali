@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { MAIN, extract, extractMobile, missing, mobileBabel } from '../scripts/i18n-extract.mjs';
-import { __baaraliT, setLanguage } from '../src/i18n/mobile/runtime.js';
+import { __baaraliT, setLanguage, tabLabel, interfaceText } from '../src/i18n/mobile/runtime.js';
 import { FR } from '../src/i18n/fr.js';
 import { FR_MAIN, translateMenu } from '../src/i18n/main.js';
 import { aboutPeople, compile, pickLang, translate } from '../src/i18n/translate.js';
@@ -124,6 +124,21 @@ describe('pickLang', () => {
 });
 
 describe('the mobile app', () => {
+  it('localizes composed quota labels while leaving model names intact', () => {
+    setLanguage('fr');
+    expect(interfaceText('8% used this week')).toBe('8 % utilisés cette semaine');
+    expect(interfaceText('Gemini 3.8 Flash TTS')).toBe('Gemini 3.8 Flash TTS');
+    expect(interfaceText('Chat and Work included')).toBe('Chat et Work inclus');
+    setLanguage('en');
+    expect(interfaceText('8% used this week')).toBe('8% used this week');
+  });
+  it('keeps the team-space tab short in French and its English label intact', () => {
+    setLanguage('fr');
+    expect(tabLabel('spaces', 'Spaces')).toBe('Espaces');
+    expect(tabLabel('home', 'Baarali')).toBe('Baarali');
+    setLanguage('en');
+    expect(tabLabel('spaces', 'Spaces')).toBe('Spaces');
+  });
   const plugin = createRequire(import.meta.url)('../src/i18n/mobile/babel-plugin.cjs');
   const runtime = path.resolve('/app/src/baarali-i18n/mobile/runtime.ts');
   const compile = (code: string, filename = '/app/src/app/screen.tsx') =>

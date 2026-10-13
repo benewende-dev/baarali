@@ -157,11 +157,21 @@ export function extractMobile(root = MOBILE) {
   const babel = mobileBabel(root);
   const plugin = require('../src/i18n/mobile/babel-plugin.cjs');
   // The code as the build compiles it: with the brand's edits (new messages included).
-  const edits = mobilePlan().edits;
+  const plan = mobilePlan();
+  const edits = plan.edits;
+  const files = new Map(walkFiles(root).map(file => [file, fs.readFileSync(file, 'utf8')]));
+  // BAARALI(12/10/2026): CI checks the copied mobile UI as it will ship,
+  // including brand-owned screens that replace or extend upstream routes.
+  if (root === MOBILE) {
+    const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+    for (const [from, to] of plan.copies) {
+      if (to.startsWith('apps/x/apps/mobile/src/') && /\.tsx?$/.test(to)) files.set(path.join(ROOT, to), fs.readFileSync(path.join(pkg, from), 'utf8'));
+    }
+  }
   const found = new Map();
-  for (const file of walkFiles(root)) {
+  for (const [file, source] of files) {
     const collect = new Set();
-    let code = fs.readFileSync(file, 'utf8');
+    let code = source;
     for (const e of edits) if (path.join(ROOT, e.file) === file && code.includes(e.from)) code = code.replace(e.from, () => e.to);
     babel.transformSync(code, {
       filename: file,

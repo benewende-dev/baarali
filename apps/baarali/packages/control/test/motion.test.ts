@@ -44,7 +44,7 @@ describe('Studio Motion export rules', () => {
   it('gives each plan its minutes and counts 60 images a second twice', () => {
     const born = { createdAt: T0 - 10 * 24 * 3600_000 };
     expect(renderWindow(PLANS[0], born, T0)).toEqual({ per: 'month', minutes: 30, start: monthStart(T0), end: nextMonthStart(T0) });
-    expect(renderWindow(PLANS[1], born, T0).minutes).toBe(2);
+    expect(renderWindow(PLANS[1], born, T0).minutes).toBe(0);
     expect(renderWindow(PLANS[2], born, T0).minutes).toBe(300);
     expect(renderWindow(plan('pro-100', 'pro'), born, T0).minutes).toBe(120);
     expect(renderWindow(null, born, T0).minutes).toBe(0);
@@ -69,6 +69,18 @@ describe('Studio Motion export rules', () => {
 });
 
 describe('/v1/motion', () => {
+  it('refuses free Studio execution even with media credits, without spending or rendering', async () => {
+    const free = setup(() => accepted(10), { planId: 'decouverte', credits: 100 });
+    for (const path of ['/v1/motion/renders?seconds=10', '/v1/motion/review?seconds=10', '/v1/motion/poster?times=1']) {
+      const response = await free.call(path, { method: 'POST', body: free.project });
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe('work_plan_required');
+    }
+    expect(free.seen).toHaveLength(0);
+    expect(await free.store.mediaBalance('me')).toBe(100);
+    expect((await free.call('/v1/motion/allowance')).status).toBe(200);
+  });
+
   it('streams the project to the render service and takes the minutes from the plan', async () => {
     const { submit, seen, store, project, call } = setup(() => accepted(10));
     const res = await submit('format=mp4&fps=30&seconds=10');
@@ -83,15 +95,15 @@ describe('/v1/motion', () => {
   });
 
   it('charges credits beyond the minutes, and refuses what they cannot pay before rendering', async () => {
-    const free = setup(() => accepted(100), { planId: 'decouverte', credits: 7 });
-    // 2 minutes included: 100 s fit, the next 100 s take 20 from them and 80 s of credits (7).
-    expect(await (await free.submit('seconds=100')).json()).toMatchObject({ included_seconds: 100, credits: 0 });
-    const second = await free.submit('seconds=100');
-    expect(await second.json()).toMatchObject({ included_seconds: 20, credits: 7, balance: 0 });
-    const third = await free.submit('seconds=100');
+    const paid = setup(() => accepted(100), { planId: 'semaine', credits: 7 });
+    // Three paid weekly minutes: 100 s fit, then 80 included and 20 extra cost 2 credits.
+    expect(await (await paid.submit('seconds=100')).json()).toMatchObject({ included_seconds: 100, credits: 0 });
+    const second = await paid.submit('seconds=100');
+    expect(await second.json()).toMatchObject({ included_seconds: 80, credits: 2, balance: 5 });
+    const third = await paid.submit('seconds=100');
     expect(third.status).toBe(402);
-    expect((await third.json()).error).toMatchObject({ code: 'insufficient_media_credits', cost: 8, balance: 0 });
-    expect(free.seen).toHaveLength(2);
+    expect((await third.json()).error).toMatchObject({ code: 'insufficient_media_credits', cost: 8, balance: 5 });
+    expect(paid.seen).toHaveLength(2);
   });
 
   it('gives the Semaine plan 3 minutes for each paid week', async () => {
@@ -161,25 +173,25 @@ describe('/v1/motion', () => {
   });
 
   it('gives back minutes and credits once when the render fails, with its reason', async () => {
-    const { submit, call, store } = setup((s) => (s.url.includes('/jobs/new') ? accepted(60) : json({ status: 'failed', error: 'GSAP is not allowed' })), { planId: 'decouverte', credits: 10 });
-    await submit('seconds=60');
+    const { submit, call, store } = setup((s) => (s.url.includes('/jobs/new') ? accepted(Number(new URL(s.url).searchParams.get('seconds'))) : json({ status: 'failed', error: 'GSAP is not allowed' })), { planId: 'semaine', credits: 10 });
+    await submit('seconds=120');
     const { id } = await (await submit('seconds=60&fps=60')).json();
     expect(await store.mediaBalance('me')).toBe(5);
     expect(await (await call(`/v1/motion/renders/${id}`)).json()).toMatchObject({ status: 'failed', error: 'GSAP is not allowed' });
     await call(`/v1/motion/renders/${id}`);
     expect(await store.mediaBalance('me')).toBe(10);
     expect(store.ledger.filter((e) => e.kind === 'refund')).toHaveLength(1);
-    expect(await store.motionUsage('me', monthStart(T0))).toEqual({ included: 60, extra: 0 });
+    expect(await store.motionUsage('me', T0)).toEqual({ included: 120, extra: 0 });
   });
 
   it('refunds what the render service refuses, and a duration that lied', async () => {
-    const bad = setup(() => json({ error: 'Bad file path: ../x' }, 400), { planId: 'decouverte' });
+    const bad = setup(() => json({ error: 'Bad file path: ../x' }, 400), { planId: 'essentiel' });
     const res = await bad.submit('seconds=10');
     expect(res.status).toBe(400);
     expect((await res.json()).error.message).toContain('Bad file path');
     expect(await bad.store.motionUsage('me', monthStart(T0))).toEqual({ included: 0, extra: 0 });
 
-    const liar = setup(() => accepted(90), { planId: 'decouverte' });
+    const liar = setup(() => accepted(90), { planId: 'essentiel' });
     expect((await liar.submit('seconds=5')).status).toBe(400);
     expect(await liar.store.motionUsage('me', monthStart(T0))).toEqual({ included: 0, extra: 0 });
 

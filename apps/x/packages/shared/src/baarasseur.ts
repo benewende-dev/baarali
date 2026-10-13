@@ -16,6 +16,18 @@ export const DOCUMENTS_LIMIT = 20;
 /** Where its documents are kept, one folder each. */
 export const DOCUMENTS_DIR = "baarasseurs";
 
+// BAARALI(11/10/2026): the approved avatar family uses stable ids so the
+// phone and desktop keep the same choice in the workspace profile.
+export const AVATAR_IDS = ["original", "bop", "moki", "nova", "tiko", "nimbo", "pixel", "zest", "ink", "street"] as const;
+export type AgentAvatarId = typeof AVATAR_IDS[number];
+export const AGENT_AVATARS: ReadonlyArray<{ id: AgentAvatarId; label: string }> = [
+    { id: "original", label: "B" }, { id: "bop", label: "Bop" },
+    { id: "moki", label: "Moki" }, { id: "nova", label: "Nova" },
+    { id: "tiko", label: "Tiko" }, { id: "nimbo", label: "Nimbo" },
+    { id: "pixel", label: "Pixel" }, { id: "zest", label: "Zest" },
+    { id: "ink", label: "Ink" }, { id: "street", label: "Street" },
+];
+
 export const BaarasseurScheduleSchema = z.object({
     every: z.enum(["day", "weekday", "week", "month"]),
     /** The day of the week (0 = Sunday) for "week", of the month (1–28) for "month". */
@@ -30,6 +42,8 @@ export const BaarasseurSchema = z.object({
     mission: z.string().max(4000).default(""),
     /** One of the avatar tints the app offers. */
     color: z.string().max(20).default("clay"),
+    // Missing or future avatars keep old profiles readable with their initials.
+    avatar: z.enum(AVATAR_IDS).optional().catch(undefined),
     /** The tools it works with, as the app names them (Gmail, WhatsApp…). */
     tools: z.array(z.string().max(40)).max(20).default([]),
     model: z.string().optional(),
@@ -54,6 +68,7 @@ export interface Baarasseur {
     role: string;
     mission: string;
     color: string;
+    avatar?: AgentAvatarId;
     tools: string[];
     model?: string;
     provider?: string;
@@ -427,12 +442,12 @@ export function idFor(name: string, taken: string[]): string {
 export function templateToBaarasseur(t: Template, taken: string[], lang: Lang): Baarasseur {
     return {
         id: idFor(t.name, taken), name: t.name, role: t.role[lang], mission: t.mission[lang], color: t.color,
-        tools: t.tools, schedule: t.schedule, memory: [], createdAt: new Date().toISOString(),
+        avatar: "original", tools: t.tools, schedule: t.schedule, memory: [], createdAt: new Date().toISOString(),
     };
 }
 
 export function blankBaarasseur(taken: string[]): Baarasseur {
-    return { id: idFor("baarasseur", taken), name: "", role: "", mission: "", color: "clay", tools: [], schedule: null, memory: [], createdAt: new Date().toISOString() };
+    return { id: idFor("baarasseur", taken), name: "", role: "", mission: "", color: "clay", avatar: "original", tools: [], schedule: null, memory: [], createdAt: new Date().toISOString() };
 }
 
 const DESCRIBE = [

@@ -14,7 +14,7 @@ export type RenderFormat = (typeof RENDER_FORMATS)[number];
 
 /** Minutes of export a month, by plan; a plan not named here takes its category's. */
 export const RENDER_MINUTES_BY_PLAN: Record<string, number> = { 'pro-200': 300 };
-export const RENDER_MINUTES_BY_CATEGORY: Record<Plan['category'], number> = { free: 2, starter: 30, pro: 120 };
+export const RENDER_MINUTES_BY_CATEGORY: Record<Plan['category'], number> = { free: 0, starter: 30, pro: 120 };
 /**
  * A plan paid by the week gets its minutes each week instead (decided
  * 08/10/2026): four paid weeks, four times 3 minutes. The week is the

@@ -1,3 +1,4 @@
+import { planAccessCopy } from './plan-access-copy.js';
 import { ANNUAL_DISCOUNT } from './catalog.js';
 import { formatPrice, type HomeData } from './home-page.js';
 import { CONTACT, legalLinks } from './legal-page.js';
@@ -43,10 +44,9 @@ const STRINGS = {
     start: 'Créer mon compte gratuit',
     getApp: 'Télécharger l’app',
     soon: 'Paiement bientôt disponible',
-    // What each plan changes; what Baarali does is the same on every plan
-    // (only the models and the usage differ, catalog.ts).
+    // BAARALI(13/10/2026): planAccessCopy owns the shared Chat / Work split.
     plans: {
-      decouverte: { tag: 'Pour essayer', for: 'Pour découvrir Baarali sur de vraies tâches.', plus: 'Inclus', points: ['Des recherches sur le web, résumées avec leurs sources', 'Emails, devis et comptes rendus rédigés dans votre ton', 'Documents, tableaux et présentations prêts à envoyer', 'Votre accord avant chaque envoi ou publication', 'Les tâches longues en arrière-plan, et les routines', 'Une mémoire : vos clients, vos prix, vos habitudes', 'Vidéos, voix et musique avec des crédits médias', 'Les apps Mac et Windows', 'Des modèles rapides et économiques', 'Une utilisation limitée, renouvelée toutes les 5 h et chaque semaine'] },
+      decouverte: { tag: 'Pour essayer', for: '', plus: 'Inclus', points: [] },
       semaine: { tag: 'Sans engagement', for: 'Pour une semaine chargée, payée en Mobile Money.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel pendant 7 jours', '25 fois l’utilisation de Découverte', 'Payé en Mobile Money, quand vous en avez besoin', 'Rien ne se renouvelle tout seul'] },
       essentiel: { tag: 'Le quotidien', for: 'Pour s’en servir chaque jour, au travail ou chez soi.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', '25 fois l’utilisation de Découverte', 'Assez pour s’en servir tous les jours', 'De la marge pour les tâches longues', `Au mois, ou à l’année avec ${OFF} % de remise`] },
       pro: { tag: 'Pour les gros besoins', for: 'Pour travailler toute la journée avec lui.', plus: 'Tout Essentiel, et :', points: ['Cinq ou dix fois l’utilisation d’Essentiel', 'Pour les tâches longues et les routines de chaque jour', 'Pour une personne qui délègue beaucoup', 'Les médias toujours avec des crédits', `Au mois, ou à l’année avec ${OFF} % de remise`] },
@@ -99,6 +99,7 @@ const STRINGS = {
       models: 'Modèles',
       usage: 'Utilisation',
       windows: 'Jauges 5 h et semaine',
+      work: 'Work : projets, agents, tâches, code et Studio',
       media: 'Vidéos, voix, musique',
       approval: 'Votre accord avant chaque envoi',
       apps: 'Apps Mac et Windows',
@@ -174,7 +175,7 @@ const STRINGS = {
     getApp: 'Get the app',
     soon: 'Payment coming soon',
     plans: {
-      decouverte: { tag: 'To try it', for: 'To try Baarali on real tasks.', plus: 'Included', points: ['Web research, summed up with its sources', 'Emails, quotes and minutes written in your tone', 'Documents, spreadsheets and slides ready to send', 'Your approval before anything is sent or published', 'Long tasks in the background, and routines', 'A memory: your clients, your prices, your habits', 'Videos, voices and music with media credits', 'The Mac and Windows apps', 'Fast, low-cost models', 'Limited usage, renewed every 5 h and every week'] },
+      decouverte: { tag: 'To try it', for: '', plus: 'Included', points: [] },
       semaine: { tag: 'No commitment', for: 'For a busy week, paid with mobile money.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', 'The usage of Essentiel for 7 days', '25 times the usage of Découverte', 'Paid with mobile money, when you need it', 'Nothing renews on its own'] },
       essentiel: { tag: 'Everyday', for: 'To use it every day, at work or at home.', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', '25 times the usage of Découverte', 'Enough to use it every day', 'Room for long tasks', `Monthly, or yearly with ${OFF}% off`] },
       pro: { tag: 'For heavy use', for: 'To work with it all day long.', plus: 'Everything in Essentiel, and:', points: ['Five or ten times the usage of Essentiel', 'For long tasks and daily routines', 'For someone who delegates a lot', 'Media still with credits', `Monthly, or yearly with ${OFF}% off`] },
@@ -227,6 +228,7 @@ const STRINGS = {
       models: 'Models',
       usage: 'Usage',
       windows: '5-hour and weekly gauges',
+      work: 'Work: projects, agents, tasks, code and Studio',
       media: 'Videos, voices, music',
       approval: 'Your approval before anything is sent',
       apps: 'Mac and Windows apps',
@@ -334,7 +336,7 @@ export function planOffers(data: HomeData, acceptLanguage: string | null): PlanO
     offer.billing.kind === 'free'
       ? { id: offer.id, label, price: null, per: t.forever, note }
       : { id: offer.id, label, price: written(offer.billing.prices), per: offer.billing.period === 'week' ? t.perWeek : t.perMonth, note };
-  const copy = (offer: Offer) => t.plans[offer.id] ?? t.plans.pro;
+  const copy = (offer: Offer) => planAccessCopy(t.plans[offer.id] ?? t.plans.pro, offer.billing.kind === 'free', lang);
   const plan = (offer: Offer, levels: PlanOfferLevel[]): PlanOffer => ({
     id: offer.id,
     name: offer.displayName,
@@ -392,7 +394,7 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
   };
 
   const card = (offer: Offer, extra = '') => {
-    const copy = t.plans[offer.id] ?? t.plans.pro;
+    const copy = planAccessCopy(t.plans[offer.id] ?? t.plans.pro, offer.billing.kind === 'free', lang);
     const featured = offer.id === 'essentiel';
     return `<article class="plan${featured ? ' featured' : ''}">
       ${featured ? `<p class="badge">${escape(t.popular)}</p>` : ''}
@@ -431,6 +433,8 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
         if (o.category === 'free') return escape(t.usageLimited);
         if (o.category === 'pro') return escape(pros.map((p) => t.usageX(ratio(p.id))).join(' · '));
         return escape(t.usageBase);
+      case 'work':
+        return o.category === 'free' ? '—' : `${CHECK}<span class="sr">${escape(t.yes)}</span>`;
       case 'media':
         return escape(t.mediaCredits);
       default:

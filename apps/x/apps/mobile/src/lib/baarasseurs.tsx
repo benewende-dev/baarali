@@ -3,6 +3,7 @@ import { Text, View, useColorScheme } from 'react-native';
 import { baarasseurs as shared } from '@x/shared';
 
 import { useConnection } from '@/lib/connection';
+import { AgentAvatarImage } from '@/components/agent-avatar';
 
 // BAARALI(06/10/2026): the baarasseurs on the phone — the same workspace file
 // as the desktop, read and written over the Mac's RPC, with the shared
@@ -77,11 +78,11 @@ export function useTint(color: string): { bg: string; fg: string } {
   return dark ? { bg: bgDark, fg: fgDark } : { bg, fg };
 }
 
-export function BaarasseurAvatar({ b, size = 48 }: { b: Pick<Baarasseur, 'name' | 'color'>; size?: number }) {
+export function BaarasseurAvatar({ b, size = 48 }: { b: Pick<Baarasseur, 'name' | 'color' | 'avatar'>; size?: number }) {
   const { bg, fg } = useTint(b.color);
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: bg }}>
-      <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: fg }}>{(b.name.trim()[0] ?? '?').toUpperCase()}</Text>
+    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: b.avatar === 'original' ? '#1A6DFF' : bg }}>
+      {b.avatar ? <AgentAvatarImage avatar={b.avatar} size={size * .9} /> : <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: fg }}>{(b.name.trim()[0] ?? '?').toUpperCase()}</Text>}
     </View>
   );
 }

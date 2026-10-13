@@ -50,10 +50,11 @@ describe('apply on this checkout', () => {
     expect(changes).toContain('copy src/baarali-theme.css → apps/x/apps/renderer/src/baarali-theme.css');
   });
 
-  it('brands only the core for the instance image', () => {
+  it('brands the core and its HTTP gate for the instance image', () => {
     const changes = apply({ only: 'core', write: false });
     expect(changes.length).toBeGreaterThan(0);
-    expect(changes.every((c) => c.startsWith('edit apps/x/packages/core/src/'))).toBe(true);
+    expect(changes.every((c) => c.startsWith('edit apps/x/packages/core/src/') || c === 'edit apps/x/apps/server/src/router.ts' || /^copy .* → apps\/x\/packages\/core\//.test(c))).toBe(true);
+    expect(changes).toContain('copy assets/work-runtime.ts → apps/x/packages/core/src/baarali/work-runtime.ts');
   });
 
   // Decided 02/10/2026: the agent answers in the person's language, and what

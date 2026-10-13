@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUp, ChevronLeft, FileText, Loader2, Plus, SquarePen, Trash2, X } from 'lucide-react'
-import { baarasseurAgentId, DOCUMENTS_DIR, DOCUMENTS_LIMIT, nextRunAt } from '@x/shared/dist/baarasseur.js'
+import { AGENT_AVATARS, baarasseurAgentId, DOCUMENTS_DIR, DOCUMENTS_LIMIT, nextRunAt } from '@x/shared/dist/baarasseur.js'
+import { AgentAvatarImage } from '@/components/agent-avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -23,7 +24,7 @@ import {
 
 export interface BaarasseurRun { id: string; title?: string; modifiedAt: string; agentId: string }
 
-export function Avatar({ b, size = 'md', working }: { b: Pick<Baarasseur, 'name' | 'color'>; size?: 'sm' | 'md' | 'lg'; working?: boolean }) {
+export function Avatar({ b, size = 'md', working }: { b: Pick<Baarasseur, 'name' | 'color' | 'avatar'>; size?: 'sm' | 'md' | 'lg'; working?: boolean }) {
   return (
     <span
       aria-hidden
@@ -31,10 +32,11 @@ export function Avatar({ b, size = 'md', working }: { b: Pick<Baarasseur, 'name'
         'relative flex shrink-0 items-center justify-center rounded-full font-bold',
         size === 'sm' && 'size-7 text-xs', size === 'md' && 'size-11 text-base', size === 'lg' && 'size-20 text-3xl',
         tint(b.color),
+        b.avatar === 'original' && '!bg-[#1A6DFF]',
       )}
       data-no-translate
     >
-      {(b.name.trim()[0] ?? '?').toUpperCase()}
+      {b.avatar ? <AgentAvatarImage avatar={b.avatar} /> : (b.name.trim()[0] ?? '?').toUpperCase()}
       {working && <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-background bg-emerald-500" />}
     </span>
   )
@@ -59,7 +61,7 @@ function when(iso: string) {
 }
 
 function blank(taken: string[]): Baarasseur {
-  return { id: idFor('baarasseur', taken), name: '', role: '', mission: '', color: 'clay', tools: [], schedule: null, memory: [], documents: [], createdAt: new Date().toISOString() }
+  return { id: idFor('baarasseur', taken), name: '', role: '', mission: '', color: 'clay', avatar: 'original', tools: [], schedule: null, memory: [], documents: [], createdAt: new Date().toISOString() }
 }
 
 /** The newest conversation of each baarasseur, by agent id. */
@@ -548,7 +550,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
             <div className="flex max-w-3xl flex-col gap-6">
               <div className="flex items-start gap-5">
                 <div className="relative flex flex-col items-center gap-1.5">
-                  <Avatar b={{ name: b.name || '?', color: b.color }} size="lg" />
+                  <Avatar b={{ name: b.name || '?', color: b.color, avatar: b.avatar }} size="lg" />
                   <button type="button" onClick={() => setPicking((v) => !v)} aria-expanded={picking}
                     className="text-[13px] font-medium text-primary hover:underline">Change</button>
                   {picking && (
@@ -569,6 +571,21 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
                     <Input value={b.role} maxLength={60} onChange={(e) => set({ role: e.target.value })} className="h-10" data-no-translate /></label>
                 </div>
               </div>
+
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 text-sm font-medium">Agent avatar</legend>
+                <div role="radiogroup" aria-label="Choose an avatar" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {AGENT_AVATARS.map((choice) => (
+                    <button key={choice.id} type="button" role="radio" aria-checked={b.avatar === choice.id} aria-label={choice.label}
+                      onClick={() => set({ avatar: choice.id })}
+                      className={cn('flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl border-2 p-2 text-xs', b.avatar === choice.id ? 'border-primary bg-primary/10' : 'border-transparent bg-muted hover:bg-accent')}>
+                      <span className={cn('size-14 rounded-2xl', choice.id === 'original' && 'bg-[#1A6DFF]')}><AgentAvatarImage avatar={choice.id} /></span>
+                      <span data-no-translate>{choice.label}</span>
+                    </button>
+                  ))}
+                  <button type="button" role="radio" aria-checked={!b.avatar} onClick={() => set({ avatar: undefined })} className="col-span-full min-h-11 text-left text-sm text-primary hover:underline">Use initials</button>
+                </div>
+              </fieldset>
 
               <label className="flex flex-col gap-1.5 text-sm font-medium"><span>Mission</span>
                 <Textarea rows={5} value={b.mission} maxLength={4000} onChange={(e) => set({ mission: e.target.value })} className="text-[15px] leading-relaxed" data-no-translate />

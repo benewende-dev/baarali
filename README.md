@@ -25,7 +25,7 @@ Baarali est pensé d'abord pour l'Afrique de l'Ouest, et ouvert au monde : l'app
 
 | Forfait | Prix | Minutes d'export Studio Motion |
 |---|---|---|
-| Découverte | gratuit | 2 par mois |
+| Découverte | gratuit, Chat | Studio réservé aux forfaits payants |
 | Semaine | 5 € par semaine | 3 par semaine payée |
 | Essentiel | 20 € par mois | 30 par mois |
 | Pro | 100 € par mois | 120 par mois |
