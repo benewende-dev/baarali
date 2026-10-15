@@ -11,21 +11,20 @@ const require = createRequire(new URL('../../../../x/packages/core/package.json'
 const { Client } = await import(pathToFileURL(require.resolve('@modelcontextprotocol/sdk/client/index.js')).href);
 const { StdioClientTransport } = await import(pathToFileURL(require.resolve('@modelcontextprotocol/sdk/client/stdio.js')).href);
 const { ListToolsResponse } = await import(pathToFileURL(require.resolve('@x/shared/dist/mcp.js')).href);
-const { REA_VERSION } = await import(new URL('../dist/rea.js', import.meta.url));
+const { REA_VERSION, reaServer } = await import(new URL('../dist/rea.js', import.meta.url));
 const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-rea-sdk-'));
 const source = path.join(workDir, 'reference');
 await fs.mkdir(source);
 await fs.mkdir(path.join(workDir, 'home'));
 await fs.writeFile(path.join(source, 'index.js'), 'export function sum(a,b) { return a + b; }');
 const client = new Client({ name: 'baarali-rea-sdk-check', version: '1' });
-const transport = new StdioClientTransport({
-  command: process.env.BAARALI_REA_NODE ?? process.execPath,
-  args: ['--max-old-space-size=384', fileURLToPath(new URL('../dist/rea-main.js', import.meta.url))],
-  env: {
-    PATH: process.env.PATH ?? '', HOME: path.join(workDir, 'home'), ROWBOAT_WORKDIR: workDir,
-    BAARALI_REA_ROOT: process.env.BAARALI_REA_ROOT ?? fileURLToPath(new URL('../../../engines/rea/', import.meta.url)),
-  },
-});
+const configuration = reaServer({ ...process.env,
+  BAARALI_REA_NODE: process.env.BAARALI_REA_NODE ?? process.execPath,
+  HOME: path.join(workDir, 'home'),
+  BAARALI_REA_ROOT: process.env.BAARALI_REA_ROOT ?? fileURLToPath(new URL('../../../engines/rea/', import.meta.url)),
+}, workDir, fileURLToPath(new URL('../dist/rea-main.js', import.meta.url)));
+assert.ok(configuration);
+const transport = new StdioClientTransport(configuration);
 try {
   await client.connect(transport);
   assert.equal(client.getServerVersion().version, REA_VERSION);

@@ -109,7 +109,7 @@ export function extract(root = RENDERER) {
   if (root === RENDERER) {
     const plan = desktopPlan();
     const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-    for (const [from,to] of plan.copies) if (to.startsWith('apps/x/apps/renderer/src/') && /\.tsx?$/.test(to) && !to.includes('/baarali-i18n/')) {
+    for (const [from,to] of plan.copies) if (to.startsWith('apps/x/apps/renderer/src/') && /\.tsx?$/.test(to) && !/\.test\./.test(to) && !to.includes('/baarali-i18n/')) {
       files.set(path.join(ROOT,to),fs.readFileSync(path.join(pkg,from),'utf8'));
     }
     for (const e of plan.edits) if (e.file.startsWith('apps/x/apps/renderer/src/')) {

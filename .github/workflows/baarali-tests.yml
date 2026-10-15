@@ -117,3 +117,10 @@ jobs:
       - name: Verify the Baarali SDK against the real REA server
         run: node scripts/check-rea-sdk.mjs
         working-directory: apps/baarali/packages/instance
+
+      - name: Apply the approved desktop layout to the CI checkout
+        run: node apps/baarali/packages/desktop/scripts/brand.mjs --yes
+
+      - name: Test desktop Chat and Work access
+        run: pnpm exec vitest run src/components/desktop-workspace.test.tsx src/components/code/code-view.test.tsx src/components/chat-input-harness.test.tsx --maxWorkers=1
+        working-directory: apps/x/apps/renderer

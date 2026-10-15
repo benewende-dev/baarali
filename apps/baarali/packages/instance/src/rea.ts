@@ -41,7 +41,9 @@ export function reaServer(source: NodeJS.ProcessEnv, workDir: string, launcher: 
   if (source.BAARALI_REA_ENABLED === '0') return null;
   return {
     command: source.BAARALI_REA_NODE ?? REA_NODE,
-    args: ['--max-old-space-size=384', launcher],
+    // BAARALI(15/10/2026): provider discovery plus REA's parent transfer
+    // reserve exhausted 384/512 MiB on Linux before a three-file Electron analysis.
+    args: ['--max-old-space-size=640', launcher],
     env: reaEnvironment(source, workDir),
   };
 }

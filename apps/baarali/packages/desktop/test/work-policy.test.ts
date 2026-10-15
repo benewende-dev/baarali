@@ -33,6 +33,14 @@ describe('Work execution entitlement', () => {
     expect(freeMediaServer('baarali-media')).toBe(true);
     expect(freeMediaServer('baarali-motion')).toBe(false);
   });
+  it('keeps personal task organization in Chat while protecting delegation and schedules', () => {
+    for (const channel of ['todo:get', 'todo:save', 'todo:listArchived', 'todo:dismiss', 'todo:restore']) expect(workChannel(channel, null)).toBe(false);
+    for (const channel of ['todo:addItem', 'todo:addSubItem']) {
+      expect(workChannel(channel, { text: 'Prepare a presentation', run: false })).toBe(false);
+      for (const input of [{ text: 'Task', run: true }, { text: '@baarali prepare it', run: false }, { text: '@rowboat prepare it', run: false }, { text: 'Task', run: false, code: { projectId: 'p' } }]) expect(workChannel(channel, input)).toBe(true);
+    }
+    for (const channel of ['todo:runItem', 'todo:comment', 'todo:setPlanner', 'todo:acceptSuggestion', 'todo:startChat']) expect(workChannel(channel, {})).toBe(true);
+  });
   it('protects custom and inline agents, code modes and project composition over Chat RPC', () => {
     for (const agent of [{ agentId: 'baarasseur-mariama' }, { agent: { name: 'custom' } }, { agentId: 'copilot', overrides: { composition: { codeMode: 'claude' } } }, { agentId: 'copilot', overrides: { composition: { workDirId: 'project' } } }]) expect(workChannel('sessions:sendMessage', { config: { agent } })).toBe(true);
   });

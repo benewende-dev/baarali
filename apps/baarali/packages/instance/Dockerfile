@@ -39,6 +39,7 @@ RUN cd apps/harbor && pnpm install --frozen-lockfile --filter @rowboat/spaces-pr
 # core only, the repository keeps the upstream text (desktop/scripts/brand.mjs).
 COPY apps/x apps/x
 COPY apps/baarali/packages/desktop/scripts/brand.mjs apps/baarali/packages/desktop/scripts/brand.mjs
+COPY apps/baarali/packages/desktop/scripts/desktop-layout.mjs apps/baarali/packages/desktop/scripts/desktop-layout.mjs
 # BAARALI(13/10/2026): core branding also installs the shared Work policy.
 COPY apps/baarali/packages/desktop/assets/mobile/work-access.ts apps/baarali/packages/desktop/assets/mobile/work-access.ts
 COPY apps/baarali/packages/desktop/assets/mobile/work-policy.ts apps/baarali/packages/desktop/assets/mobile/work-policy.ts

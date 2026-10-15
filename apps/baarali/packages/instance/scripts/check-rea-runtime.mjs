@@ -5,17 +5,19 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import http from 'node:http';
 
 // BAARALI(15/10/2026): exercise the installed engine and evidence lifecycle,
 // including native decompilation in the Linux image, without model/API calls.
 const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'baarali-rea-check-'));
 await fs.mkdir(path.join(workDir, 'home'));
-const node = process.env.BAARALI_REA_NODE ?? '/opt/baarali-rea/bin/node';
 const launcher = process.env.BAARALI_REA_LAUNCHER ?? fileURLToPath(new URL('../dist/rea-main.js', import.meta.url));
-const child = spawn(node, ['--max-old-space-size=384', launcher], {
-  env: { ...process.env, HOME: path.join(workDir, 'home'), ROWBOAT_WORKDIR: workDir },
+const { reaServer } = await import(pathToFileURL(path.join(path.dirname(launcher), 'rea.js')).href);
+const serverConfig = reaServer({ ...process.env, HOME: path.join(workDir, 'home') }, workDir, launcher);
+assert.ok(serverConfig, 'The runtime check requires managed REA');
+const child = spawn(serverConfig.command, serverConfig.args, {
+  env: serverConfig.env,
   stdio: ['pipe', 'pipe', 'pipe'],
   detached: process.platform !== 'win32',
 });
@@ -88,10 +90,22 @@ try {
   }
   console.log(`REA ${init.serverInfo.version}: ${tools.length} tools discovered`);
 
+  // BAARALI(15/10/2026): provider discovery is part of the real agent workflow
+  // and retains heap before analysis. The previous bare IPC fixture missed it.
+  await tool('binary_session', {});
   const source = path.join(workDir, 'reference');
   await fs.mkdir(source);
   await fs.writeFile(path.join(source, 'package.json'), JSON.stringify({ name: 'notes-reference', version: '1', main: 'main.cjs' }));
-  await fs.writeFile(path.join(source, 'main.cjs'), "const {ipcMain}=require('electron'); ipcMain.handle('export-csv', (_event, rows) => rows.join('\\n'));\n");
+  await fs.writeFile(path.join(source, 'main.cjs'), `const {app, BrowserWindow, ipcMain}=require('electron');
+const path=require('path');
+ipcMain.handle('export-csv', (_event, rows) => rows.join('\\n'));
+function createWindow() {
+  const window=new BrowserWindow({width:900,height:600,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false}});
+  window.loadFile('index.html');
+}
+app.whenReady().then(createWindow);
+app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit()});
+`);
   await fs.writeFile(path.join(source, 'preload.cjs'), "const {contextBridge,ipcRenderer}=require('electron'); contextBridge.exposeInMainWorld('notes',{exportRows:rows=>ipcRenderer.invoke('export-csv',rows)});\n");
   const rejected = await request('tools/call', { name: 'analyze_javascript_application', arguments: { input_path: source, max_heap_mb: 16_384 } });
   assert.equal(rejected.isError, true);
@@ -100,6 +114,9 @@ try {
   assert.match(application.evidence_id, /^ev_/);
   assert.match(JSON.stringify(application.normalized_result), /export-csv/);
   assert.equal(application.parameters.max_heap_mb, 256);
+  assert.equal(application.normalized_result.statistics.parsed_javascript_files, 2);
+  assert.ok(application.normalized_result.statistics.findings >= 5);
+  assert.doesNotMatch(JSON.stringify(application.limitations), /parent.*(?:result budget|result capacity)|semantic analysis.*not started/i);
   const trace = await tool('trace_application_feature', { application, seed: { kind: 'channel', value: 'export-csv' }, direction: 'both' });
   assert.ok(trace.normalized_result.summary.matched_seeds > 0);
   console.log('JavaScript/Electron feature traced with retained evidence; worker limits verified');

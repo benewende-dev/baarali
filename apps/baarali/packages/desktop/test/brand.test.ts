@@ -97,6 +97,19 @@ describe('neutral interface icons', () => {
 });
 
 describe('apply on this checkout', () => {
+  it('keeps the full profile, consumption and synchronization footer while separating Chat and Work', () => {
+    const file = 'apps/x/apps/renderer/src/components/sidebar-content.tsx';
+    const original = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    let branded = original;
+    for (const edit of desktopPlan().edits.filter(edit => edit.file === file)) branded = branded.replace(edit.from, () => edit.to);
+    const footer = '{/* Bottom: who is signed in';
+    expect(branded.slice(branded.indexOf(footer))).toBe(original.slice(original.indexOf(footer)));
+    expect(branded).toContain("['email', 'meetings', 'todo', 'library', 'prompts']");
+    expect(branded).toContain("['code', 'coworkers', 'routines', 'apps']");
+    expect(branded).not.toContain('<SpacesSidebarSection');
+    expect(branded).toContain('onClick={onOpenSpaces}');
+    expect(branded).toContain('onClick={onOpenStudio}');
+  });
   it('finds every anchor of the desktop brand', () => {
     const changes = apply({ write: false });
     expect(changes).toContain('edit apps/x/apps/main/forge.config.cjs');
