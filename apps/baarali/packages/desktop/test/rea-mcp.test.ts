@@ -25,12 +25,12 @@ fs.writeFileSync(path.join(dir, 'peer.cjs'), `
 const lines=require('node:readline').createInterface({input:process.stdin});
 lines.on('line',line=>{const q=JSON.parse(line);if(q.id===undefined)return;
 const result=q.method==='initialize'?{protocolVersion:q.params.protocolVersion,capabilities:{tools:{}},serverInfo:{name:'fixture',version:'1'}}:
-q.method==='tools/list'?{tools:[{name:'probe',inputSchema:{type:'object',properties:{}}}]}:
+q.method==='tools/list'?{tools:[{name:'probe',description:'Read the fixture',inputSchema:{type:'object',properties:{}},outputSchema:{type:'object',properties:{pid:{type:'number'}}}}]}:
 {content:[{type:'text',text:'fixture'}],structuredContent:{pid:process.pid,name:q.params.name}};
 process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:q.id,result})+'\\n');});
 lines.on('close',()=>process.exit(0));
 `);
-fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ mcpServers: { 'baarali-rea': { command: process.execPath, args: [path.join(dir, 'peer.cjs')] } } }));
+fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ mcpServers: { 'baarali-rea': { command: process.execPath, args: [path.join(dir, 'peer.cjs')] }, other: { command: process.execPath, args: [path.join(dir, 'peer.cjs')] } } }));
 const plan = (value: string) => fs.writeFileSync(path.join(dir, 'plan'), value);
 plan('paid');
 const load = (name: string) => import(/* @vite-ignore */ pathToFileURL(path.join(dir, name + '.js')).href);
@@ -40,6 +40,13 @@ const call = (sessionId: string, tool = 'probe', input = {}) => withReaScope({ s
 afterAll(async () => { await mcp.cleanup(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 describe('branded REA MCP lifecycle', () => {
+  it('keeps REA names, descriptions and callable inputs without flooding discovery with output validators', async () => {
+    const result = await withReaScope({ sessionId: 'catalog', runId: 'turn' }, () => mcp.listTools('baarali-rea'));
+    expect(result.tools).toEqual([{ name: 'probe', description: 'Read the fixture', inputSchema: { type: 'object', properties: {} } }]);
+    expect((await mcp.listTools('other')).tools[0].outputSchema).toBeDefined();
+    await call('catalog', 'close_binary');
+  });
+
   it('separates chats, deduplicates opens and releases a slot after cleanup', async () => {
     const [a, sameA, b] = await Promise.all([call('a'), call('a'), call('b')]);
     expect(a.structuredContent.pid).toBe(sameA.structuredContent.pid);
