@@ -112,6 +112,8 @@ Le dépôt garde les fichiers de l'upstream tels quels. **La marque s'applique �
 - le lien vers l'instance : `src/cloud-link.ts`, copié dans `main` et démarré par une ligne.
 - la connexion au compte Baarali reste sur l'appareil : `ipc.ts` ne la transmet pas à l'instance (`staysOnDevice` dans `src/cloud-link.ts`).
 
+Les icônes décoratives en étoiles (`Sparkles`, 14/10/2026) sont remplacées dans la copie du build par des symboles liés à leur fonction : rédaction, notes, tâches, réglages ou conversation. Les icônes mobiles SF suivent le même choix. Les favoris et les emojis choisis dans les messages gardent leur sens propre.
+
 Le script refuse d'écrire sans `--yes`. Chaque ancre doit se trouver exactement une fois : si l'upstream en change une, `test/brand.test.ts` casse sur la PR de synchro. L'image d'instance applique la même marque à `core` seulement (`--only core`), pour que l'agent se présente comme Baarali.
 
 **Ce que fait l'app après la connexion.** L'accueil upstream connecte le compte, ce qui écrit `config/oauth.json`. Le lien voit la session, demande une clé d'appareil (`POST /v1/devices`), puis passe l'app en mode distant sur la passerelle et recharge les fenêtres. La première fois, l'instance est créée et démarre : le lien réessaie pendant environ une minute.
@@ -141,6 +143,8 @@ Le script refuse d'écrire sans `--yes`. Chaque ancre doit se trouver exactement
 **Publier une version** : Actions › `baarali-desktop` › *Run workflow*, avec la version (`0.1.0`). Le workflow fait un brouillon de release `v0.1.0` : Mac arm64 et Intel, Windows. On le vérifie, puis on le publie. Le site pointe vers `releases/latest/download/` : `Baarali-mac-arm64.dmg`, `Baarali-mac-intel.dmg`, `Baarali-windows-setup.exe`. Les mises à jour automatiques passent par update.electronjs.org, qui lit ces releases.
 
 **Le modeleur 3D du Studio** (13/10/2026) partage sa page embarquée et son schéma de scène entre Mac et mobile, dans `desktop/assets/motion/` et `instance/src/cad-scene.ts`. Les calculs passent par le MCP Motion de l’instance ; les limites, variantes et exports sont décrits dans [CADQUERY.md](../../docs/baarali/CADQUERY.md).
+
+**La rétro-ingénierie dans Work** (15/10/2026) passe par le MCP `baarali-rea` de l’instance et le skill correspondant, également raccordé aux sessions Code. Le moteur a son installation verrouillée dans `engines/rea/`, hors des workspaces pnpm ; son Node et ses fournisseurs restent séparés des dépendances de Baarali. Le périmètre, les prérequis, les limites et la procédure de mise à jour sont décrits dans [REA.md](../../docs/baarali/REA.md).
 
 **Signature (🧑).** Sans certificat, l'app Mac est signée ad hoc : macOS la dit « non vérifiée », et il faut l'autoriser une fois dans *Réglages › Confidentialité et sécurité*. Pour une app signée et notarisée, il faut un compte Apple Developer (99 $/an) et les secrets `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` et `APPLE_TEAM_ID`. Windows affiche un avertissement SmartScreen tant que l'app n'est pas signée.
 

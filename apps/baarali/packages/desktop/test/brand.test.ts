@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ROOT, apply, brandText, corePlan, desktopPlan, mobilePlan } from '../scripts/brand.mjs';
+import { ROOT, apply, brandText, neutralIcons, corePlan, desktopPlan, mobilePlan } from '../scripts/brand.mjs';
 
 describe('brandText', () => {
   it('names the product Baarali and keeps every internal id', () => {
@@ -37,6 +37,39 @@ describe('brandText', () => {
 
 // The upstream moves every week: if an anchor of ours disappears, this
 // fails on the sync's pull request, not in the middle of a release.
+describe('neutral interface icons', () => {
+  it('preserves existing bindings and aliases when their replacement is already imported', () => {
+    const source = "import { FileText, Sparkles as AssistantIcon, Star } from 'lucide-react';\nconst view = <AssistantIcon />;";
+    const result = neutralIcons(source, 'apps/x/apps/renderer/src/components/meetings-view.tsx');
+    expect(result).toContain('FileText, FileText as AssistantIcon, Star');
+    expect(result).toContain('<AssistantIcon />');
+    expect(neutralIcons(result, 'apps/x/apps/renderer/src/components/meetings-view.tsx')).toBe(result);
+  });
+
+  it('removes imported star glyphs across the current desktop source tree', () => {
+    const visit = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? visit(path.join(dir, entry.name)) : entry.name.endsWith('.tsx') ? [path.join(dir, entry.name)] : []);
+    let checked = 0;
+    for (const file of visit(path.join(ROOT, 'apps/x/apps/renderer/src'))) {
+      const source = fs.readFileSync(file, 'utf8');
+      if (!/\bSparkles\b/.test(source)) continue;
+      const transformed = neutralIcons(source, path.relative(ROOT, file));
+      for (const match of transformed.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]lucide-react['"]/g)) {
+        const importedNames = match[1].split(',').map((binding: string) => binding.trim().split(/\s+as\s+/)[0]);
+        expect(importedNames, path.relative(ROOT, file)).not.toContain('Sparkles');
+      }
+      expect(transformed).toMatch(/\bas Sparkles\b/);
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('covers mobile fallback avatars without modifying emoji content', () => {
+    expect(neutralIcons('<Image source="sf:sparkles" />', 'apps\\x\\apps\\mobile\\src\\components\\member-face.tsx')).toBe('<Image source="sf:person.crop.square" />');
+    expect(neutralIcons('<Image source="sf:sparkles" />', 'apps/x/apps/mobile/src/app/(tabs)/home.tsx')).toBe('<Image source="sf:slider.horizontal.3" />');
+    expect(neutralIcons("{ e: '✨', n: 'sparkles' }", 'apps/x/apps/renderer/src/lib/emoji-data.ts')).toBe("{ e: '✨', n: 'sparkles' }");
+  });
+});
+
 describe('apply on this checkout', () => {
   it('finds every anchor of the desktop brand', () => {
     const changes = apply({ write: false });

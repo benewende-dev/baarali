@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { KIT_DOC } from './motion-kit.js';
 import { CAD_SKILL_SECTION } from './cad-skill.js';
+import { REA_SERVER_NAME, type ReaServer } from './rea.js';
+import { REA_SKILL, REA_SKILL_DIR } from './rea-skill.js';
 
 // Prepares an instance workdir before rowboat-server boots (roadmap phase 0,
 // 30/09/2026). Only files the upstream already reads are written, in their
@@ -25,6 +27,8 @@ export interface SeedOptions {
   mediaServer?: { command: string; args: string[]; env: Record<string, string> };
   /** How it starts the motion design MCP server (motion-mcp-main.ts, 08/10/2026). */
   motionServer?: { command: string; args: string[]; env: Record<string, string> };
+  /** Managed REA runtime; null explicitly disables it on the next boot. */
+  reaServer?: ReaServer | null;
 }
 
 /** Our entries in the person's MCP config and skills; rewritten on every boot, the rest is theirs. */
@@ -205,6 +209,22 @@ export async function seedWorkdir(opts: SeedOptions): Promise<void> {
     const skillDir = path.join(opts.workDir, 'skills', MOTION_SKILL_DIR);
     await fs.mkdir(skillDir, { recursive: true });
     await fs.writeFile(path.join(skillDir, 'SKILL.md'), MOTION_SKILL + CAD_SKILL_SECTION);
+  }
+
+  if (opts.reaServer !== undefined) {
+    const mcpFile = path.join(config, 'mcp.json');
+    const mcp = (await readJson(mcpFile)) ?? {};
+    const servers = (mcp.mcpServers && typeof mcp.mcpServers === 'object' ? mcp.mcpServers : {}) as Record<string, unknown>;
+    const skillDir = path.join(opts.workDir, 'skills', REA_SKILL_DIR);
+    if (opts.reaServer) {
+      servers[REA_SERVER_NAME] = { type: 'stdio', ...opts.reaServer };
+      await fs.mkdir(skillDir, { recursive: true });
+      await fs.writeFile(path.join(skillDir, 'SKILL.md'), REA_SKILL);
+    } else {
+      delete servers[REA_SERVER_NAME];
+      await fs.rm(skillDir, { recursive: true, force: true });
+    }
+    await writeJson(mcpFile, { ...mcp, mcpServers: servers });
   }
 
   // Ours, rewritten on every boot like the media skill.

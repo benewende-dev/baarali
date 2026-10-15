@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { createGate } from './gate.js';
 import { seedWorkdir } from './seed.js';
+import { reaServer } from './rea.js';
 
 // Instance entry point on Fly (roadmap phase 0, 30/09/2026): prepare the
 // workdir, start the headless rowboat-server on loopback, open the gate.
@@ -25,6 +26,7 @@ await seedWorkdir({
   instanceToken: required('BAARALI_INSTANCE_TOKEN'),
   serverKey: process.env.BAARALI_SERVER_KEY || undefined,
   assistantModel: process.env.BAARALI_ASSISTANT_MODEL ?? 'deepseek/deepseek-v4.1-flash',
+  reaServer: reaServer(process.env, workDir, fileURLToPath(new URL('./rea-main.js', import.meta.url))),
   mediaServer: {
     command: process.execPath,
     args: [fileURLToPath(new URL('./media-mcp-main.js', import.meta.url))],
