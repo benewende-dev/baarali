@@ -19,6 +19,11 @@ de fonctions réduite maintenue dans Baarali. La présence d'un outil n'établit
 que son fournisseur est disponible : `binary_session` expose les disponibilités
 et l'identité réelle du serveur ; les autres appels rendent leurs diagnostics.
 
+La découverte destinée au modèle conserve tous les noms, descriptions et schémas
+d'entrée, avec leur pagination. Elle omet les `outputSchema` de REA, qui sont des
+validateurs de résultats volumineux, sans modifier le catalogue du moteur ni ses
+réponses d'exécution. Les autres serveurs MCP conservent leurs métadonnées.
+
 L'image d'instance comprend Ghidra et un JDK pour l'analyse native, ainsi que le
 bridge headless JADX attendu par cette version de REA pour les APK. Chromium
 permet les scénarios web headless dans un profil temporaire appartenant à

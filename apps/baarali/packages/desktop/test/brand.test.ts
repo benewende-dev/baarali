@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { ROOT, apply, brandText, neutralIcons, corePlan, desktopPlan, mobilePlan } from '../scripts/brand.mjs';
 
@@ -38,6 +39,31 @@ describe('brandText', () => {
 // The upstream moves every week: if an anchor of ours disappears, this
 // fails on the sync's pull request, not in the middle of a release.
 describe('neutral interface icons', () => {
+  it('keeps translation lookup keys distinct in the actual generated dictionary', () => {
+    const source = fs.readFileSync(new URL('../src/i18n/fr.ts', import.meta.url), 'utf8');
+    for (const platform of ['renderer', 'mobile']) {
+      const transformed = neutralIcons(brandText(source), `apps/x/apps/${platform}/src/baarali-i18n/fr.ts`);
+      const parsed = ts.createSourceFile('fr.ts', transformed, ts.ScriptTarget.Latest, true);
+      const duplicates: string[] = [];
+      const visit = (node: ts.Node) => {
+        if (ts.isObjectLiteralExpression(node)) {
+          const keys = new Set<string>();
+          for (const property of node.properties) {
+            if (!ts.isPropertyAssignment(property) || !ts.isStringLiteral(property.name)) continue;
+            const key = property.name.text;
+            if (keys.has(key)) duplicates.push(key);
+            keys.add(key);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(parsed);
+      expect(duplicates).toEqual([]);
+      expect(transformed).toContain('The ✦ Suggest button');
+    }
+    expect(neutralIcons('<p>The ✦ Suggest button</p>', 'apps/x/apps/renderer/src/components/todo-view.tsx')).toBe('<p>The Suggest button</p>');
+  });
+
   it('preserves existing bindings and aliases when their replacement is already imported', () => {
     const source = "import { FileText, Sparkles as AssistantIcon, Star } from 'lucide-react';\nconst view = <AssistantIcon />;";
     const result = neutralIcons(source, 'apps/x/apps/renderer/src/components/meetings-view.tsx');
