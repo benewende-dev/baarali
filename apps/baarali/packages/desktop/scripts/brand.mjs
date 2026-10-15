@@ -73,6 +73,9 @@ export function brandText(text) {
 export function neutralIcons(text, file) {
   const rel = file.replaceAll('\\', '/');
   if (!/^apps\/x\/apps\/(renderer|mobile)\//.test(rel)) return text;
+  // BAARALI(15/10/2026): translation keys preserve old and current labels;
+  // rewriting them can merge two keys and break the packaged app's TypeScript.
+  if (rel.includes('/baarali-i18n/')) return text;
   const name = path.posix.basename(rel);
   const replacement = {
     'prompt-block.tsx': 'NotebookPen',
