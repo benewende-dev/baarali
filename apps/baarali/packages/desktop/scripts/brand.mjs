@@ -68,6 +68,30 @@ export function brandText(text) {
   return out.replace(PRODUCT_NAME, BRAND.name);
 }
 
+// 14/10/2026: the founder removed decorative AI stars throughout the app.
+// Keep local bindings so upstream JSX and existing imports still compile.
+export function neutralIcons(text, file) {
+  const rel = file.replaceAll('\\', '/');
+  if (!/^apps\/x\/apps\/(renderer|mobile)\//.test(rel)) return text;
+  const name = path.posix.basename(rel);
+  const replacement = {
+    'prompt-block.tsx': 'NotebookPen',
+    'email-rail.tsx': 'MessageCircle',
+    'email-view.tsx': 'SquarePen',
+    'bg-tasks-view.tsx': 'MessageCircle',
+    'live-note-sidebar.tsx': 'FilePenLine',
+    'todo-view.tsx': 'ListChecks',
+    'credit-celebration.tsx': 'BadgeCheck',
+    'meetings-view.tsx': 'FileText',
+    'coding-run.tsx': 'Layers',
+  }[name] ?? 'SlidersHorizontal';
+  return text.replace(/import\s*\{([^}]+)\}\s*from\s*(['"])lucide-react\2/g, (statement, bindings) => {
+    const updated = bindings.split(',').map(binding => binding.replace(/\b(Sparkles(?:Icon)?)(?:\s+as\s+([\w$]+))?\b/g, (_, imported, alias) => `${replacement} as ${alias ?? imported}`)).join(',');
+    return statement.replace(bindings, () => updated);
+  }).replace(/(['"])sf:sparkles\1/g, (_, quote) => `${quote}sf:${name === 'member-face.tsx' ? 'person.crop.square' : 'slider.horizontal.3'}${quote}`)
+    .replaceAll('✦ Suggest', 'Suggest');
+}
+
 const SOURCE_EXT = /\.(ts|tsx|html)$/;
 const isTest = (file) => /\.test\.|\/__tests__\/|\/test\//.test(file);
 
@@ -999,7 +1023,7 @@ export function apply({ root = ROOT, only, write = false }) {
     for (const file of files) {
       const rel = path.relative(root, file);
       const text = current(rel);
-      const branded = brandText(text);
+      const branded = neutralIcons(brandText(text), rel);
       if (branded !== text) pending.set(rel, branded);
     }
   }

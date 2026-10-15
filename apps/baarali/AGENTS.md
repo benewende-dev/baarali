@@ -112,6 +112,8 @@ Le dépôt garde les fichiers de l'upstream tels quels. **La marque s'applique �
 - le lien vers l'instance : `src/cloud-link.ts`, copié dans `main` et démarré par une ligne.
 - la connexion au compte Baarali reste sur l'appareil : `ipc.ts` ne la transmet pas à l'instance (`staysOnDevice` dans `src/cloud-link.ts`).
 
+Les icônes décoratives en étoiles (`Sparkles`, 14/10/2026) sont remplacées dans la copie du build par des symboles liés à leur fonction : rédaction, notes, tâches, réglages ou conversation. Les icônes mobiles SF suivent le même choix. Les favoris et les emojis choisis dans les messages gardent leur sens propre.
+
 Le script refuse d'écrire sans `--yes`. Chaque ancre doit se trouver exactement une fois : si l'upstream en change une, `test/brand.test.ts` casse sur la PR de synchro. L'image d'instance applique la même marque à `core` seulement (`--only core`), pour que l'agent se présente comme Baarali.
 
 **Ce que fait l'app après la connexion.** L'accueil upstream connecte le compte, ce qui écrit `config/oauth.json`. Le lien voit la session, demande une clé d'appareil (`POST /v1/devices`), puis passe l'app en mode distant sur la passerelle et recharge les fenêtres. La première fois, l'instance est créée et démarre : le lien réessaie pendant environ une minute.
