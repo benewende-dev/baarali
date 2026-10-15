@@ -105,3 +105,15 @@ jobs:
       - name: Build
         run: pnpm build
         working-directory: apps/baarali
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.22.0
+
+      - name: Install the isolated REA lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: apps/baarali/engines/rea
+
+      - name: Verify the Baarali SDK against the real REA server
+        run: node scripts/check-rea-sdk.mjs
+        working-directory: apps/baarali/packages/instance

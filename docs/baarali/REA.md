@@ -91,7 +91,10 @@ sur inactivité susceptible d'effacer silencieusement des preuves retenues.
 3. Exécuter les tests Baarali, les tests de branding, puis le contrôle réel
    `packages/instance/scripts/check-rea-runtime.mjs` dans l'image Linux. Celui-ci
    vérifie découverte du catalogue, limites, traçage Electron, export, fermeture,
-   et décompilation native si `BAARALI_REA_NATIVE_TARGET` désigne la fixture.
+   parcours web avec le Chromium fourni, et décompilation native si
+   `BAARALI_REA_NATIVE_TARGET` désigne la fixture. La CI exécute aussi
+   `check-rea-sdk.mjs` avec le SDK et les schémas partagés de Baarali contre le
+   moteur réel ; un changement incompatible doit échouer avant publication.
 4. Publier une image versionnée après validation selon le circuit existant des
    [instances](../../apps/baarali/AGENTS.md#déployer-sur-flyio). Conserver l'image
    précédente ; ne pas modifier les dépendances d'une instance en cours.
