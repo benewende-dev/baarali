@@ -558,6 +558,7 @@ export function desktopPlan() {
     copies: [
       ['assets/desktop/workspace.tsx', `${renderer}/components/desktop-workspace.tsx`],
       ['assets/desktop/workspace.fixture.tsx', `${renderer}/components/desktop-workspace.test.tsx`],
+      ['assets/desktop/code-home.fixture.tsx', `${renderer}/components/desktop-code-home.test.tsx`],
       ['assets/desktop/chat-empty-state.tsx', `${renderer}/components/chat-empty-state.tsx`],
       ['assets/desktop/code-home.tsx', `${renderer}/components/desktop-code-home.tsx`],
       ['assets/desktop/studio-library.tsx', `${renderer}/components/desktop-studio-library.tsx`],

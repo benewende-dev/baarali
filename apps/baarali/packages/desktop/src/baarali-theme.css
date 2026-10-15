@@ -217,3 +217,7 @@ html.dark [data-sidebar="sidebar"] {
   [data-tour-id="nav-spaces"] > svg { transition: none; }
   [data-tour-id="nav-spaces"]:hover > svg { transform: none; }
 }
+
+/* BAARALI(15/10/2026): reuse the complete chat composer for the first Work request. */
+.baarali-work-home-composer { position:sticky; bottom:0; padding-top:28px; margin-top:20px; background:var(--background); }
+.baarali-work-home-composer select { max-width:260px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--background); color:var(--foreground); }

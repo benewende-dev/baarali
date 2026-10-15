@@ -54,11 +54,16 @@ export function workspaceForNav(nav: string | null | undefined): WorkspaceMode |
 export function DesktopModeTabs({ activeNav, onChat, onWork }: { activeNav?: string | null; onChat: () => void; onWork: () => void }) {
   const workspace = useDesktopWorkspace()
   const { setMode } = workspace
+  const [pendingWork, setPendingWork] = useState(false)
   useEffect(() => { const mode = workspaceForNav(activeNav); if (mode) setMode(mode) }, [activeNav, setMode])
+  useEffect(() => {
+    if (pendingWork && workspace.mode === 'work' && workspace.access === 'allowed') { setPendingWork(false); onWork() }
+  }, [pendingWork, workspace.mode, workspace.access, onWork])
   const select = (mode: WorkspaceMode) => {
     setMode(mode)
-    if (mode === 'chat') onChat()
-    else if (workspace.access === 'allowed') onWork()
+    if (mode === 'chat') { setPendingWork(false); onChat() }
+    else if (workspace.access === 'allowed') { setPendingWork(false); onWork() }
+    else setPendingWork(true)
   }
   return <div className="baarali-mode-tabs titlebar-no-drag" role="tablist" aria-label="Chat and Work">
     {(['chat', 'work'] as const).map(mode => {

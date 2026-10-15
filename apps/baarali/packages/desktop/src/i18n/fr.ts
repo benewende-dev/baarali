@@ -11,6 +11,8 @@ import type { Dictionary } from "./translate.js";
 
 export const FR: Dictionary = {
   exact: {
+    "Project": "Projet",
+    "Project for the new task": "Projet de la nouvelle tâche",
     "Add a project": "Ajouter un projet",
     "Help me prepare a creative project in Studio.": "Aidez-moi à préparer un projet de création dans Studio.",
     "New session": "Nouvelle session",

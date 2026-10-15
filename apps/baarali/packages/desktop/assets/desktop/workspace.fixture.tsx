@@ -54,6 +54,15 @@ describe('desktop Chat and Work', () => {
     expect(await screen.findByText('Work is available with a paid plan')).toBeVisible()
     expect(mounted).toBe(0)
   })
+  it('completes a Work click made while the paid plan is still loading', async () => {
+    let resolve!: (info: unknown) => void
+    invoke.mockImplementation(() => new Promise(done => { resolve = done }))
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('tab', { name: 'Work' }))
+    expect(mounted).toBe(0)
+    await act(async () => resolve(plan('pro')))
+    expect(await screen.findByText('Project content')).toBeVisible()
+  })
   it('shows retry on verification failure and opens after a successful retry', async () => {
     invoke.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(plan('starter'))
     render(<Harness initial="code" />)
