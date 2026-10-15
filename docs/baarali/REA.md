@@ -20,7 +20,10 @@ que son fournisseur est disponible : `binary_session` expose les disponibilités
 et l'identité réelle du serveur ; les autres appels rendent leurs diagnostics.
 
 L'image d'instance comprend Ghidra et un JDK pour l'analyse native, ainsi que le
-bridge headless JADX attendu par cette version de REA pour les APK. Les versions,
+bridge headless JADX attendu par cette version de REA pour les APK. Chromium
+permet les scénarios web headless dans un profil temporaire appartenant à
+l'enquête, fermé à la fin de la capture. Aucun navigateur du Mac n'est requis
+pour ce parcours. Les versions,
 URLs et SHA-256 sont dans `apps/baarali/engines/rea/providers.json`. Le programme
 d'installation vérifie les empreintes avant extraction et conserve les arbres
 complets, dont les licences. Les moteurs commerciaux (Hopper, IDA, JEB) ne sont
@@ -49,7 +52,9 @@ construction supplémentaire. Aucun téléchargement, installation globale,
 Le moteur utilise son propre Node 24 dans `/opt/baarali-rea/bin/node`, notamment
 pour les API SQLite que Node 22 ne fournit pas dans la version attendue. Le
 serveur Baarali garde son Node 22 et ses dépendances. Les images Node et Java
-sont épinglées par digest dans le Dockerfile. Le lanceur vérifie le nom et la
+sont épinglées par digest dans le Dockerfile. Chromium provient des paquets de
+sécurité de Debian lors de la construction ; il change avec une nouvelle image
+validée, jamais par une mise à jour lancée dans le compte. Le lanceur vérifie le nom et la
 version du paquet avant de démarrer le serveur MCP ; une absence ou divergence
 fait échouer cette connexion, sans empêcher le démarrage du compte. Une absence
 de l'exécutable optionnel laisse les sessions Code s'ouvrir sans REA.

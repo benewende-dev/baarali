@@ -64,7 +64,7 @@ FROM node:22-bookworm-slim
 # HOME on the volume: git's identity, caches and an engine's sign-in
 # survive a restart, like the work itself.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git python3 python3-pip python3-venv ca-certificates procps libgl1 libglu1-mesa libxrender1 libxext6 libgomp1 \
+ && apt-get install -y --no-install-recommends git python3 python3-pip python3-venv ca-certificates procps chromium libgl1 libglu1-mesa libxrender1 libxext6 libgomp1 \
  && rm -rf /var/lib/apt/lists/*
 COPY apps/baarali/packages/instance/requirements-cad.txt /tmp/requirements-cad.txt
 RUN python3 -m venv /opt/baarali-cad \
@@ -81,6 +81,7 @@ ENV NODE_ENV=production \
     GHIDRA_INSTALL_DIR=/opt/baarali-analysis/ghidra \
     JAVA_HOME=/opt/baarali-java \
     REA_JADX_MCP_JAR=/opt/baarali-analysis/jadx-headless-mcp.jar \
+    REA_BROWSER_EXECUTABLE=/usr/bin/chromium \
     PORT=8080
 WORKDIR /app
 COPY --from=rea /opt/baarali-rea /opt/baarali-rea

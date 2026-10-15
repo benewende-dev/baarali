@@ -48,7 +48,7 @@ jobs:
           cc -O0 -g -shared -fPIC /tmp/baarali-rea-fixture.c -o /tmp/baarali-rea-fixture.so
       - name: Validate REA catalog, tracing, native decompilation and cleanup
         run: >-
-          docker run --rm --entrypoint node
+          docker run --rm --memory=2g --cpus=1 --entrypoint node
           -e BAARALI_REA_LAUNCHER=/app/instance/dist/rea-main.js
           -e BAARALI_REA_NATIVE_TARGET=/tmp/baarali-rea-fixture.so
           -v /tmp/baarali-rea-fixture.so:/tmp/baarali-rea-fixture.so:ro

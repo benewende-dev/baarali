@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
+import http from 'node:http';
 
 // BAARALI(15/10/2026): exercise the installed engine and evidence lifecycle,
 // including native decompilation in the Linux image, without model/API calls.
@@ -103,6 +104,29 @@ try {
   assert.ok(trace.normalized_result.summary.matched_seeds > 0);
   console.log('JavaScript/Electron feature traced with retained evidence; worker limits verified');
 
+  if (process.env.REA_BROWSER_EXECUTABLE) {
+    const server = http.createServer((_request, response) => {
+      response.setHeader('content-type', 'text/html');
+      response.end('<!doctype html><html lang="en"><title>Reference</title><button id="calculate" onclick="document.getElementById(\'result\').textContent=\'Result verified: 42\'">Calculate</button><p id="result">Ready</p></html>');
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    try {
+      const web = await tool('capture_browser_scenario', {
+        browser: { mode: 'launch', executable_path: process.env.REA_BROWSER_EXECUTABLE, headless: true },
+        start_url: { url: `http://127.0.0.1:${server.address().port}/` },
+        actions: [{ step_id: 'calculate', action: 'click', locator: { kind: 'css', selector: '#calculate' }, timeout_ms: 10_000 }],
+        capture: { at_end: ['dom', 'screenshot'] },
+      });
+      assert.match(JSON.stringify(web.normalized_result), /Result verified: 42/);
+      assert.match(JSON.stringify(web.normalized_result), /screenshot/);
+      console.log('Website interaction, DOM evidence and screenshot verified with owned Chromium');
+    } finally {
+      server.closeAllConnections();
+      await new Promise(resolve => server.close(resolve));
+    }
+  }
+
   if (process.env.BAARALI_REA_NATIVE_TARGET) {
     await tool('open_binary', { path: process.env.BAARALI_REA_NATIVE_TARGET, provider_id: 'ghidra' });
     const native = await tool('analyze_function', { procedure: 'baarali_fixture' });
@@ -116,6 +140,7 @@ try {
   assert.match(JSON.stringify(exported), new RegExp(application.evidence_id));
   await tool('close_binary', {});
   console.log('Evidence export and session cleanup verified');
+  try { console.log('Linux analysis peak memory bytes:', (await fs.readFile('/sys/fs/cgroup/memory.peak', 'utf8')).trim()); } catch {}
 } finally {
   try { await shutdown(); }
   finally { lines.close(); await fs.rm(workDir, { recursive: true, force: true }); }
