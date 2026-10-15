@@ -369,8 +369,14 @@ export function corePlan() {
       edit(`${core}/mcp/mcp.ts`, "export async function executeTool(serverName: string, toolName: string, input: Record<string, unknown>): Promise<unknown> {", "export async function executeTool(serverName: string, toolName: string, input: Record<string, unknown>): Promise<unknown> {\n    const { freeMediaServer, requireWork } = await import(\"../baarali/work-runtime.js\");\n    const { isReaCleanup } = await import(\"../baarali/rea-config.js\");\n    if (!freeMediaServer(serverName) && !isReaCleanup(serverName, toolName, input)) await requireWork();"),
       // BAARALI(15/10/2026): cold native analysis can exceed the SDK's short
       // default. Give only REA its bounded deadline, and discard closed clients.
+      edit(`${core}/mcp/mcp.ts`, 'const clients: Record<string, mcpState> = {};', 'import { reaConnection, reaScopeKey } from "../baarali/rea-scope.js";\nconst clients: Record<string, mcpState> = {};'),
+      edit(`${core}/mcp/mcp.ts`, 'async function getClient(serverName: string): Promise<Client> {', 'async function getClient(serverName: string): Promise<Client> {\n    return reaConnection(reaScopeKey(serverName), Object.keys(clients).filter(key => clients[key].state === "connected"), () => openMcpClient(serverName));\n}\n\nasync function openMcpClient(serverName: string): Promise<Client> {'),
+      edit(`${core}/mcp/mcp.ts`, '    const configKey = JSON.stringify(config);', '    serverName = reaScopeKey(serverName);\n    const configKey = JSON.stringify(config);'),
+      edit(`${core}/mcp/mcp.ts`, '        const state = clients[serverName];', '        const state = clients[serverName] ?? (serverName === "baarali-rea" ? Object.entries(clients).find(([key]) => key.startsWith("baarali-rea:"))?.[1] : undefined);'),
       edit(`${core}/mcp/mcp.ts`, '        await client.connect(transport);', '        await client.connect(transport);\n        client.onclose = () => { if (clients[serverName]?.client === client) delete clients[serverName]; };'),
-      edit(`${core}/mcp/mcp.ts`, '        arguments: input,\n    });', '        arguments: input,\n    }, undefined, serverName === "baarali-rea" ? { timeout: 600_000, maxTotalTimeout: 600_000 } : undefined);'),
+      edit(`${core}/mcp/mcp.ts`, '        arguments: input,\n    });', '        arguments: input,\n    }, undefined, serverName === "baarali-rea" ? { timeout: 600_000, maxTotalTimeout: 600_000 } : undefined);\n    if (serverName === "baarali-rea" && toolName === "close_binary" && !result.isError) await client.close();'),
+      edit(`${core}/runtime/tools/exec-tool.ts`, 'export interface ToolContext {', 'import { hasReaScope, withReaScope } from "../../baarali/rea-scope.js";\n\nexport interface ToolContext {'),
+      edit(`${core}/runtime/tools/exec-tool.ts`, 'export async function execTool(agentTool: z.infer<typeof ToolAttachment>, input: Record<string, unknown>, ctx?: ToolContext): Promise<unknown> {', 'export async function execTool(agentTool: z.infer<typeof ToolAttachment>, input: Record<string, unknown>, ctx?: ToolContext): Promise<unknown> {\n    if (ctx && !hasReaScope(ctx)) return withReaScope(ctx, () => execTool(agentTool, input, ctx));'),
       edit(`${core}/code-mode/acp/client.ts`, "import { getAgentLaunchSpec } from './agents.js';", "import { getAgentLaunchSpec } from './agents.js';\nimport { codeReaServers } from '../../baarali/rea-runtime.js';"),
       edit(`${core}/code-mode/acp/client.ts`, '    async newSession(): Promise<string> {\n        try {\n            const res = await this.withStartupTimeout(this.conn().newSession({ cwd: this.cwd, mcpServers: [] }));', '    async newSession(): Promise<string> {\n        try {\n            const mcpServers = await codeReaServers();\n            const res = await this.withStartupTimeout(this.conn().newSession({ cwd: this.cwd, mcpServers }));'),
       edit(`${core}/code-mode/acp/client.ts`, '    async loadSession(sessionId: string): Promise<void> {\n        try {\n            await this.withStartupTimeout(this.conn().loadSession({ sessionId, cwd: this.cwd, mcpServers: [] }));', '    async loadSession(sessionId: string): Promise<void> {\n        try {\n            const mcpServers = await codeReaServers();\n            await this.withStartupTimeout(this.conn().loadSession({ sessionId, cwd: this.cwd, mcpServers }));'),
@@ -419,6 +425,7 @@ export function corePlan() {
       ['assets/work-runtime.ts', `${core}/baarali/work-runtime.ts`],
       ['assets/rea-config.ts', `${core}/baarali/rea-config.ts`],
       ['assets/rea-runtime.ts', `${core}/baarali/rea-runtime.ts`],
+      ['assets/rea-scope.ts', `${core}/baarali/rea-scope.ts`],
     ],
   };
 }

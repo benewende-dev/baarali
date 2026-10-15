@@ -45,6 +45,7 @@ COPY apps/baarali/packages/desktop/assets/mobile/work-policy.ts apps/baarali/pac
 COPY apps/baarali/packages/desktop/assets/work-runtime.ts apps/baarali/packages/desktop/assets/work-runtime.ts
 COPY apps/baarali/packages/desktop/assets/rea-config.ts apps/baarali/packages/desktop/assets/rea-config.ts
 COPY apps/baarali/packages/desktop/assets/rea-runtime.ts apps/baarali/packages/desktop/assets/rea-runtime.ts
+COPY apps/baarali/packages/desktop/assets/rea-scope.ts apps/baarali/packages/desktop/assets/rea-scope.ts
 RUN node apps/baarali/packages/desktop/scripts/brand.mjs --yes --only core
 RUN cd apps/x && pnpm install --frozen-lockfile --filter "@x/server..." \
  && (cd packages/shared && npm run build) \

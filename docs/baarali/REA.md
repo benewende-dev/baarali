@@ -77,8 +77,13 @@ les usages simultanés nécessitent une mesure avant changement de capacité.
 Avant fermeture, l'agent exporte le bundle Evidence et un rapport dans le
 projet, avec les empreintes des cibles, emplacements, observations, inférences et
 inconnues. Les identifiants retenus appartiennent à leur connexion, pas au projet.
-`close_binary` libère la session native ; la fermeture du serveur MCP libère ses
-autres fournisseurs, dont le bridge Android. Il n'y a pas d'arrêt automatique
+Les appels de l'agent principal conservent une connexion par discussion, deux
+enquêtes retenues au plus par instance ; une ouverture simultanée dans la même
+discussion partage sa tentative. Sans discussion, le tour headless constitue la
+portée. Deux discussions ne peuvent donc pas se remplacer leur cible native.
+Après `close_binary`, ce client est fermé et libère aussi ses autres fournisseurs,
+dont le bridge Android. Les sessions Code possèdent chacune leur connexion ACP.
+Il n'y a pas d'arrêt automatique
 sur inactivité susceptible d'effacer silencieusement des preuves retenues.
 
 ## Mise à jour, désactivation et retour arrière
