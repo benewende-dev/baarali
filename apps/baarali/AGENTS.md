@@ -144,6 +144,8 @@ Le script refuse d'écrire sans `--yes`. Chaque ancre doit se trouver exactement
 
 **Le modeleur 3D du Studio** (13/10/2026) partage sa page embarquée et son schéma de scène entre Mac et mobile, dans `desktop/assets/motion/` et `instance/src/cad-scene.ts`. Les calculs passent par le MCP Motion de l’instance ; les limites, variantes et exports sont décrits dans [CADQUERY.md](../../docs/baarali/CADQUERY.md).
 
+**La rétro-ingénierie dans Work** (15/10/2026) passe par le MCP `baarali-rea` de l’instance et le skill correspondant, également raccordé aux sessions Code. Le moteur a son installation verrouillée dans `engines/rea/`, hors des workspaces pnpm ; son Node et ses fournisseurs restent séparés des dépendances de Baarali. Le périmètre, les prérequis, les limites et la procédure de mise à jour sont décrits dans [REA.md](../../docs/baarali/REA.md).
+
 **Signature (🧑).** Sans certificat, l'app Mac est signée ad hoc : macOS la dit « non vérifiée », et il faut l'autoriser une fois dans *Réglages › Confidentialité et sécurité*. Pour une app signée et notarisée, il faut un compte Apple Developer (99 $/an) et les secrets `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD` et `APPLE_TEAM_ID`. Windows affiche un avertissement SmartScreen tant que l'app n'est pas signée.
 
 Ce qui reste en anglais : l'interface upstream, jusqu'à `@baarali/i18n` (archi §3.12).

@@ -1,0 +1,8 @@
+{
+  "name": "baarali-rea-runtime",
+  "private": true,
+  "description": "Isolated, versioned REA runtime; never linked into Baarali's workspaces.",
+  "dependencies": {
+    "rea-agents": "6.5.0"
+  }
+}

@@ -26,11 +26,13 @@ on:
 
 jobs:
   cad-runtime:
-    name: Instance Linux + real CadQuery
+    name: Instance Linux + real CAD and REA
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+      - name: Validate provider integrity and extraction rules
+        run: python3 -m unittest discover -s apps/baarali/engines/rea -p 'test_*.py'
       # BAARALI(13/10/2026): cover the actual Docker branding inputs and
       # Python wheels as well as the portable Node tests below.
       - name: Build the instance image
@@ -40,6 +42,18 @@ jobs:
           docker run --rm --entrypoint node
           -v "${{ github.workspace }}/apps/baarali/packages/instance/scripts/check-cad-runtime.mjs:/tmp/check-cad-runtime.mjs:ro"
           baarali-instance-check /tmp/check-cad-runtime.mjs
+      - name: Compile a native analysis fixture
+        run: |
+          printf 'int baarali_fixture(int n) { return n * 3 + 7; }\n' > /tmp/baarali-rea-fixture.c
+          cc -O0 -g -shared -fPIC /tmp/baarali-rea-fixture.c -o /tmp/baarali-rea-fixture.so
+      - name: Validate REA catalog, tracing, native decompilation and cleanup
+        run: >-
+          docker run --rm --entrypoint node
+          -e BAARALI_REA_LAUNCHER=/app/instance/dist/rea-main.js
+          -e BAARALI_REA_NATIVE_TARGET=/tmp/baarali-rea-fixture.so
+          -v /tmp/baarali-rea-fixture.so:/tmp/baarali-rea-fixture.so:ro
+          -v "${{ github.workspace }}/apps/baarali/packages/instance/scripts/check-rea-runtime.mjs:/tmp/check-rea-runtime.mjs:ro"
+          baarali-instance-check /tmp/check-rea-runtime.mjs
 
   apps-baarali:
     name: apps/baarali typecheck + tests
