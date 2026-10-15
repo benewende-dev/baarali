@@ -1,0 +1,20 @@
+      {!selectedSession && (
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 text-center">
+          <FolderOpen className="size-10 text-muted-foreground/40" />
+          <div className="text-sm font-medium">Your projects</div>
+          <p className="max-w-sm px-6 text-xs text-muted-foreground">
+            Open a folder and start a conversation. Enable Harness to work with Claude Code or Codex.
+          </p>
+          {projects.length === 0 ? (
+            <Button size="sm" onClick={() => void handleAddProject()}>Add a project to get started</Button>
+          ) : projects.length === 1 ? (
+            <Button size="sm" onClick={() => void handleNewSession(projects[0].project.id)}>
+              <Plus className="size-3.5" />
+              New thread in {projectLabel(projects[0])}
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground">Pick a session on the left, or start one from a project's + button.</p>
+          )}
+        </div>
+      )}
+

@@ -443,7 +443,7 @@ export function desktopPlan() {
   const renderer = 'apps/x/apps/renderer/src';
   return {
     edits: [
-      ...desktopLayoutEdits(ROOT),
+      ...desktopLayoutEdits(),
       edit("apps/x/apps/main/src/ipc.ts", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';\nimport { requireWorkChannel } from '@x/core/dist/baarali/work-runtime.js';"),
       edit(`${renderer}/components/motion-studio.tsx`, "import '@hyperframes/player'", "import '@hyperframes/player'\nimport { isMotionImage, canPreviewMotionExport } from './motion-export-image'\nimport { CadEditor } from './cad-editor'"),
       edit(`${renderer}/components/motion-studio.tsx`, '<button type="button" onClick={onReload}', '<CadEditor onProject={onProject} />\n        <button type="button" onClick={onReload}'),

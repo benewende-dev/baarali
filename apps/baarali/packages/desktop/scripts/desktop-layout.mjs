@@ -1,20 +1,13 @@
 // BAARALI(15/10/2026): approved Chat/Work layout, applied only to build
 // copies so upstream updates still fail on an explicit, reviewable anchor.
 import fs from 'node:fs';
-import path from 'node:path';
 const renderer = 'apps/x/apps/renderer/src';
 const edit = (file, from, to) => ({ file: `${renderer}/${file}`, from, to });
-export function desktopLayoutEdits(root) {
-  const sidebar = fs.readFileSync(path.join(root, renderer, 'components/sidebar-content.tsx'), 'utf8').replace(/\r\n/g, '\n');
-  const start = sidebar.indexOf('  // BAARALI(2026-10-09): « New chat » first');
-  const end = sidebar.indexOf('  flushMenu()', start);
-  // Match through the loop, not its first internal flushMenu call.
-  const stop = sidebar.indexOf('\n\n  return (\n    <Sidebar', end);
-  if (start < 0 || stop < 0) throw new Error('Desktop sidebar layout anchor missing');
-  const code = fs.readFileSync(path.join(root, renderer, 'components/code/code-view.tsx'), 'utf8').replace(/\r\n/g, '\n');
-  const emptyStart = code.indexOf('      {!selectedSession && (');
-  const emptyStop = code.indexOf('      {branchDialog && <BranchDialog', emptyStart);
-  if (emptyStart < 0 || emptyStop < 0) throw new Error('Code home anchor missing');
+export function desktopLayoutEdits() {
+  // Keep immutable anchors: the release's translation check also reads this
+  // plan after branding, when the checkout already contains the new layout.
+  const sidebarNavigation = fs.readFileSync(new URL('./anchors/desktop-sidebar.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const codeEmptyState = fs.readFileSync(new URL('./anchors/desktop-code-home.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   return [
     edit('main.tsx', "import App from './App.tsx'", "import App from './App.tsx'\nimport { DesktopWorkspaceProvider } from '@/components/desktop-workspace'"),
     edit('main.tsx', '          <App />', '          <DesktopWorkspaceProvider><App /></DesktopWorkspaceProvider>'),
@@ -47,7 +40,7 @@ export function desktopLayoutEdits(root) {
     edit('components/sidebar-content.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onSearch, onOpenStudio, onNewWork, onOpenSpaces,\n  onOpenMeetings,\n  onOpenBgTasks,'),
     edit('components/sidebar-content.tsx', '  onOpenSpace,\n  activeSpace,\n', ''),
     edit('components/sidebar-content.tsx', '  const { sessions: projectSessions,', '  const workspace = useDesktopWorkspace()\n  const { sessions: projectSessions,'),
-    edit('components/sidebar-content.tsx', sidebar.slice(start, stop), `  const isWork = workspace.mode === 'work'
+    edit('components/sidebar-content.tsx', sidebarNavigation, `  const isWork = workspace.mode === 'work'
   menuRun.push(<SidebarMenuItem key="new"><SidebarMenuButton className="baarali-new-action" onClick={() => isWork ? onNewWork?.() : onNewChat?.()}><SquarePen className="size-4 shrink-0" /><span>{isWork ? 'New work' : 'New chat'}</span></SidebarMenuButton></SidebarMenuItem>)
   if (!isWork) menuRun.push(<SidebarMenuItem key="search"><SidebarMenuButton onClick={onSearch}><Search className="size-4" /><span>Search</span></SidebarMenuButton></SidebarMenuItem>)
   for (const id of (isWork ? ['code', 'coworkers', 'routines', 'apps'] : ['email', 'meetings', 'todo', 'library', 'prompts']) as SidebarPage[]) {
@@ -71,7 +64,7 @@ export function desktopLayoutEdits(root) {
     edit('components/code/code-view.tsx', '  const { projects, sessions, statusOf, refresh } = useCodeSessions()', "  const workspace = useDesktopWorkspace()\n  const { state: sidebarState } = useSidebar()\n  const embedded = workspace.mode === 'work' && sidebarState === 'expanded'\n  const { projects, sessions, statusOf, refresh } = useCodeSessions()"),
     edit('components/code/code-view.tsx', "  const creatingRef = useRef(false)", "  useEffect(() => {\n    const reset = () => { setSelectedSessionId(null); onSessionSelected?.(null) }\n    window.addEventListener('baarali:new-work', reset)\n    return () => window.removeEventListener('baarali:new-work', reset)\n  }, [onSessionSelected])\n  const creatingRef = useRef(false)"),
     edit('components/code/code-view.tsx', '      <SessionRail\n', '      <DesktopCodeRail embedded={embedded}><SessionRail embedded={embedded}\n'),
-    edit('components/code/code-view.tsx', code.slice(emptyStart, emptyStop), `      </DesktopCodeRail>\n      {!selectedSession && <DesktopCodeHome projects={projects} sessions={sessions} statusOf={statusOf} onOpen={setSelectedSessionId} onAdd={() => void handleAddProject()} onNew={id => void handleNewSession(id)} />}\n\n`),
+    edit('components/code/code-view.tsx', codeEmptyState, `      </DesktopCodeRail>\n      {!selectedSession && <DesktopCodeHome projects={projects} sessions={sessions} statusOf={statusOf} onOpen={setSelectedSessionId} onAdd={() => void handleAddProject()} onNew={id => void handleNewSession(id)} />}\n\n`),
     edit('components/code/code-view.tsx', "import { FolderOpen, Plus } from 'lucide-react'\n", ''),
     edit('components/code/code-view.tsx', "import { Button } from '@/components/ui/button'\n", ''),
     edit('components/code/code-view.tsx', 'useCodeSessions, projectLabel, type ProjectRow', 'useCodeSessions, type ProjectRow'),
