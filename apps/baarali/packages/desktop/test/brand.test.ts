@@ -110,6 +110,15 @@ describe('apply on this checkout', () => {
     expect(branded).toContain('onClick={onOpenSpaces}');
     expect(branded).toContain('onClick={onOpenStudio}');
   });
+  it('keeps mode tabs after native draggable regions so mouse clicks reach them', () => {
+    const file = 'apps/x/apps/renderer/src/App.tsx';
+    let branded = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    for (const edit of desktopPlan().edits.filter(edit => edit.file === file)) branded = branded.replace(edit.from, () => edit.to);
+    const tabs = branded.indexOf('<DesktopModeTabs');
+    expect(tabs).toBeGreaterThan(branded.lastIndexOf('titlebar-drag-region'));
+    expect(tabs).toBeGreaterThan(branded.indexOf('<FixedSidebarToggle'));
+    expect(fs.readFileSync(path.join(ROOT, 'apps/baarali/packages/desktop/assets/desktop/workspace.tsx'), 'utf8')).toContain('baarali-mode-tabs titlebar-no-drag');
+  });
   it('finds every anchor of the desktop brand', () => {
     const changes = apply({ write: false });
     expect(changes).toContain('edit apps/x/apps/main/forge.config.cjs');

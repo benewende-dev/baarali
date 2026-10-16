@@ -46,7 +46,10 @@ export function desktopLayoutEdits() {
                       await handlePromptSubmit(message, mentions, attachments, search, code, permission, tab.id);
                     }}
                     onSessionSelected={handleCodeSessionSelected}`),
-    edit('App.tsx', '            <SidebarContentPanel\n', '            <DesktopModeTabs activeNav={sidebarNavProps.activeNav} onChat={openAssistant} onWork={openCodeView} />\n            <SidebarContentPanel\n'),
+    // BAARALI(16/10/2026): Electron computes native draggable regions in
+    // paint order. Tabs must follow every drag region, like FixedSidebarToggle;
+    // z-index alone leaves real mouse clicks captured by the titlebar.
+    edit('App.tsx', '            <MenuSidebarToggleBridge />', '            <MenuSidebarToggleBridge />\n            <DesktopModeTabs activeNav={sidebarNavProps.activeNav} onChat={openAssistant} onWork={openCodeView} />'),
     edit('App.tsx', '            <SidebarInset\n', "            <DesktopWorkGate required={workspaceForNav(sidebarNavProps.activeNav) === 'work' || (isStudioOpen || !!selectedPath?.startsWith('motion/'))} onChat={openAssistant}>\n            <SidebarInset\n"),
     edit('App.tsx', '            {/* Full-screen call: user tile', '            </DesktopWorkGate>\n            {/* Full-screen call: user tile'),
     edit('App.tsx', "              {activeMiddle === 'suggested-topics' && (", "              {activeMiddle === 'studio' && <DesktopStudioLibrary onOpen={navigateToFile} onCreate={() => prefillChat('Help me prepare a creative project in Studio. ')} />}\n              {activeMiddle === 'suggested-topics' && ("),
