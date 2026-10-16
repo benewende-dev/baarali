@@ -11,6 +11,9 @@ import type { Dictionary } from "./translate.js";
 
 export const FR: Dictionary = {
   exact: {
+    "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",
+    "Project (optional)": "Projet (facultatif)",
+    "Without a project": "Sans projet",
     "Project": "Projet",
     "Project for the new task": "Projet de la nouvelle tâche",
     "Add a project": "Ajouter un projet",
