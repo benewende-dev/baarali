@@ -3621,7 +3621,7 @@ export const FR: Dictionary = {
     "You can remove it at any time from My apps.": "Vous pouvez la désinstaller à tout moment depuis Mes apps.",
     "Other apps from the community": "Autres apps de la communauté",
     "Money": "Argent",
-    "Work": "Travail",
+    "Work": "Work",
     "Keeping watch": "Veille",
     "Everyday life": "Au quotidien",
     "Money tracker": "Suivi des finances",
