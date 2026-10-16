@@ -122,5 +122,5 @@ jobs:
         run: node apps/baarali/packages/desktop/scripts/brand.mjs --yes
 
       - name: Test desktop Chat and Work access
-        run: pnpm exec vitest run src/components/desktop-workspace.test.tsx src/components/desktop-code-home.test.tsx src/components/code/code-view.test.tsx src/components/chat-input-harness.test.tsx --maxWorkers=1
+        run: pnpm exec vitest run src/components/desktop-workspace.test.tsx src/components/desktop-code-home.test.tsx src/lib/session-chat/baarali-load-race.test.ts src/components/code/code-view.test.tsx src/components/chat-input-harness.test.tsx --maxWorkers=1
         working-directory: apps/x/apps/renderer

@@ -9,6 +9,14 @@ export function desktopLayoutEdits() {
   const sidebarNavigation = fs.readFileSync(new URL('./anchors/desktop-sidebar.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const codeEmptyState = fs.readFileSync(new URL('./anchors/desktop-code-home.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   return [
+    // BAARALI(16/10/2026): an empty session snapshot can arrive after a fast
+    // first answer. Refetch if live durable/queue events overtook hydration;
+    // otherwise the UI falls back to its legacy never-settled loading state.
+    edit('lib/session-chat/store.ts', '  private generation = 0', '  private generation = 0\n  private feedRevision = 0'),
+    edit('lib/session-chat/store.ts', '  private async load(sessionId: string, generation: number): Promise<void> {\n    try {', '  private async load(sessionId: string, generation: number): Promise<void> {\n    const revision = this.feedRevision\n    try {'),
+    edit('lib/session-chat/store.ts', '      const reduced = turns.map((turn) => reduceTurn(turn.events))', '      if (revision !== this.feedRevision) return this.load(sessionId, generation)\n      const reduced = turns.map((turn) => reduceTurn(turn.events))'),
+    edit('lib/session-chat/store.ts', '    this.queued = event.queue', '    this.feedRevision += 1\n    this.queued = event.queue'),
+    edit('lib/session-chat/store.ts', '    const turnEvent = event.event', '    const turnEvent = event.event\n    if (isDurableTurnEvent(turnEvent)) this.feedRevision += 1'),
     edit('main.tsx', "import App from './App.tsx'", "import App from './App.tsx'\nimport { DesktopWorkspaceProvider } from '@/components/desktop-workspace'"),
     edit('main.tsx', '          <App />', '          <DesktopWorkspaceProvider><App /></DesktopWorkspaceProvider>'),
     edit('App.tsx', "import { SidebarContentPanel } from '@/components/sidebar-content';", "import { SidebarContentPanel } from '@/components/sidebar-content';\nimport { DesktopModeTabs, DesktopWorkGate, useDesktopWorkspace, workspaceForNav } from '@/components/desktop-workspace';\nimport { DesktopStudioLibrary } from '@/components/desktop-studio-library';"),
