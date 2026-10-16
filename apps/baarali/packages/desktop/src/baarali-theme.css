@@ -166,8 +166,8 @@ html.dark .rowboat-chat-input:focus-within {
 .baarali-work-gate h1 { max-width:500px; font-size:30px; line-height:1.2; }
 .baarali-work-gate p { max-width:470px; font-size:14px; color:var(--muted-foreground); line-height:1.7; }
 .baarali-work-gate small { max-width:450px; font-size:12px; color:var(--muted-foreground); line-height:1.7; }
-.baarali-work-gate button, .baarali-studio-library button, .baarali-code-home button { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:12px; text-align:left; transition:background .15s; }
-.baarali-work-gate button:hover, .baarali-studio-library button:hover, .baarali-code-home button:hover { background:var(--accent); }
+.baarali-work-gate button, .baarali-studio-library button, .baarali-code-home > button, .baarali-code-home .baarali-section-heading button, .baarali-project-grid button, .baarali-work-sessions button { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:12px; text-align:left; transition:background .15s; }
+.baarali-work-gate button:hover, .baarali-studio-library button:hover, .baarali-code-home > button:hover, .baarali-code-home .baarali-section-heading button:hover, .baarali-project-grid button:hover, .baarali-work-sessions button:hover { background:var(--accent); }
 button.baarali-primary { background:var(--primary); border-color:var(--primary); color:var(--primary-foreground); }
 button.baarali-primary:hover { background:color-mix(in srgb, var(--primary),black 10%); }
 .baarali-code-home, .baarali-studio-library { flex:1; min-width:0; overflow:auto; padding:clamp(24px,4vw,56px); }
@@ -219,5 +219,8 @@ html.dark [data-sidebar="sidebar"] {
 }
 
 /* BAARALI(15/10/2026): reuse the complete chat composer for the first Work request. */
-.baarali-work-home-composer { position:sticky; bottom:0; padding-top:28px; margin-top:20px; background:var(--background); }
+.baarali-work-home-composer { position:relative; margin-bottom:32px; background:var(--background); }
+.baarali-work-project-options { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-bottom:10px; color:var(--muted-foreground); font-size:12px; }
+.baarali-work-project-options label, .baarali-work-project-add { display:flex; align-items:center; gap:7px; }
+.baarali-work-project-add { padding:5px 0; }
 .baarali-work-home-composer select { max-width:260px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--background); color:var(--foreground); }
