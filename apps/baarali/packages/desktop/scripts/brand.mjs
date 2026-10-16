@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { desktopLayoutEdits } from './desktop-layout.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '../../../../..');
@@ -442,6 +443,7 @@ export function desktopPlan() {
   const renderer = 'apps/x/apps/renderer/src';
   return {
     edits: [
+      ...desktopLayoutEdits(),
       edit("apps/x/apps/main/src/ipc.ts", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';", "import { forwardRpc, shouldForwardChannel } from './rpc-forwarder.js';\nimport { requireWorkChannel } from '@x/core/dist/baarali/work-runtime.js';"),
       edit(`${renderer}/components/motion-studio.tsx`, "import '@hyperframes/player'", "import '@hyperframes/player'\nimport { isMotionImage, canPreviewMotionExport } from './motion-export-image'\nimport { CadEditor } from './cad-editor'"),
       edit(`${renderer}/components/motion-studio.tsx`, '<button type="button" onClick={onReload}', '<CadEditor onProject={onProject} />\n        <button type="button" onClick={onReload}'),
@@ -554,6 +556,14 @@ export function desktopPlan() {
       edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={32} className="text-foreground" />'),
     ],
     copies: [
+      ['assets/desktop/workspace.tsx', `${renderer}/components/desktop-workspace.tsx`],
+      ['assets/desktop/workspace.fixture.tsx', `${renderer}/components/desktop-workspace.test.tsx`],
+      ['assets/desktop/code-home.fixture.tsx', `${renderer}/components/desktop-code-home.test.tsx`],
+      ['assets/desktop/session-chat.fixture.ts', `${renderer}/lib/session-chat/baarali-load-race.test.ts`],
+      ['assets/desktop/chat-empty-state.tsx', `${renderer}/components/chat-empty-state.tsx`],
+      ['assets/desktop/code-home.tsx', `${renderer}/components/desktop-code-home.tsx`],
+      ['assets/desktop/studio-library.tsx', `${renderer}/components/desktop-studio-library.tsx`],
+      ['assets/mobile/work-access.ts', `${renderer}/lib/work-access.ts`],
       ['../control/src/plan-access-copy.ts', `${renderer}/lib/plan-access-copy.ts`],
       ['../control/src/oval-b.ts', `${renderer}/lib/baarali-oval-motion.ts`],
       ['assets/motion/baarali-mark.tsx', `${renderer}/components/baarali-mark.tsx`],

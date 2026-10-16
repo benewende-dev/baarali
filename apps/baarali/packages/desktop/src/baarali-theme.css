@@ -137,6 +137,68 @@ html.dark .rowboat-chat-input {
 html.dark .rowboat-chat-input:focus-within {
   border-color: rgba(77, 141, 255, 0.45);
 }
+
+/* BAARALI(15/10/2026): approved compact Chat/Work navigation. The account,
+ * usage ring and synchronization footer keep their existing markup and styles. */
+.baarali-mode-tabs { position:fixed; z-index:35; top:5px; left:50%; transform:translateX(-50%); display:flex; gap:3px; padding:2px; border:1px solid var(--border); border-radius:10px; background:var(--background); box-shadow:0 1px 3px #00000008; }
+.baarali-mode-tabs button { display:flex; align-items:center; justify-content:center; gap:7px; min-width:76px; height:25px; padding:0 12px; border-radius:7px; color:var(--muted-foreground); font-size:12px; font-weight:500; }
+.baarali-mode-tabs button[aria-selected="true"] { background:var(--accent); color:var(--foreground); }
+.baarali-mode-tabs button:hover { color:var(--foreground); }
+.baarali-mode-tabs button:focus-visible { outline:2px solid var(--ring); outline-offset:2px; }
+.baarali-new-action { margin-bottom:6px; background:var(--sidebar-accent); border:1px solid var(--border); }
+.baarali-project-host { min-height:100px; overflow:hidden; }
+.baarali-project-host .rowboat-header { border:0; margin-top:6px; }
+.baarali-compact-model { min-width:0; max-width:170px; }
+.baarali-compact-model > button, .baarali-compact-model > span { max-width:100%; }
+.baarali-compact-model [data-slot="popover-trigger"] { max-width:100%; }
+.baarali-compact-model button > span:first-of-type { max-width:120px; }
+.rowboat-chat-input textarea { max-height:160px; }
+.baarali-chat-welcome { display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; max-width:600px; margin:auto; padding:24px 12px; }
+.baarali-chat-welcome h1 { font-size:24px; line-height:1.2; }
+.baarali-chat-welcome-wide { padding:36px 20px; }
+.baarali-chat-welcome-wide h1 { font-size:clamp(28px,3vw,38px); }
+.baarali-chat-welcome p { max-width:440px; color:var(--muted-foreground); font-size:13px; line-height:1.6; }
+.baarali-chat-starters { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:12px; }
+.baarali-chat-starters button { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12px; color:var(--muted-foreground); text-align:left; }
+.baarali-chat-starters button:hover { background:var(--accent); color:var(--foreground); }
+.baarali-work-gate { display:flex; flex:1; min-width:0; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:70px 28px; text-align:center; }
+.baarali-gate-symbol { display:grid; place-items:center; width:60px; height:60px; border:1px solid var(--border); border-radius:18px; background:var(--muted); }
+.baarali-work-gate h1 { max-width:500px; font-size:30px; line-height:1.2; }
+.baarali-work-gate p { max-width:470px; font-size:14px; color:var(--muted-foreground); line-height:1.7; }
+.baarali-work-gate small { max-width:450px; font-size:12px; color:var(--muted-foreground); line-height:1.7; }
+.baarali-work-gate button, .baarali-studio-library button, .baarali-code-home button { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:12px; text-align:left; transition:background .15s; }
+.baarali-work-gate button:hover, .baarali-studio-library button:hover, .baarali-code-home button:hover { background:var(--accent); }
+button.baarali-primary { background:var(--primary); border-color:var(--primary); color:var(--primary-foreground); }
+button.baarali-primary:hover { background:color-mix(in srgb, var(--primary),black 10%); }
+.baarali-code-home, .baarali-studio-library { flex:1; min-width:0; overflow:auto; padding:clamp(24px,4vw,56px); }
+.baarali-code-home { max-width:980px; margin:0 auto; width:100%; }
+.baarali-work-welcome { display:flex; align-items:center; gap:14px; padding:12px 0 38px; }
+.baarali-work-welcome h1, .baarali-studio-library h1 { font-size:29px; line-height:1.3; }
+.baarali-work-welcome p, .baarali-studio-library p { color:var(--muted-foreground); font-size:13px; line-height:1.6; margin-top:5px; }
+.baarali-section-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0 12px; }
+.baarali-section-heading h2, .baarali-studio-library h2 { font-size:13px; font-weight:600; }
+.baarali-work-sessions { display:flex; flex-direction:column; gap:7px; }
+.baarali-work-sessions button { width:100%; padding:14px; border-color:transparent; background:var(--muted); }
+.baarali-work-sessions button > span:first-of-type { flex:1; min-width:0; }
+.baarali-work-sessions strong, .baarali-project-grid strong, .baarali-studio-projects strong { display:block; font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.baarali-work-sessions small, .baarali-project-grid small, .baarali-add-project small, .baarali-studio-projects small { display:block; margin-top:3px; color:var(--muted-foreground); font-size:11px; }
+.baarali-session-state { color:var(--muted-foreground); font-size:11px; }
+.baarali-session-state[data-status="needs-you"] { color:#ba7900; }
+.baarali-session-state[data-status="working"] { color:var(--primary); }
+.baarali-project-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; }
+.baarali-project-grid button { display:grid; grid-template-columns:24px 1fr 16px; padding:14px; }
+.baarali-project-grid strong { grid-column:2; }
+.baarali-project-grid small { grid-column:2; margin:0; }
+.baarali-project-grid button > svg:last-child { grid-column:3; grid-row:1 / span 2; }
+.baarali-empty-hint { color:var(--muted-foreground); padding:18px 0; font-size:13px; }
+button.baarali-add-project { display:flex; flex-direction:column; justify-content:center; width:100%; min-height:170px; border-style:dashed; color:var(--muted-foreground); }
+.baarali-studio-library { display:flex; flex-direction:column; gap:24px; }
+.baarali-studio-projects { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; }
+.baarali-studio-projects button { padding:18px; }
+.baarali-studio-projects button > span { flex:1; min-width:0; }
+.baarali-studio-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:40px; border:1px dashed var(--border); border-radius:14px; color:var(--muted-foreground); }
+@media(max-width:800px) { .baarali-mode-tabs { left:65%; } .baarali-session-state { display:none; } .baarali-chat-starters { flex-direction:column; } }
+@media(prefers-reduced-motion:reduce) { .baarali-work-gate button, .baarali-studio-library button, .baarali-code-home button { transition:none; } }
 html.dark [data-sidebar="sidebar"] {
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -155,3 +217,7 @@ html.dark [data-sidebar="sidebar"] {
   [data-tour-id="nav-spaces"] > svg { transition: none; }
   [data-tour-id="nav-spaces"]:hover > svg { transform: none; }
 }
+
+/* BAARALI(15/10/2026): reuse the complete chat composer for the first Work request. */
+.baarali-work-home-composer { position:sticky; bottom:0; padding-top:28px; margin-top:20px; background:var(--background); }
+.baarali-work-home-composer select { max-width:260px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--background); color:var(--foreground); }

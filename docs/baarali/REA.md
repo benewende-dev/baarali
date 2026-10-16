@@ -70,7 +70,7 @@ sans clés Fly, modèles, facturation, jeton d'instance ou `NODE_OPTIONS`. Il re
 un outil puissant de l'instance du compte, pas une sandbox pour exécuter des
 logiciels inconnus.
 
-Budgets de tas : serveur REA 384 MiB, worker d'analyse JavaScript 256 MiB,
+Budgets de tas : serveur REA 640 MiB, worker d'analyse JavaScript 256 MiB,
 Ghidra/JADX 512 MiB ; ce ne sont pas des plafonds de mémoire résidente totale.
 La couche de transport complète explicitement les paramètres du worker dans les
 requêtes et refuse leur dépassement avant exécution. Le délai par source est
@@ -78,6 +78,11 @@ limité à 300 secondes ; le client MCP Baarali accorde 600 secondes à une
 opération REA. Les contraintes rencontrées sont des erreurs à expliquer, pas une
 autorisation d'augmenter les ressources automatiquement. Les gros travaux et
 les usages simultanés nécessitent une mesure avant changement de capacité.
+Le serveur réserve une partie de son tas au transfert et à la validation des
+résultats : augmenter seulement le worker ne résout pas un budget parent épuisé.
+Le contrôle Linux exécute la découverte des fournisseurs avant un petit projet
+Electron comprenant une fenêtre, un preload et un canal IPC ; il vérifie que
+les deux sources sont analysées et leurs relations conservées.
 
 Avant fermeture, l'agent exporte le bundle Evidence et un rapport dans le
 projet, avec les empreintes des cibles, emplacements, observations, inférences et

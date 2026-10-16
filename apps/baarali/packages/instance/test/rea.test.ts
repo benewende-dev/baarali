@@ -29,7 +29,7 @@ describe('isolated REA runtime', () => {
     expect(manifest.dependencies['rea-agents']).toBe(REA_VERSION);
     expect(lock.packages['node_modules/rea-agents'].version).toBe(REA_VERSION);
     expect(lock.packages['node_modules/rea-agents'].integrity).toMatch(/^sha512-/);
-    expect(reaServer({}, '/data', '/app/rea-main.js')).toMatchObject({ command: '/opt/baarali-rea/bin/node', args: ['--max-old-space-size=384', '/app/rea-main.js'] });
+    expect(reaServer({}, '/data', '/app/rea-main.js')).toMatchObject({ command: '/opt/baarali-rea/bin/node', args: ['--max-old-space-size=640', '/app/rea-main.js'] });
     expect(reaServer({ BAARALI_REA_ENABLED: '0' }, '/data', '/app/rea-main.js')).toBeNull();
   });
 

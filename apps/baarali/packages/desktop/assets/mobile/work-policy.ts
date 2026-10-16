@@ -34,8 +34,16 @@ export function createWorkGuard(read: () => Promise<WorkInfo>, identity: () => P
 }
 const WORK_PREFIXES = ['projects:', 'apps:', 'codeMode:', 'codeProject:', 'codeSession:', 'terminal:', 'todo:', 'bg-task:', 'agent-schedule:', 'inline-task:', 'live-note:', 'runs:'];
 const STOP_CHANNELS = new Set(['todo:stopRun', 'bg-task:stop', 'live-note:stop', 'runs:stop', 'codeSession:stop', 'terminal:dispose', 'codeRun:resolvePermission']);
+// BAARALI(15/10/2026): personal tasks belong to Chat. Organizing the list
+// stays available; delegating execution and the planner still require Work.
+const PERSONAL_TASK_CHANNELS = new Set(['todo:get', 'todo:save', 'todo:getPlanner', 'todo:getConversation', 'todo:getSessionConversation', 'todo:clearCompleted', 'todo:dismiss', 'todo:listArchived', 'todo:deleteArchived', 'todo:restore', 'todo:declineSuggestion']);
 export function workChannel(channel: string, input: unknown, workRoot?: string): boolean {
   if (STOP_CHANNELS.has(channel)) return false;
+  if (PERSONAL_TASK_CHANNELS.has(channel)) return false;
+  if (channel === 'todo:addItem' || channel === 'todo:addSubItem') {
+    const args = input && typeof input === 'object' ? input as Record<string, unknown> : {};
+    return args.run !== false || Boolean(args.code) || (typeof args.text === 'string' && /@(?:baarali|rowboat)\b/i.test(args.text));
+  }
   if (channel === 'sessions:resumeTurn') return true;
   if (WORK_PREFIXES.some(prefix => channel.startsWith(prefix))) return true;
   const args = input && typeof input === 'object' ? input as Record<string, unknown> : {};
