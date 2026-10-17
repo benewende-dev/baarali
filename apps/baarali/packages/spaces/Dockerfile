@@ -18,6 +18,7 @@ COPY apps/harbor/packages/server/package.json apps/harbor/packages/server/
 RUN cd apps/harbor && pnpm install --frozen-lockfile
 COPY apps/harbor/packages apps/harbor/packages
 COPY apps/baarali/packages/desktop/scripts/brand.mjs apps/baarali/packages/desktop/scripts/brand.mjs
+COPY apps/baarali/packages/desktop/scripts/desktop-layout.mjs apps/baarali/packages/desktop/scripts/desktop-layout.mjs
 COPY apps/baarali/packages/spaces/src/pages.ts apps/baarali/packages/spaces/src/pages.ts
 RUN node apps/baarali/packages/desktop/scripts/brand.mjs --yes --only harbor \
  && cd apps/harbor && pnpm build
