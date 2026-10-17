@@ -709,6 +709,9 @@ export function mobilePlan() {
         '    const issuer = await discoverIssuer(APEX_URL);',
         "    if (!APEX_URL) throw new Error('Team spaces are coming to Baarali soon.');\n    const issuer = await discoverIssuer(APEX_URL);",
       ),
+      // BAARALI(17/10/2026): a pre-Work token receives 401 once so an
+      // already signed-in phone can renew it without asking for a new code.
+      edit(`${mobile}/src/lib/spaces/account.tsx`, "      const res = await fetch(`${APEX_URL}/v1/orgs`, { headers: { authorization: `Bearer ${token}` } });", "      let res = await fetch(`${APEX_URL}/v1/orgs`, { headers: { authorization: `Bearer ${token}` } });\n      if (res.status === 401) {\n        const fresh = await getAccessToken({ forceRefresh: true });\n        res = await fetch(`${APEX_URL}/v1/orgs`, { headers: { authorization: `Bearer ${fresh}` } });\n      }"),
       edit(`${mobile}/src/app/index.tsx`, "import { ONBOARDED_KEY } from './onboarding';", "import { ONBOARDED_KEY } from './onboarding';\nimport { APEX_URL } from '@/lib/spaces/account';"),
       edit(`${mobile}/src/app/index.tsx`, "<Redirect href={onboarded ? '/spaces' : '/onboarding'} />", "<Redirect href={onboarded ? (APEX_URL ? '/spaces' : '/pairing') : '/onboarding'} />"),
       edit(`${mobile}/src/components/baarali-onboarding.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { APEX_URL } from '@/lib/spaces/account';"),
@@ -966,7 +969,7 @@ export function harborPlan() {
       edit(`${server}/apex.ts`, 'newContent: welcomeReadme(org.name),', 'newContent: baaraliWelcome(org.name),'),
       // BAARALI(17/10/2026): the signed Work claim also protects direct
       // Harbor clients; hiding a navigation item cannot enforce a paid plan.
-      edit(`${server}/auth-oidc.ts`, "    // GoTrue puts the social profile's name in user_metadata; plain `name` is", "    if (payload.baarali_work !== true) throw new HarborError('forbidden', 'Work requires an active paid plan');\n    // GoTrue puts the social profile's name in user_metadata; plain `name` is"),
+      edit(`${server}/auth-oidc.ts`, "    // GoTrue puts the social profile's name in user_metadata; plain `name` is", "    if (!Object.hasOwn(payload, 'baarali_work')) throw new HarborError('unauthorized', 'Refresh the token to verify Work access');\n    if (payload.baarali_work !== true) throw new HarborError('forbidden', 'Work requires an active paid plan');\n    // GoTrue puts the social profile's name in user_metadata; plain `name` is"),
     ],
     writes: [[`${server}/baarali-pages.ts`, fs.readFileSync(path.join(PKG, '../spaces/src/pages.ts'), 'utf8')]],
   };

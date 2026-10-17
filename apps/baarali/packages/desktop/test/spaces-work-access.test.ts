@@ -34,11 +34,16 @@ async function driverAndToken(claim: unknown) {
   const token = await new SignJWT({ baarali_work: claim }).setProtectedHeader({ alg: 'ES256', kid: 'work' }).setIssuer(issuer).setSubject('person').setExpirationTime('5m').sign(keys.privateKey);
   return { driver: new OidcAuthDriver({ issuer }), token };
 }
-it.each([undefined, false, 'true', 1])('refuses a validly signed token without a true Work entitlement (%s)', async claim => {
+it.each([false, 'true', 1])('refuses a validly signed token without a true Work entitlement (%s)', async claim => {
   const { driver, token } = await driverAndToken(claim);
   await expect(driver.authenticate('Bearer ' + token)).rejects.toMatchObject({ code: 'forbidden', status: 403 });
 });
 it('accepts the signed paid entitlement and preserves the verified identity', async () => {
   const { driver, token } = await driverAndToken(true);
   await expect(driver.authenticate('Bearer ' + token)).resolves.toMatchObject({ iss: issuer, sub: 'person' });
+});
+
+it('requests a token refresh for an older signed-in client without a Work claim', async () => {
+  const { driver, token } = await driverAndToken(undefined);
+  await expect(driver.authenticate('Bearer ' + token)).rejects.toMatchObject({ code: 'unauthorized', status: 401 });
 });
