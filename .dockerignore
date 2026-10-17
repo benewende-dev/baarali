@@ -13,3 +13,7 @@ apps/x/apps/mobile/android
 **/.expo
 apps/x/apps/main/.package
 apps/x/apps/main/out
+
+# BAARALI(17/10/2026): local checkouts and the private marketing kit are not build inputs.
+.worktrees
+marketing
