@@ -132,4 +132,9 @@ jobs:
       - name: Apply and typecheck the mobile layout
         run: |
           node apps/baarali/packages/desktop/scripts/brand.mjs --only mobile --yes
+          pnpm --dir apps/x/packages/client build
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          fs.writeFileSync('apps/x/apps/mobile/expo-env.d.ts', '/// <reference types="expo/types" />\n');
+          JS
           pnpm --dir apps/x/apps/mobile exec tsc --noEmit --incremental false
