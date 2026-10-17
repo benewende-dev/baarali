@@ -1077,7 +1077,7 @@ export function apply({ root = ROOT, only, write = false }) {
     const abs = path.join(root, tree);
     const files = fs.statSync(abs).isDirectory() ? walk(abs) : [abs];
     for (const file of files) {
-      const rel = path.relative(root, file);
+      const rel = path.relative(root, file).replaceAll('\\', '/');
       const text = current(rel);
       const branded = neutralIcons(brandText(text), rel);
       if (branded !== text) pending.set(rel, branded);

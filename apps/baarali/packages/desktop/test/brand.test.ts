@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ROOT, apply, brandText, neutralIcons, corePlan, desktopPlan, mobilePlan } from '../scripts/brand.mjs';
 
 describe('brandText', () => {
@@ -240,9 +240,22 @@ describe('apply on a Windows checkout', () => {
     }
     for (const dir of ['apps/x/packages/core/src', 'apps/x/apps/renderer/src']) fs.mkdirSync(path.join(root, dir), { recursive: true });
     fs.writeFileSync(path.join(root, 'apps/x/apps/renderer/index.html'), '<title>Rowboat</title>\r\n');
-    const changes = apply({ root, write: false });
-    expect(changes).toContain(`edit ${main}/forge.config.cjs`);
-    expect(changes).toContain(`edit ${main}/src/main.ts`);
-    expect(changes).toContain('edit apps/x/apps/renderer/src/main.tsx');
+    // BAARALI(17/10/2026): CRLF alone does not model Windows. The walk
+    // returns backslash paths there, which must reuse the POSIX edit keys.
+    const relative = path.relative.bind(path);
+    const windows = vi.spyOn(path, 'relative').mockImplementation((from, to) => relative(from, to).replaceAll('/', '\\'));
+    try {
+      const changes = apply({ root, write: true });
+      expect(changes).toContain(`edit ${main}/forge.config.cjs`);
+      expect(changes).toContain(`edit ${main}/src/main.ts`);
+      expect(changes).toContain('edit apps/x/apps/renderer/src/main.tsx');
+      const composer = fs.readFileSync(path.join(root, 'apps/x/apps/renderer/src/components/chat-input-with-mentions.tsx'), 'utf8');
+      expect(composer).toContain('callRequiresSession?: boolean');
+      expect(composer).toContain('<ChatInputInner callRequiresSession={callRequiresSession}');
+      expect(composer).toContain('rounded-[18px]');
+      const app = fs.readFileSync(path.join(root, 'apps/x/apps/renderer/src/App.tsx'), 'utf8');
+      expect(app).toContain('<DesktopWorkGate');
+      expect(app).toContain('WORK_VOICE_HOLDER');
+    } finally { windows.mockRestore(); fs.rmSync(root, { recursive: true, force: true }); }
   });
 });
