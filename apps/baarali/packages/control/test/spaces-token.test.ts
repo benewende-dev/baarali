@@ -36,6 +36,7 @@ async function setup(spacesUrl?: string) {
   await db.query('SET search_path TO baarali');
   const store = new PgStore(db, [{ id: 'decouverte', category: 'free', displayName: 'Découverte', weekCredits: 1, monthlyPrices: [], models: null }]);
   const sender = new LogSender();
+  let paid = true;
   const deps: AuthDeps = {
     publicUrl: PUBLIC,
     secret: 'test-secret-test-secret-test-secret-0123',
@@ -46,6 +47,7 @@ async function setup(spacesUrl?: string) {
     onUserCreated: (u) => store.upsertAccount({ id: u.id, email: u.email, planId: 'decouverte', createdAt: u.createdAt }),
     now: Date.now,
     spacesUrl,
+    spacesWorkAccess: async () => paid,
   };
   await migrateAuth(deps);
   const auth = createAuth(deps);
@@ -112,7 +114,7 @@ async function setup(spacesUrl?: string) {
     return { clientId, tokens: (await res.json()) as { access_token: string; refresh_token: string; id_token: string } };
   }
 
-  return { app, db, store, fetcher, form, signInFromPhone };
+  return { app, db, store, fetcher, form, signInFromPhone, setPaid: (value: boolean) => { paid = value; } };
 }
 
 /** auth-oidc.ts, step by step: metadata at the issuer, same issuer, its keys, ES256/RS256 only. */
@@ -131,6 +133,7 @@ describe('the tokens Spaces receive', () => {
 
     const payload = await verifyAsHarbor(fetcher, tokens.access_token);
     expect(payload.sub).toBeTruthy();
+    expect(payload.baarali_work).toBe(true);
     expect(payload.email).toBe('awa@example.test');
     expect(payload.aud).toContain(SPACES);
 
@@ -151,6 +154,22 @@ describe('the tokens Spaces receive', () => {
     const { signInFromPhone } = await setup(SPACES);
     const { tokens } = await signInFromPhone('awa@example.test');
     expect(decodeProtectedHeader(tokens.access_token).alg).toBe('ES256');
+  });
+
+  it('keeps free Chat sign-in working but excludes Work from its signed token', async () => {
+    const { app, fetcher, signInFromPhone, setPaid } = await setup(SPACES);
+    setPaid(false);
+    const { tokens } = await signInFromPhone('free@example.test');
+    expect((await verifyAsHarbor(fetcher, tokens.access_token)).baarali_work).toBe(false);
+    expect((await app.request('/v1/me', { headers: { authorization: `Bearer ${tokens.access_token}` } })).status).toBe(200);
+  });
+
+  it('refreshes the signed entitlement after a downgrade', async () => {
+    const { fetcher, form, signInFromPhone, setPaid } = await setup(SPACES);
+    const { clientId, tokens } = await signInFromPhone('downgrade@example.test');
+    setPaid(false);
+    const refreshed = await (await form({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: clientId })).json();
+    expect((await verifyAsHarbor(fetcher, refreshed.access_token)).baarali_work).toBe(false);
   });
 
   it('without a Spaces server, changes nothing and tells the apps none exists', async () => {
@@ -184,6 +203,14 @@ describe('the token a cloud instance trades', () => {
     expect(traded.email).toBe('awa@example.test');
     expect(traded.aud).toEqual([SPACES]);
     expect(decodeProtectedHeader(body.access_token).alg).toBe('ES256');
+  });
+
+  it('preserves identity after a downgrade without granting Spaces access', async () => {
+    const { trade, setPaid, fetcher } = await instanceOf('downgrade@example.test', SPACES);
+    setPaid(false);
+    const response = await trade();
+    expect(response.status).toBe(200);
+    expect((await verifyAsHarbor(fetcher, (await response.json()).access_token)).baarali_work).toBe(false);
   });
 
   it('is refused without a token', async () => {

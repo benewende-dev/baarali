@@ -121,6 +121,20 @@ jobs:
       - name: Apply the approved desktop layout to the CI checkout
         run: node apps/baarali/packages/desktop/scripts/brand.mjs --yes
 
+      - name: Typecheck the branded desktop renderer
+        run: pnpm exec tsc -p tsconfig.app.json --noEmit --incremental false
+        working-directory: apps/x/apps/renderer
+
       - name: Test desktop Chat and Work access
         run: pnpm exec vitest run src/components/desktop-workspace.test.tsx src/components/desktop-code-home.test.tsx src/lib/session-chat/baarali-load-race.test.ts src/components/code/code-view.test.tsx src/components/chat-input-harness.test.tsx --maxWorkers=1
         working-directory: apps/x/apps/renderer
+
+      - name: Apply and typecheck the mobile layout
+        run: |
+          node apps/baarali/packages/desktop/scripts/brand.mjs --only mobile --yes
+          pnpm --dir apps/x/packages/client build
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          fs.writeFileSync('apps/x/apps/mobile/expo-env.d.ts', '/// <reference types="expo/types" />\n');
+          JS
+          pnpm --dir apps/x/apps/mobile exec tsc --noEmit --incremental false

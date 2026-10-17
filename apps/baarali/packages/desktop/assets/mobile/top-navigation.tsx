@@ -12,17 +12,20 @@ import { useWorkAccess } from '@/lib/work-access-provider';
 import { isWorkRoute } from '@/lib/work-access';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
 
+const CHAT_LINKS = [
+  { label: 'Tasks', icon: 'sf:checkmark.square', path: '/tasks' },
+  { label: 'Library', icon: 'sf:books.vertical', path: '/notes' },
+] as const;
+
 const WORK_LINKS = [
   { label: 'Projects', icon: 'sf:folder', path: '/projects' },
-  { label: 'Your agents', icon: 'sf:person.2', path: '/baarasseurs' },
-  { label: 'Tasks', icon: 'sf:checkmark.square', path: '/tasks' },
-  { label: 'Routines', icon: 'sf:clock', path: '/routines' },
-  { label: 'Library', icon: 'sf:books.vertical', path: '/notes' },
-  { label: 'Apps', icon: 'sf:square.grid.2x2', path: '/apps' },
-  { label: 'Studio', icon: 'sf:play.rectangle', path: '/studio' },
-  { label: 'Spaces', icon: 'sf:person.2.wave.2', path: '/(tabs)/spaces' },
   { label: 'Email', icon: 'sf:envelope', path: '/(tabs)/email' },
   { label: 'Meetings', icon: 'sf:mic', path: '/(tabs)/meetings' },
+  { label: 'Your agents', icon: 'sf:person.2', path: '/baarasseurs' },
+  { label: 'Routines', icon: 'sf:clock', path: '/routines' },
+  { label: 'Apps', icon: 'sf:square.grid.2x2', path: '/apps' },
+  { label: 'Spaces', icon: 'sf:person.2.wave.2', path: '/(tabs)/spaces' },
+  { label: 'Studio', icon: 'sf:play.rectangle', path: '/studio' },
 ] as const;
 
 // BAARALI(12/10/2026): the founder replaced bottom navigation with two
@@ -34,7 +37,7 @@ export function TopNavigation({ mode = 'chat', inset = true }: { mode?: 'chat' |
   const pathname = usePathname();
   const params = useLocalSearchParams<{ mode?: string }>();
   const workName = 'Work';
-  const currentMode = pathname === '/chat' && params.mode === 'work' ? 'work' : mode;
+  const currentMode = isWorkRoute(pathname) || (pathname === '/chat' && params.mode === 'work') ? 'work' : mode;
   const { sessions, pairing } = useConnection();
   const { access } = useWorkAccess();
   const { width } = useWindowDimensions();
@@ -46,7 +49,6 @@ export function TopNavigation({ mode = 'chat', inset = true }: { mode?: 'chat' |
   const [chats, setChats] = useState<shared.SessionIndexEntry[]>([]);
   const [failed, setFailed] = useState(false);
   const [version, setVersion] = useState(0);
-  const [toolsOpen, setToolsOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -110,10 +112,7 @@ export function TopNavigation({ mode = 'chat', inset = true }: { mode?: 'chat' |
                 {!query && <View style={{ paddingBottom: 12 }}>
                   <SidebarRow label="Chat" icon="sf:bubble.left" selected={pathname === '/home' || (pathname === '/chat' && currentMode === 'chat')} onPress={() => go('/(tabs)/home')} />
                   <SidebarRow label={workName} icon="sf:chevron.left.forwardslash.chevron.right" selected={pathname === '/more'} onPress={() => go('/(tabs)/more')} />
-                  <Text style={{ paddingHorizontal: 24, paddingTop: 18, paddingBottom: 8, fontSize: 12, color: colors.secondaryLabel }}>Workspace</Text>
-                  {WORK_LINKS.filter(link => ['/projects', '/baarasseurs', '/(tabs)/spaces'].includes(link.path) && (pairing || link.path.endsWith('/spaces'))).map(link => <SidebarRow key={link.path} label={link.label} icon={link.icon} selected={pathname.startsWith(link.path.replace('/(tabs)', ''))} onPress={() => go(link.path as Href)} />)}
-                  <Pressable accessibilityRole="button" accessibilityState={{ expanded: toolsOpen }} onPress={() => setToolsOpen(value => !value)} style={{ minHeight: 44, marginHorizontal: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}><Image source="sf:square.grid.2x2" style={{ width: 18, height: 18 }} tintColor={colors.label} /><Text style={{ flex: 1, fontSize: 15, color: colors.label }}>Tools</Text><Image source={toolsOpen ? 'sf:chevron.up' : 'sf:chevron.down'} style={{ width: 12, height: 12 }} tintColor={colors.secondaryLabel} /></Pressable>
-                  {toolsOpen && WORK_LINKS.filter(link => !['/projects', '/baarasseurs', '/(tabs)/spaces'].includes(link.path) && (pairing || ['/email', '/meetings'].some(route => link.path.endsWith(route)))).map(link => <SidebarRow key={link.path} label={link.label} icon={link.icon} selected={pathname.startsWith(link.path.replace('/(tabs)', ''))} onPress={() => go(link.path as Href)} />)}
+                  {(currentMode === 'work' ? WORK_LINKS : CHAT_LINKS).filter(link => pairing || link.path.endsWith('/spaces')).map(link => <SidebarRow key={link.path} label={link.label} icon={link.icon} selected={pathname.startsWith(link.path.replace('/(tabs)', ''))} onPress={() => go(link.path as Href)} />)}
                 </View>}
                 <Text style={{ paddingHorizontal: 24, paddingTop: 10, paddingBottom: 8, fontSize: 12, color: colors.secondaryLabel }}>Recent conversations</Text>
                 {failed && <Pressable accessibilityRole="button" onPress={() => setVersion(value => value + 1)} style={{ padding: 20 }}><Text style={{ color: colors.accent }}>Reload conversations</Text></Pressable>}

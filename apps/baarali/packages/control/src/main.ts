@@ -96,6 +96,12 @@ if (process.env.DATABASE_URL) {
       },
       now: Date.now,
       spacesUrl,
+      spacesWorkAccess: async userId => {
+        const account = await pgStore.accountForUser(userId);
+        if (!account || account.suspendedAt) return false;
+        const plan = await pgStore.plan(account.planId);
+        return plan?.category === 'starter' || plan?.category === 'pro';
+      },
     };
     await migrateAuth(authDeps);
     auth = createAuth(authDeps);

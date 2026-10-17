@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import ts from 'typescript';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ROOT, apply, brandText, neutralIcons, corePlan, desktopPlan, mobilePlan } from '../scripts/brand.mjs';
 
 describe('brandText', () => {
@@ -104,8 +104,8 @@ describe('apply on this checkout', () => {
     for (const edit of desktopPlan().edits.filter(edit => edit.file === file)) branded = branded.replace(edit.from, () => edit.to);
     const footer = '{/* Bottom: who is signed in';
     expect(branded.slice(branded.indexOf(footer))).toBe(original.slice(original.indexOf(footer)));
-    expect(branded).toContain("['email', 'meetings', 'todo', 'library', 'prompts']");
-    expect(branded).toContain("['code', 'coworkers', 'routines', 'apps']");
+    expect(branded).toContain("['todo', 'library', 'prompts']");
+    expect(branded).toContain("['code', 'email', 'meetings', 'coworkers', 'routines', 'apps']");
     expect(branded).not.toContain('<SpacesSidebarSection');
     expect(branded).toContain('onClick={onOpenSpaces}');
     expect(branded).toContain('onClick={onOpenStudio}');
@@ -176,6 +176,7 @@ describe('the mobile app', () => {
       'write apps/harbor/packages/server/src/baarali-pages.ts',
       'edit apps/harbor/packages/server/src/http.ts',
       'edit apps/harbor/packages/server/src/apex.ts',
+      'edit apps/harbor/packages/server/src/auth-oidc.ts',
     ]);
   });
 
@@ -184,6 +185,17 @@ describe('the mobile app', () => {
   it('finds Spaces on our own server', () => {
     const e = mobilePlan().edits.find((x) => x.file.endsWith('spaces/account.tsx') && x.from.includes('SPACES_APEX'))!;
     expect(e.to).toBe("process.env.EXPO_PUBLIC_SPACES_APEX ?? 'https://spaces.baarali.com';");
+  });
+
+  it('keeps mobile sign-in public before pairing while guarding nested team routes', () => {
+    const edits = mobilePlan().edits;
+    const file = 'apps/x/apps/mobile/src/app/(tabs)/spaces/_layout.tsx';
+    let source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    for (const edit of edits.filter(edit => edit.file === file)) source = source.replace(edit.from, () => edit.to);
+    expect(source).toContain("enabled={Boolean(pairing) || pathname !== '/spaces'}");
+    expect(source).toContain('<SpacesLayoutContent />');
+    expect(edits.some(edit => edit.file.endsWith('/tasks.tsx') && edit.to.includes('<WorkGate'))).toBe(false);
+    expect(edits.some(edit => edit.file.endsWith('/notes/_layout.tsx') && edit.to.includes('<WorkGate'))).toBe(false);
   });
 
   it('comes back from the sign-in by a redirect our server accepts', () => {
@@ -228,9 +240,22 @@ describe('apply on a Windows checkout', () => {
     }
     for (const dir of ['apps/x/packages/core/src', 'apps/x/apps/renderer/src']) fs.mkdirSync(path.join(root, dir), { recursive: true });
     fs.writeFileSync(path.join(root, 'apps/x/apps/renderer/index.html'), '<title>Rowboat</title>\r\n');
-    const changes = apply({ root, write: false });
-    expect(changes).toContain(`edit ${main}/forge.config.cjs`);
-    expect(changes).toContain(`edit ${main}/src/main.ts`);
-    expect(changes).toContain('edit apps/x/apps/renderer/src/main.tsx');
+    // BAARALI(17/10/2026): CRLF alone does not model Windows. The walk
+    // returns backslash paths there, which must reuse the POSIX edit keys.
+    const relative = path.relative.bind(path);
+    const windows = vi.spyOn(path, 'relative').mockImplementation((from, to) => relative(from, to).replaceAll('/', '\\'));
+    try {
+      const changes = apply({ root, write: true });
+      expect(changes).toContain(`edit ${main}/forge.config.cjs`);
+      expect(changes).toContain(`edit ${main}/src/main.ts`);
+      expect(changes).toContain('edit apps/x/apps/renderer/src/main.tsx');
+      const composer = fs.readFileSync(path.join(root, 'apps/x/apps/renderer/src/components/chat-input-with-mentions.tsx'), 'utf8');
+      expect(composer).toContain('callRequiresSession?: boolean');
+      expect(composer).toContain('<ChatInputInner callRequiresSession={callRequiresSession}');
+      expect(composer).toContain('rounded-[18px]');
+      const app = fs.readFileSync(path.join(root, 'apps/x/apps/renderer/src/App.tsx'), 'utf8');
+      expect(app).toContain('<DesktopWorkGate');
+      expect(app).toContain('WORK_VOICE_HOLDER');
+    } finally { windows.mockRestore(); fs.rmSync(root, { recursive: true, force: true }); }
   });
 });

@@ -17,6 +17,17 @@ export function desktopLayoutEdits() {
     edit('lib/session-chat/store.ts', '      const reduced = turns.map((turn) => reduceTurn(turn.events))', '      if (revision !== this.feedRevision) return this.load(sessionId, generation)\n      const reduced = turns.map((turn) => reduceTurn(turn.events))'),
     edit('lib/session-chat/store.ts', '    this.queued = event.queue', '    this.feedRevision += 1\n    this.queued = event.queue'),
     edit('lib/session-chat/store.ts', '    const turnEvent = event.event', '    const turnEvent = event.event\n    if (isDurableTurnEvent(turnEvent)) this.feedRevision += 1'),
+    // BAARALI(17/10/2026): dictation belongs to Work's draft; a voice call
+    // first creates and binds its Work session before acquiring audio.
+    edit('App.tsx', "const HOME_VOICE_HOLDER = 'home-composer'", "const HOME_VOICE_HOLDER = 'home-composer'\nconst WORK_VOICE_HOLDER = 'work-composer'"),
+    edit('App.tsx', "  const pendingVoiceInputRef = useRef(false)", "  const [workVoiceDraft, setWorkVoiceDraft] = useState<string>()\n  const workDraftRef = useRef('')\n  const pendingVoiceInputRef = useRef(false)"),
+    edit('App.tsx', '      if (holder === HOME_VOICE_HOLDER) {', '      if (holder === WORK_VOICE_HOLDER) {\n        setWorkVoiceDraft([workDraftRef.current.trim(), text].filter(Boolean).join("\\n"))\n        pendingVoiceInputRef.current = false\n      } else if (holder === HOME_VOICE_HOLDER) {'),
+    edit('components/chat-input-with-mentions.tsx', 'interface ChatInputInnerProps {', 'interface ChatInputInnerProps {\n  callRequiresSession?: boolean'),
+    edit('components/chat-input-with-mentions.tsx', 'export interface ChatInputWithMentionsProps {', 'export interface ChatInputWithMentionsProps {\n  /** Work prepares a session before acquiring audio. */\n  callRequiresSession?: boolean'),
+    edit('components/chat-input-with-mentions.tsx', 'function ChatInputInner({', 'function ChatInputInner({\n  callRequiresSession,'),
+    edit('components/chat-input-with-mentions.tsx', '      <ChatInputInner\n', '      <ChatInputInner callRequiresSession={callRequiresSession}\n'),
+    edit('components/chat-input-with-mentions.tsx', 'export function ChatInputWithMentions({', 'export function ChatInputWithMentions({\n  callRequiresSession,'),
+    edit('components/chat-input-with-mentions.tsx', '                  if (!inCall && canToggleConversation()) {', '                  if (!inCall && canToggleConversation() && !callRequiresSession) {'),
     edit('main.tsx', "import App from './App.tsx'", "import App from './App.tsx'\nimport { DesktopWorkspaceProvider } from '@/components/desktop-workspace'"),
     edit('main.tsx', '          <App />', '          <DesktopWorkspaceProvider><App /></DesktopWorkspaceProvider>'),
     edit('App.tsx', "import { SidebarContentPanel } from '@/components/sidebar-content';", "import { SidebarContentPanel } from '@/components/sidebar-content';\nimport { DesktopModeTabs, DesktopWorkGate, useDesktopWorkspace, workspaceForNav } from '@/components/desktop-workspace';\nimport { DesktopStudioLibrary } from '@/components/desktop-studio-library';"),
@@ -36,12 +47,25 @@ export function desktopLayoutEdits() {
     edit('App.tsx', "\n      : isAppsOpen ? 'apps'", "\n      : isStudioOpen ? 'studio'\n      : isAppsOpen ? 'apps'"),
     edit('App.tsx', "    onOpenMeetings: openMeetingsView,", "    onSearch: () => setIsSearchOpen(true),\n    onOpenStudio: () => void navigateToView({ type: 'studio' }),\n    onNewWork: () => { openCodeView(); window.dispatchEvent(new Event('baarali:new-work')) },\n    onOpenMeetings: openMeetingsView,"),
     // Main navigation stays visible above every pane, including a maximized chat.
-    edit('App.tsx', '                    onSessionSelected={handleCodeSessionSelected}', `                    onStartWork={async (session, submission) => {
+    edit('App.tsx', '                    onSessionSelected={handleCodeSessionSelected}', `                    workVoice={{
+                      isRecording: isRecording && voiceOwner === WORK_VOICE_HOLDER,
+                      recordingText: voiceOwner === WORK_VOICE_HOLDER ? voice.interimText : undefined,
+                      recordingState: voiceOwner === WORK_VOICE_HOLDER ? (voice.state === 'submitting' ? 'stopping' : voice.state === 'connecting' ? 'connecting' : 'listening') : undefined,
+                      audioLevelsRef: voice.audioLevelsRef,
+                      onStartRecording: () => handleStartRecording(WORK_VOICE_HOLDER),
+                      onSubmitRecording: handleSubmitRecording,
+                      onCancelRecording: handleCancelRecording,
+                      voiceAvailable, inCall, callAvailable: voiceAvailable && ttsAvailable,
+                      onDraftChange: text => { workDraftRef.current = text },
+                      presetMessage: workVoiceDraft, onPresetMessageConsumed: () => setWorkVoiceDraft(undefined),
+                    }}
+                    onStartWork={async (session, submission) => {
                       handleCodeSessionSelected({ session, status: 'idle' });
                       codeSessionLocksRef.current = { ...codeSessionLocksRef.current, [session.id]: { cwd: session.cwd, agent: session.agent, codeModeEnabled: session.codeModeEnabled } };
                       const tab = chatTabsRef.current.find(tab => tab.runId === session.id);
                       if (!tab) throw new Error('work_chat_binding_failed');
                       if (submission.selection) selectionByTabRef.current.set(tab.chatId, submission.selection);
+                      if (submission.call) { handleStartCall(submission.call); return; }
                       const [message, mentions, attachments, search, code, permission] = submission.input;
                       await handlePromptSubmit(message, mentions, attachments, search, code, permission, tab.id);
                     }}
@@ -64,7 +88,7 @@ export function desktopLayoutEdits() {
     edit('components/sidebar-content.tsx', sidebarNavigation, `  const isWork = workspace.mode === 'work'
   menuRun.push(<SidebarMenuItem key="new"><SidebarMenuButton className="baarali-new-action" onClick={() => isWork ? onNewWork?.() : onNewChat?.()}><SquarePen className="size-4 shrink-0" /><span>{isWork ? 'New work' : 'New chat'}</span></SidebarMenuButton></SidebarMenuItem>)
   if (!isWork) menuRun.push(<SidebarMenuItem key="search"><SidebarMenuButton onClick={onSearch}><Search className="size-4" /><span>Search</span></SidebarMenuButton></SidebarMenuItem>)
-  for (const id of (isWork ? ['code', 'coworkers', 'routines', 'apps'] : ['email', 'meetings', 'todo', 'library', 'prompts']) as SidebarPage[]) {
+  for (const id of (isWork ? ['code', 'email', 'meetings', 'coworkers', 'routines', 'apps'] : ['todo', 'library', 'prompts']) as SidebarPage[]) {
     const row = sidebarRows.find(row => row.id === id)
     menuRun.push(renderPage({ id, label: (row && 'label' in row ? row.label : null) ?? (id === 'coworkers' ? 'Agents' : null) }))
   }
@@ -80,10 +104,10 @@ export function desktopLayoutEdits() {
     edit('components/dock-sidebar.tsx', '  onOpenMeetings?: () => void', '  onOpenStudio?: () => void\n  onOpenBaarasseurs?: () => void\n  onNewWork?: () => void\n  onOpenMeetings?: () => void'),
     edit('components/dock-sidebar.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onOpenStudio, onOpenBaarasseurs, onNewWork,\n  onOpenMeetings,\n  onOpenBgTasks,'),
     edit('components/dock-sidebar.tsx', '  // ----- interaction state -----', "  const workspace = useDesktopWorkspace()\n  // ----- interaction state -----"),
-    edit('components/dock-sidebar.tsx', '    return items\n  }, [', "    const work = workspace.mode === 'work'\n    const filtered = items.filter(row => {\n      if ('sep' in row && row.sep) return false\n      const key = row.item.key\n      return work ? ['workspaces', 'spaces', 'agents', 'apps', 'settings'].includes(key) || key.startsWith('app:') : ['new-chat', 'assistant', 'email', 'meetings', 'home', 'brain', 'chats', 'settings'].includes(key)\n    })\n    if (work) filtered.unshift({ item: { key: 'new-work', label: 'New work', icon: SquarePen, onClick: () => onNewWork?.() } }, { item: { key: 'baarasseurs', label: 'Agents', icon: Bot, onClick: () => onOpenBaarasseurs?.() } }, { item: { key: 'studio', label: 'Studio', icon: Clapperboard, onClick: () => onOpenStudio?.() } })\n    return filtered\n  }, [workspace.mode, onOpenStudio, onOpenBaarasseurs, onNewWork,"),
-    edit('components/code/code-view.tsx', "import { SessionRail } from './session-rail'", "import { SessionRail } from './session-rail'\nimport { DesktopCodeRail, useDesktopWorkspace } from '../desktop-workspace'\nimport { DesktopCodeHome, type WorkSubmission } from '../desktop-code-home'\nimport { useSidebar } from '../ui/sidebar'"),
-    edit('components/code/code-view.tsx', '  onSessionSelected,\n  focusSessionId,', '  onSessionSelected, onStartWork,\n  focusSessionId,'),
-    edit('components/code/code-view.tsx', '  onSessionSelected?: (active: ActiveCodeSession | null) => void', '  onStartWork?: (session: CodeSession, submission: WorkSubmission) => Promise<void>\n  onSessionSelected?: (active: ActiveCodeSession | null) => void'),
+    edit('components/dock-sidebar.tsx', '    return items\n  }, [', "    const work = workspace.mode === 'work'\n    const filtered = items.filter(row => {\n      if ('sep' in row && row.sep) return false\n      const key = row.item.key\n      return work ? ['workspaces', 'email', 'meetings', 'spaces', 'agents', 'apps', 'settings'].includes(key) || key.startsWith('app:') : ['new-chat', 'assistant', 'home', 'brain', 'chats', 'settings'].includes(key)\n    })\n    if (work) filtered.unshift({ item: { key: 'new-work', label: 'New work', icon: SquarePen, onClick: () => onNewWork?.() } }, { item: { key: 'baarasseurs', label: 'Agents', icon: Bot, onClick: () => onOpenBaarasseurs?.() } }, { item: { key: 'studio', label: 'Studio', icon: Clapperboard, onClick: () => onOpenStudio?.() } })\n    return filtered\n  }, [workspace.mode, onOpenStudio, onOpenBaarasseurs, onNewWork,"),
+    edit('components/code/code-view.tsx', "import { SessionRail } from './session-rail'", "import { SessionRail } from './session-rail'\nimport { DesktopCodeRail, useDesktopWorkspace } from '../desktop-workspace'\nimport { DesktopCodeHome, type WorkSubmission, type WorkVoiceProps } from '../desktop-code-home'\nimport { useSidebar } from '../ui/sidebar'"),
+    edit('components/code/code-view.tsx', '  onSessionSelected,\n  focusSessionId,', '  onSessionSelected, onStartWork, workVoice,\n  focusSessionId,'),
+    edit('components/code/code-view.tsx', '  onSessionSelected?: (active: ActiveCodeSession | null) => void', '  workVoice?: WorkVoiceProps\n  onStartWork?: (session: CodeSession, submission: WorkSubmission) => Promise<void>\n  onSessionSelected?: (active: ActiveCodeSession | null) => void'),
     edit('components/code/code-view.tsx', '      setSelectedSessionId(res.session.id)', '      setSelectedSessionId(res.session.id)\n      return res.session'),
     edit('components/code/code-view.tsx', 'projectRow?: ProjectRow) => {', 'projectRow?: ProjectRow, plainWork = false) => {'),
     edit('components/code/code-view.tsx', "const isolation = row.git.isGitRepo ? 'worktree' : 'in-repo'", "const isolation = !plainWork && row.git.isGitRepo ? 'worktree' : 'in-repo'"),
@@ -91,7 +115,7 @@ export function desktopLayoutEdits() {
     edit('components/code/code-view.tsx', '  const { projects, sessions, statusOf, refresh } = useCodeSessions()', "  const workspace = useDesktopWorkspace()\n  const { state: sidebarState } = useSidebar()\n  const embedded = workspace.mode === 'work' && sidebarState === 'expanded'\n  const { projects, sessions, statusOf, refresh } = useCodeSessions()"),
     edit('components/code/code-view.tsx', "  const creatingRef = useRef(false)", "  useEffect(() => {\n    const reset = () => { setSelectedSessionId(null); onSessionSelected?.(null) }\n    window.addEventListener('baarali:new-work', reset)\n    return () => window.removeEventListener('baarali:new-work', reset)\n  }, [onSessionSelected])\n  const creatingRef = useRef(false)"),
     edit('components/code/code-view.tsx', '      <SessionRail\n', '      <DesktopCodeRail embedded={embedded}><SessionRail embedded={embedded}\n'),
-    edit('components/code/code-view.tsx', codeEmptyState, `      </DesktopCodeRail>\n      {!selectedSession && <DesktopCodeHome projects={projects} sessions={sessions} statusOf={statusOf} onOpen={setSelectedSessionId} onAdd={() => void handleAddProject()} onNew={id => void handleNewSession(id)} onStart={onStartWork ? async (id, submission) => {\n        let selectedId = id;\n        let row: ProjectRow | undefined;\n        if (!selectedId) {\n          // BAARALI(16/10/2026): general Work needs no user-selected project.\n          // Reuse a real account workspace, created only on the first send.\n          const { root } = await window.ipc.invoke('workspace:getRoot', null);\n          await window.ipc.invoke('workspace:mkdir', { path: 'Projects/Work', recursive: true });\n          row = await window.ipc.invoke('codeProject:add', { path: root.replace(/[\\\\/]+$/, '') + '/Projects/Work' });\n          selectedId = row.project.id;\n        }\n        const session = await handleNewSession(selectedId, undefined, row, !id);\n        if (!session) throw new Error('work_session_creation_failed');\n        await onStartWork(session, submission);\n      } : undefined} />}\n\n`),
+    edit('components/code/code-view.tsx', codeEmptyState, `      </DesktopCodeRail>\n      {!selectedSession && <DesktopCodeHome voice={workVoice} projects={projects} sessions={sessions} statusOf={statusOf} onOpen={setSelectedSessionId} onAdd={() => void handleAddProject()} onNew={id => void handleNewSession(id)} onStart={onStartWork ? async (id, submission) => {\n        let selectedId = id;\n        let row: ProjectRow | undefined;\n        if (!selectedId) {\n          // BAARALI(16/10/2026): general Work needs no user-selected project.\n          // Reuse a real account workspace, created only on the first send.\n          const { root } = await window.ipc.invoke('workspace:getRoot', null);\n          await window.ipc.invoke('workspace:mkdir', { path: 'Projects/Work', recursive: true });\n          row = await window.ipc.invoke('codeProject:add', { path: root.replace(/[\\\\/]+$/, '') + '/Projects/Work' });\n          selectedId = row.project.id;\n        }\n        const session = await handleNewSession(selectedId, undefined, row, !id);\n        if (!session) throw new Error('work_session_creation_failed');\n        await onStartWork(session, submission);\n      } : undefined} />}\n\n`),
     edit('components/code/code-view.tsx', "import { FolderOpen, Plus } from 'lucide-react'\n", ''),
     edit('components/code/code-view.tsx', "import { Button } from '@/components/ui/button'\n", ''),
     edit('components/code/code-view.tsx', 'useCodeSessions, projectLabel, type ProjectRow', 'useCodeSessions, type ProjectRow'),
@@ -100,6 +124,20 @@ export function desktopLayoutEdits() {
 vi.mock('./session-rail',`),
     edit('components/code/session-rail.tsx', '  className,\n  onSwitchBranch,\n}: {', '  className, embedded = false,\n  onSwitchBranch,\n}: {\n  embedded?: boolean'),
     edit('components/code/session-rail.tsx', '  return (\n    // Always docked:', '  if (embedded) return body\n  return (\n    // Always docked:'),
+    edit('components/chat-input-harness.test.tsx', "import { TooltipProvider } from './ui/tooltip'", "import { TooltipProvider } from './ui/tooltip'\nimport { registerConversation } from '@/lib/voice-conversation'"),
+    edit('components/chat-input-harness.test.tsx', "const invoke = vi.fn(async (channel: string) => {", `it('prepares a Work voice session instead of toggling the previously active chat', () => {
+  const toggle = vi.fn()
+  const release = registerConversation({ toggle, interrupt: vi.fn() })
+  const prepare = vi.fn()
+  try {
+    render(<TooltipProvider><ChatInputWithMentions knowledgeFiles={[]} recentFiles={[]} visibleFiles={[]} onSubmit={vi.fn()} isProcessing={false} callAvailable callRequiresSession onStartCall={prepare} /></TooltipProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Talk with Baarali' }))
+    expect(prepare).toHaveBeenCalledWith('voice')
+    expect(toggle).not.toHaveBeenCalled()
+  } finally { release() }
+})
+
+const invoke = vi.fn(async (channel: string) => {`),
     edit('components/chat-input-with-mentions.tsx', 'rounded-[24px] border bg-background', 'rounded-[18px] border bg-background'),
     edit('components/chat-input-with-mentions.tsx', '<div className="px-4 pt-5 pb-3">', '<div className="px-3.5 pt-3 pb-2">'),
     edit('components/chat-input-with-mentions.tsx', 'className="flex items-center gap-2 px-4 pb-3"', 'className="flex items-center gap-1.5 px-3 pb-2"'),

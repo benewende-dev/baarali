@@ -667,14 +667,32 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/_layout.tsx`, "import { SpacesAccountProvider } from '@/lib/spaces/account';", "import { SpacesAccountProvider } from '@/lib/spaces/account';\nimport { WorkAccessProvider } from '@/lib/work-access-provider';"),
       edit(`${mobile}/src/app/_layout.tsx`, '          <PushRegistrar />', '          <WorkAccessProvider>\n          <PushRegistrar />'),
       edit(`${mobile}/src/app/_layout.tsx`, '          </SpacesAccountProvider>', '          </WorkAccessProvider>\n          </SpacesAccountProvider>'),
-      ...[['tasks', 'TasksScreen'], ['routines', 'RoutinesScreen'], ['projects', 'ProjectsScreen'], ['apps', 'AppsScreen']].flatMap(([route, name]) => [
+      ...[['routines', 'RoutinesScreen'], ['projects', 'ProjectsScreen'], ['apps', 'AppsScreen'], ['(tabs)/meetings', 'MeetingsScreen']].flatMap(([route, name]) => [
         edit(`${mobile}/src/app/${route}.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { WorkGate } from '@/components/work-gate';"),
         edit(`${mobile}/src/app/${route}.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate chrome={false}><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
       ]),
-      ...[['baarasseurs', 'BaarasseursLayout'], ['notes', 'NotesLayout']].flatMap(([route, name]) => [
+      ...[['baarasseurs', 'BaarasseursLayout']].flatMap(([route, name]) => [
         edit(`${mobile}/src/app/${route}/_layout.tsx`, "import { BackButton } from '@/components/back-button';", "import { BackButton } from '@/components/back-button';\nimport { WorkGate } from '@/components/work-gate';"),
         edit(`${mobile}/src/app/${route}/_layout.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
       ]),
+      // BAARALI(17/10/2026): personal tasks are free; only delegation
+      // opens the paid path. A failed add keeps its draft and explains why.
+      edit(`${mobile}/src/app/tasks.tsx`, "import * as Haptics from 'expo-haptics';", "import * as Haptics from 'expo-haptics';\nimport { router } from 'expo-router';\nimport { useWorkAccess } from '@/lib/work-access-provider';"),
+      edit(`${mobile}/src/app/tasks.tsx`, "  const [draft, setDraft] = useState('');", "  const [draft, setDraft] = useState('');\n  const [error, setError] = useState(false);\n  const { access, verify } = useWorkAccess();"),
+      edit(`${mobile}/src/app/tasks.tsx`, "      await rpc.call('todo:addItem', { text, run: false });\n    } finally {", "      setError(false);\n      await rpc.call('todo:addItem', { text, run: false });\n    } catch {\n      setDraft(text); setError(true);\n    } finally {"),
+      edit(`${mobile}/src/app/tasks.tsx`, "  const delegate = async (key: string) => {\n    if (!rpc) return;", "  const delegate = async (key: string) => {\n    if (!rpc) return;\n    if (access === 'free') { router.push('/plans'); return; }\n    if (!await verify()) { setError(true); return; }\n    setError(false);"),
+      edit(`${mobile}/src/app/tasks.tsx`, "await rpc.call('todo:runItem', { key }).catch(() => {});", "await rpc.call('todo:runItem', { key }).catch(() => setError(true));"),
+      edit(`${mobile}/src/app/tasks.tsx`, '      <FlatList\n', '      {error && <Text accessibilityRole="alert" style={{ color: colors.destructive, padding: 16 }}>Could not update this task. Please check your connection and try again.</Text>}\n      <FlatList\n'),
+      // BAARALI(17/10/2026): direct links into paid collaboration screens
+      // must check the same entitlement as the Work destination.
+      ...[['(tabs)/email', 'EmailLayout'], ['(tabs)/spaces', 'SpacesLayout']].flatMap(([route, name]) => [
+        edit(`${mobile}/src/app/${route}/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack } from 'expo-router';\nimport { WorkGate } from '@/components/work-gate';"),
+        edit(`${mobile}/src/app/${route}/_layout.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
+      ]),
+      // Spaces hosts the app's sign-in before an instance is paired. Only
+      // that entry remains public; nested team pages still require Work.
+      edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack, usePathname } from 'expo-router';\nimport { useConnection } from '@/lib/connection';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, 'return <WorkGate><SpacesLayoutContent /></WorkGate>;', "const { pairing } = useConnection(); const pathname = usePathname(); return <WorkGate enabled={Boolean(pairing) || pathname !== '/spaces'}><SpacesLayoutContent /></WorkGate>;"),
       edit(`${mobile}/src/app/projects.tsx`, 'params: { id: sessionId }', "params: { id: sessionId, mode: 'work' }"),
       edit(`${mobile}/src/app/projects.tsx`, 'params: { id: c.id }', "params: { id: c.id, mode: 'work' }"),
       edit(`${mobile}/src/app/apps.tsx`, "params: { id: '', draft: text }", "params: { id: '', draft: text, mode: 'work' }"),
@@ -691,6 +709,9 @@ export function mobilePlan() {
         '    const issuer = await discoverIssuer(APEX_URL);',
         "    if (!APEX_URL) throw new Error('Team spaces are coming to Baarali soon.');\n    const issuer = await discoverIssuer(APEX_URL);",
       ),
+      // BAARALI(17/10/2026): a pre-Work token receives 401 once so an
+      // already signed-in phone can renew it without asking for a new code.
+      edit(`${mobile}/src/lib/spaces/account.tsx`, "      const res = await fetch(`${APEX_URL}/v1/orgs`, { headers: { authorization: `Bearer ${token}` } });", "      let res = await fetch(`${APEX_URL}/v1/orgs`, { headers: { authorization: `Bearer ${token}` } });\n      if (res.status === 401) {\n        const fresh = await getAccessToken({ forceRefresh: true });\n        res = await fetch(`${APEX_URL}/v1/orgs`, { headers: { authorization: `Bearer ${fresh}` } });\n      }"),
       edit(`${mobile}/src/app/index.tsx`, "import { ONBOARDED_KEY } from './onboarding';", "import { ONBOARDED_KEY } from './onboarding';\nimport { APEX_URL } from '@/lib/spaces/account';"),
       edit(`${mobile}/src/app/index.tsx`, "<Redirect href={onboarded ? '/spaces' : '/onboarding'} />", "<Redirect href={onboarded ? (APEX_URL ? '/spaces' : '/pairing') : '/onboarding'} />"),
       edit(`${mobile}/src/components/baarali-onboarding.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { APEX_URL } from '@/lib/spaces/account';"),
@@ -786,8 +807,8 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, "<Stack.Screen name=\"index\" options={{ title: 'Spaces' }} />", "<Stack.Screen name=\"index\" options={{ title: 'Spaces', headerShown: false }} />"),
       edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "          headerRight: () => (\n            <Pressable\n              hitSlop={10}\n              onPress={() => router.push({ pathname: '/spaces/files', params: { org, space, title } })}\n            >\n              <Image source=\"sf:folder\" style={{ width: 20, height: 20 }} tintColor={colors.label} />\n            </Pressable>\n          ),", "          headerRight: () => (\n            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>\n              <GroupInfoButton client={client} space={space} orgAddress={org} me={me} title={title} onMembers={people => setMembers(new Map(people.map(person => [person.id, person])))} />\n              <Pressable accessibilityRole=\"button\" accessibilityLabel=\"Files\" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }} onPress={() => router.push({ pathname: '/spaces/files', params: { org, space, title, me } })}>\n                <Image source=\"sf:folder\" style={{ width: 20, height: 20 }} tintColor={colors.label} />\n              </Pressable>\n            </View>\n          ),"),
       edit(`${mobile}/src/app/(tabs)/spaces/chat.tsx`, "import { SpaceTabs } from '@/components/space-tabs';", "import { SpaceTabs } from '@/components/space-tabs';\nimport { GroupInfoButton } from '@/components/group-info';"),
-      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, "import { BaaraliSignInView } from '@/components/baarali-sign-in-view';", "import { BaaraliSignInView } from '@/components/baarali-sign-in-view';\nimport { TeamSpacesHome } from '@/components/team-spaces-home';"),
-      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, "  return <OrgList />;", "  return <TeamSpacesHome />;"),
+      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, "import { BaaraliSignInView } from '@/components/baarali-sign-in-view';", "import { BaaraliSignInView } from '@/components/baarali-sign-in-view';\nimport { TeamSpacesHome } from '@/components/team-spaces-home';\nimport { WorkGate } from '@/components/work-gate';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/index.tsx`, "  return <OrgList />;", "  return <WorkGate><TeamSpacesHome /></WorkGate>;"),
       edit(`${mobile}/src/components/space-message.tsx`, "{onOpenThread && message.replyCount > 0 ? (", "{onOpenThread ? ("),
       edit(`${mobile}/src/components/space-message.tsx`, "<Text style={{ fontSize: 13, fontWeight: '600', color: '#0a84ff' }}>\n              {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'} \u203a\n            </Text>", "<Text style={{ fontSize: 13, fontWeight: '500', color: colors.accent }}>\n              {message.replyCount > 0 ? <>{message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'} \u203a</> : <Text>Reply</Text>}\n            </Text>"),
       edit(`${mobile}/src/components/space-message.tsx`, "<Pressable onPress={() => onOpenThread(message)} hitSlop={6} style={{ marginTop: 4, alignSelf: 'flex-start' }}>", "<Pressable accessibilityRole=\"button\" accessibilityLabel=\"Reply in thread\" onPress={() => onOpenThread(message)} style={{ marginTop: 4, minHeight: 36, justifyContent: 'center', alignSelf: 'flex-start' }}>"),
@@ -946,6 +967,9 @@ export function harborPlan() {
       ),
       edit(`${server}/apex.ts`, '  const app = new Hono();', "  const app = new Hono();\n  app.use('*', (c, next) => withLanguage(c.req.header('accept-language'), next));"),
       edit(`${server}/apex.ts`, 'newContent: welcomeReadme(org.name),', 'newContent: baaraliWelcome(org.name),'),
+      // BAARALI(17/10/2026): the signed Work claim also protects direct
+      // Harbor clients; hiding a navigation item cannot enforce a paid plan.
+      edit(`${server}/auth-oidc.ts`, "    // GoTrue puts the social profile's name in user_metadata; plain `name` is", "    if (!Object.hasOwn(payload, 'baarali_work')) throw new HarborError('unauthorized', 'Refresh the token to verify Work access');\n    if (payload.baarali_work !== true) throw new HarborError('forbidden', 'Work requires an active paid plan');\n    // GoTrue puts the social profile's name in user_metadata; plain `name` is"),
     ],
     writes: [[`${server}/baarali-pages.ts`, fs.readFileSync(path.join(PKG, '../spaces/src/pages.ts'), 'utf8')]],
   };
@@ -1053,7 +1077,7 @@ export function apply({ root = ROOT, only, write = false }) {
     const abs = path.join(root, tree);
     const files = fs.statSync(abs).isDirectory() ? walk(abs) : [abs];
     for (const file of files) {
-      const rel = path.relative(root, file);
+      const rel = path.relative(root, file).replaceAll('\\', '/');
       const text = current(rel);
       const branded = neutralIcons(brandText(text), rel);
       if (branded !== text) pending.set(rel, branded);

@@ -44,6 +44,10 @@ describe('Work execution entitlement', () => {
   it('protects custom and inline agents, code modes and project composition over Chat RPC', () => {
     for (const agent of [{ agentId: 'baarasseur-mariama' }, { agent: { name: 'custom' } }, { agentId: 'copilot', overrides: { composition: { codeMode: 'claude' } } }, { agentId: 'copilot', overrides: { composition: { workDirId: 'project' } } }]) expect(workChannel('sessions:sendMessage', { config: { agent } })).toBe(true);
   });
+  it('requires Work for mail, meetings and spaces while preserving cleanup', () => {
+    for (const channel of ['gmail:getImportant', 'gmail:sendReply', 'meeting:summarize', 'meeting-prep:resolve', 'spaces:listOrgs', 'spaces:postMessage']) expect(workChannel(channel, {})).toBe(true);
+    for (const channel of ['gmail:getConnectionStatus', 'spaces:accountState', 'spaces:stopRowboat', 'spaces:unsubscribeSpace', 'spaces:removeOrg', 'live-note:stop']) expect(workChannel(channel, {})).toBe(false);
+  });
   it('protects Work configuration and directories while keeping attachments and document output writable', () => {
     for (const path of ['config/baarasseurs.json', 'apps/new/index.html', 'foo/../motion/project/index.html', 'agents/custom.yaml', 'bg-tasks/task/task.md']) {
       expect(reservedWorkPath(path)).toBe(true);
