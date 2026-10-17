@@ -17,7 +17,7 @@ describe('paid Work access', () => {
     expect(canUseWork(info('essentiel', 'trialing'), now)).toBe(false);
   });
   it('identifies all Work routes including direct and nested links', () => {
-    for (const route of ['/more', '/(tabs)/more', '/projects', '/apps', '/tasks', '/routines', '/baarasseurs/recruit', '/notes/view?path=x', '/studio']) expect(isWorkRoute(route)).toBe(true);
-    for (const route of ['/home', '/(tabs)/spaces', '/settings', '/projects-other']) expect(isWorkRoute(route)).toBe(false);
+    for (const route of ['/more', '/(tabs)/more', '/projects', '/apps', '/routines', '/baarasseurs/recruit', '/studio', '/(tabs)/email/thread', '/(tabs)/meetings', '/(tabs)/spaces/chat']) expect(isWorkRoute(route)).toBe(true);
+    for (const route of ['/home', '/tasks', '/notes/view?path=x', '/settings', '/projects-other']) expect(isWorkRoute(route)).toBe(false);
   });
 });

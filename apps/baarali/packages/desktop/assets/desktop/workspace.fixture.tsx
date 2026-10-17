@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
-import { DesktopModeTabs, DesktopWorkspaceProvider, DesktopWorkGate } from './desktop-workspace'
+import { DesktopModeTabs, DesktopWorkspaceProvider, DesktopWorkGate, workspaceForNav } from './desktop-workspace'
 
 vi.mock('./baarali-mark', () => ({ BaaraliMark: () => <span>Loading</span> }))
 const invoke = vi.fn()
@@ -11,8 +11,8 @@ function Harness({ initial = 'assistant' }: { initial?: string }) {
   const [route, setRoute] = useState(initial)
   return <DesktopWorkspaceProvider>
     <DesktopModeTabs activeNav={route} onChat={() => setRoute('assistant')} onWork={() => setRoute('code')} />
-    <DesktopWorkGate required={route === 'code'} onChat={() => setRoute('assistant')}>
-      {route === 'code' ? <PaidContent /> : <span>Chat content</span>}
+    <DesktopWorkGate required={workspaceForNav(route) === 'work'} onChat={() => setRoute('assistant')}>
+      {workspaceForNav(route) === 'work' ? <PaidContent /> : <span>Chat content</span>}
     </DesktopWorkGate>
   </DesktopWorkspaceProvider>
 }
@@ -53,6 +53,13 @@ describe('desktop Chat and Work', () => {
     await act(async () => resolve(plan('free')))
     expect(await screen.findByText('Work is available with a paid plan')).toBeVisible()
     expect(mounted).toBe(0)
+  })
+  it.each(['email', 'meetings', 'spaces'])('blocks restored %s pages for Discovery before they mount', async route => {
+    invoke.mockResolvedValue(plan('free'))
+    render(<Harness initial={route} />)
+    expect(await screen.findByText('Work is available with a paid plan')).toBeVisible()
+    expect(mounted).toBe(0)
+    expect(screen.getByRole('tab', { name: 'Work' })).toHaveAttribute('aria-selected', 'true')
   })
   it('completes a Work click made while the paid plan is still loading', async () => {
     let resolve!: (info: unknown) => void

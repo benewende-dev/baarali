@@ -13,7 +13,7 @@ export function canUseWork(info: {
   return info.subscriptionStatus === 'trialing' && Boolean(info.trialExpiresAt) && Date.parse(info.trialExpiresAt!) > now;
 }
 
-export const WORK_ROUTES = ['/more', '/projects', '/apps', '/tasks', '/routines', '/baarasseurs', '/notes', '/studio'] as const;
+export const WORK_ROUTES = ['/more', '/projects', '/apps', '/routines', '/baarasseurs', '/studio', '/email', '/meetings', '/spaces'] as const;
 export function isWorkRoute(path: string): boolean {
   const clean = path.replace('/(tabs)', '').split('?')[0];
   return WORK_ROUTES.some(route => clean === route || clean.startsWith(`${route}/`));

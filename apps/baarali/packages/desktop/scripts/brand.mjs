@@ -667,14 +667,32 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/_layout.tsx`, "import { SpacesAccountProvider } from '@/lib/spaces/account';", "import { SpacesAccountProvider } from '@/lib/spaces/account';\nimport { WorkAccessProvider } from '@/lib/work-access-provider';"),
       edit(`${mobile}/src/app/_layout.tsx`, '          <PushRegistrar />', '          <WorkAccessProvider>\n          <PushRegistrar />'),
       edit(`${mobile}/src/app/_layout.tsx`, '          </SpacesAccountProvider>', '          </WorkAccessProvider>\n          </SpacesAccountProvider>'),
-      ...[['tasks', 'TasksScreen'], ['routines', 'RoutinesScreen'], ['projects', 'ProjectsScreen'], ['apps', 'AppsScreen']].flatMap(([route, name]) => [
+      ...[['routines', 'RoutinesScreen'], ['projects', 'ProjectsScreen'], ['apps', 'AppsScreen'], ['(tabs)/meetings', 'MeetingsScreen']].flatMap(([route, name]) => [
         edit(`${mobile}/src/app/${route}.tsx`, "import { useColors } from '@/theme/colors';", "import { useColors } from '@/theme/colors';\nimport { WorkGate } from '@/components/work-gate';"),
         edit(`${mobile}/src/app/${route}.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate chrome={false}><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
       ]),
-      ...[['baarasseurs', 'BaarasseursLayout'], ['notes', 'NotesLayout']].flatMap(([route, name]) => [
+      ...[['baarasseurs', 'BaarasseursLayout']].flatMap(([route, name]) => [
         edit(`${mobile}/src/app/${route}/_layout.tsx`, "import { BackButton } from '@/components/back-button';", "import { BackButton } from '@/components/back-button';\nimport { WorkGate } from '@/components/work-gate';"),
         edit(`${mobile}/src/app/${route}/_layout.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
       ]),
+      // BAARALI(17/10/2026): personal tasks are free; only delegation
+      // opens the paid path. A failed add keeps its draft and explains why.
+      edit(`${mobile}/src/app/tasks.tsx`, "import * as Haptics from 'expo-haptics';", "import * as Haptics from 'expo-haptics';\nimport { router } from 'expo-router';\nimport { useWorkAccess } from '@/lib/work-access-provider';"),
+      edit(`${mobile}/src/app/tasks.tsx`, "  const [draft, setDraft] = useState('');", "  const [draft, setDraft] = useState('');\n  const [error, setError] = useState(false);\n  const { access, verify } = useWorkAccess();"),
+      edit(`${mobile}/src/app/tasks.tsx`, "      await rpc.call('todo:addItem', { text, run: false });\n    } finally {", "      setError(false);\n      await rpc.call('todo:addItem', { text, run: false });\n    } catch {\n      setDraft(text); setError(true);\n    } finally {"),
+      edit(`${mobile}/src/app/tasks.tsx`, "  const delegate = async (key: string) => {\n    if (!rpc) return;", "  const delegate = async (key: string) => {\n    if (!rpc) return;\n    if (access === 'free') { router.push('/plans'); return; }\n    if (!await verify()) { setError(true); return; }\n    setError(false);"),
+      edit(`${mobile}/src/app/tasks.tsx`, "await rpc.call('todo:runItem', { key }).catch(() => {});", "await rpc.call('todo:runItem', { key }).catch(() => setError(true));"),
+      edit(`${mobile}/src/app/tasks.tsx`, '      <FlatList\n', '      {error && <Text accessibilityRole="alert" style={{ color: colors.destructive, padding: 16 }}>Could not update this task. Please check your connection and try again.</Text>}\n      <FlatList\n'),
+      // BAARALI(17/10/2026): direct links into paid collaboration screens
+      // must check the same entitlement as the Work destination.
+      ...[['(tabs)/email', 'EmailLayout'], ['(tabs)/spaces', 'SpacesLayout']].flatMap(([route, name]) => [
+        edit(`${mobile}/src/app/${route}/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack } from 'expo-router';\nimport { WorkGate } from '@/components/work-gate';"),
+        edit(`${mobile}/src/app/${route}/_layout.tsx`, `export default function ${name}() {`, `export default function ${name}() { return <WorkGate><${name}Content /></WorkGate>; }\n\nfunction ${name}Content() {`),
+      ]),
+      // Spaces hosts the app's sign-in before an instance is paired. Only
+      // that entry remains public; nested team pages still require Work.
+      edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack, usePathname } from 'expo-router';\nimport { useConnection } from '@/lib/connection';"),
+      edit(`${mobile}/src/app/(tabs)/spaces/_layout.tsx`, 'return <WorkGate><SpacesLayoutContent /></WorkGate>;', "const { pairing } = useConnection(); const pathname = usePathname(); return <WorkGate enabled={Boolean(pairing) || pathname !== '/spaces'}><SpacesLayoutContent /></WorkGate>;"),
       edit(`${mobile}/src/app/projects.tsx`, 'params: { id: sessionId }', "params: { id: sessionId, mode: 'work' }"),
       edit(`${mobile}/src/app/projects.tsx`, 'params: { id: c.id }', "params: { id: c.id, mode: 'work' }"),
       edit(`${mobile}/src/app/apps.tsx`, "params: { id: '', draft: text }", "params: { id: '', draft: text, mode: 'work' }"),
@@ -946,6 +964,9 @@ export function harborPlan() {
       ),
       edit(`${server}/apex.ts`, '  const app = new Hono();', "  const app = new Hono();\n  app.use('*', (c, next) => withLanguage(c.req.header('accept-language'), next));"),
       edit(`${server}/apex.ts`, 'newContent: welcomeReadme(org.name),', 'newContent: baaraliWelcome(org.name),'),
+      // BAARALI(17/10/2026): the signed Work claim also protects direct
+      // Harbor clients; hiding a navigation item cannot enforce a paid plan.
+      edit(`${server}/auth-oidc.ts`, "    // GoTrue puts the social profile's name in user_metadata; plain `name` is", "    if (payload.baarali_work !== true) throw new HarborError('forbidden', 'Work requires an active paid plan');\n    // GoTrue puts the social profile's name in user_metadata; plain `name` is"),
     ],
     writes: [[`${server}/baarali-pages.ts`, fs.readFileSync(path.join(PKG, '../spaces/src/pages.ts'), 'utf8')]],
   };

@@ -10,10 +10,10 @@ vi.mock('./code/code-agent-status', () => ({ AGENT_LABEL: {}, fetchCodeAgentsSta
 vi.mock('./desktop-workspace', () => ({ useDesktopWorkspace: () => ({ mode: 'work' }), DesktopCodeRail: ({ children }: { children: React.ReactNode }) => children }))
 vi.mock('./ui/sidebar', () => ({ useSidebar: () => ({ state: 'collapsed' }) }))
 vi.mock('./code/session-rail', () => ({ SessionRail: () => null }))
-vi.mock('./chat-input-with-mentions', () => ({ ChatInputWithMentions: ({ onSubmit, onSelectionChange }: { onSubmit: (...args: unknown[]) => void; onSelectionChange: (selection: unknown) => void }) => <button onClick={() => {
+vi.mock('./chat-input-with-mentions', () => ({ ChatInputWithMentions: ({ onSubmit, onSelectionChange, onStartCall }: { onSubmit: (...args: unknown[]) => void; onSelectionChange: (selection: unknown) => void; onStartCall?: (preset: string) => void }) => <><button onClick={() => {
   onSelectionChange({ provider: 'fixture', model: 'selected-model' })
   onSubmit({ text: 'Review this project' }, undefined, [{ path: 'Attachments/spec.md', filename: 'spec.md', mimeType: 'text/markdown', size: 20 }], true, undefined, 'manual')
-}}>Send Work request</button> }))
+}}>Send Work request</button><button onClick={() => onStartCall?.('voice')}>Start Work voice</button></> }))
 beforeEach(() => { state.empty = false })
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks() })
 it('creates one project session and forwards the complete first request with its selected model', async () => {
@@ -66,4 +66,20 @@ it('keeps Work usable and explains a failed workspace preparation before any ses
   expect(start).not.toHaveBeenCalled()
   expect(invoke).toHaveBeenCalledTimes(1)
   expect(screen.getByText('Send Work request')).toBeVisible()
+})
+
+it('prepares a plain Work session for the voice call without submitting an empty message', async () => {
+  const invoke = vi.fn(async (channel: string) => {
+    if (channel === 'workspace:getRoot') return { root: '/data' }
+    if (channel === 'workspace:mkdir') return { ok: true }
+    if (channel === 'codeProject:add') return row
+    if (channel === 'codeSession:create') return { session }
+    throw new Error(channel)
+  })
+  Object.defineProperty(window, 'ipc', { configurable: true, value: { invoke } })
+  const start = vi.fn().mockResolvedValue(undefined)
+  render(<CodeView workVoice={{ callAvailable: true }} onStartWork={start} />)
+  fireEvent.click(screen.getByText('Start Work voice'))
+  await waitFor(() => expect(start).toHaveBeenCalledWith(session, { input: [{ text: '', files: [] }], selection: null, call: 'voice' }))
+  expect(invoke).toHaveBeenCalledWith('codeSession:create', expect.objectContaining({ isolation: 'in-repo', codeModeEnabled: false }))
 })

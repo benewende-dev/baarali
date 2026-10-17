@@ -6,6 +6,7 @@ Une ligne s'ajoute dans le même commit que la modification, et disparaît dans 
 
 | Fichier upstream | Changement | Pourquoi | Depuis |
 |---|---|---|---|
+| `.github/workflows/electron-build.yml` | Jobs réservés au dépôt upstream ; les releases Baarali passent par `baarali-desktop.yml` | Éviter une seconde publication non marquée et des échecs liés aux certificats upstream | 17/10/2026 |
 | `apps/x/apps/mobile/package.json`, `apps/x/pnpm-lock.yaml` | Modules officiels `expo-clipboard` et `expo-document-picker`, versions compatibles avec Expo 57 | La copie d’une réponse et la sélection des pièces jointes utilisent les interfaces natives ; la présentation et les parcours validés sont appliqués séparément à la copie du build par `brand.mjs` | 12/10/2026 |
 | `apps/x/apps/mobile/src/app/onboarding.tsx` | Route déléguée à `components/baarali-onboarding.tsx` : Déclic, mascotte duveteuse animée, choix d’avatar puis connexion | Onboarding et ton au vouvoiement validés par le fondateur ; le composant séparé limite les conflits de navigation | 11/10/2026 |
 | `apps/x/apps/mobile/src/app/(tabs)/spaces/index.tsx` | Connexion présentée par `components/baarali-sign-in-view.tsx` : mascotte duveteuse, bulle courte, email puis code confirmé par bouton ; mêmes opérations de session et d’association | Connexion compacte et mascotte validées par le fondateur ; aucun changement des protocoles d’authentification | 11/10/2026 |

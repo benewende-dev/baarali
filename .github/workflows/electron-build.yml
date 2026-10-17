@@ -7,8 +7,11 @@ on:
 permissions:
   contents: write  # Required to upload release assets
 
+# BAARALI(17/10/2026): Baarali publishes through baarali-desktop only;
+# an upstream publisher must not run against our releases or signing keys.
 jobs:
   build-macos:
+    if: github.repository == 'rowboatlabs/rowboat'
     runs-on: macos-latest
 
     steps:
@@ -119,6 +122,7 @@ jobs:
           retention-days: 30
 
   build-linux:
+    if: github.repository == 'rowboatlabs/rowboat'
     runs-on: ubuntu-latest
 
     steps:
@@ -201,6 +205,7 @@ jobs:
           retention-days: 30
 
   build-windows:
+    if: github.repository == 'rowboatlabs/rowboat'
     runs-on: windows-latest
 
     steps:

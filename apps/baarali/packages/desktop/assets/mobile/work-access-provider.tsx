@@ -18,7 +18,9 @@ export function WorkAccessProvider({ children }: { children: ReactNode }) {
   const verify = useCallback((): Promise<boolean> => {
     if (!rpc) { setSnapshot({ client: rpc, access: 'error' }); return Promise.resolve(false); }
     if (pending.current?.client === rpc) return pending.current.promise;
-    setSnapshot({ client: rpc, access: 'checking' });
+    // BAARALI(17/10/2026): keep the current screen and its draft mounted
+    // during a same-account refresh; the result still revokes lost access.
+    setSnapshot(previous => previous.client === rpc ? previous : { client: rpc, access: 'checking' });
     const promise = rpc.call('billing:getInfo', null).then(info => {
       const allowed = canUseWork(info);
       if (current.current === rpc) setSnapshot({ client: rpc, access: allowed ? 'paid' : 'free' });

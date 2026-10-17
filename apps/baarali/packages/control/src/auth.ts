@@ -53,6 +53,8 @@ export interface AuthDeps {
    * auth-oidc.ts): this resource is what makes them so.
    */
   spacesUrl?: string;
+  /** Work entitlement for the linked account, checked when signing a Spaces JWT. */
+  spacesWorkAccess?: (userId: string) => Promise<boolean>;
 }
 
 /**
@@ -222,7 +224,7 @@ function authOptions(deps: AuthDeps) {
         // Who is speaking, for Harbor (auth-oidc.ts): an email only once
         // verified, since a space may admit people by their email's domain,
         // and no name when it is only the phone number of a phone sign-up.
-        customAccessTokenClaims: ({ user }) => spacesClaims(user),
+        customAccessTokenClaims: async ({ user }) => ({ ...spacesClaims(user), baarali_work: Boolean(user && await deps.spacesWorkAccess?.(user.id)) }),
       }),
     ],
   } satisfies BetterAuthOptions;
@@ -357,6 +359,9 @@ export function createAuth(deps: AuthDeps): BaaraliAuth {
       );
       const user = rows[0];
       if (!user) return null;
+      // BAARALI(17/10/2026): this token also completes mobile sign-in.
+      // Free accounts keep their identity but Harbor rejects their Work claim.
+      const work = Boolean(await deps.spacesWorkAccess?.(user.id));
       const now = Math.floor(deps.now() / 1000);
       // Signed like the Spaces tokens of a sign-in (ES256, our issuer, the
       // Spaces audience), so Spaces see the same person from the phone. The
@@ -364,7 +369,7 @@ export function createAuth(deps: AuthDeps): BaaraliAuth {
       // carries its alg (Better Auth 1.7 writes it), so none is mistaken.
       const { token } = await auth.api.signJWT({
         body: {
-          payload: { sub: user.id, iat: now, exp: now + SPACES_TOKEN_SECONDS, iss: `${deps.publicUrl}${AUTH_BASE_PATH}`, aud: [deps.spacesUrl], ...spacesClaims(user) },
+          payload: { sub: user.id, iat: now, exp: now + SPACES_TOKEN_SECONDS, iss: `${deps.publicUrl}${AUTH_BASE_PATH}`, aud: [deps.spacesUrl], baarali_work: work, ...spacesClaims(user) },
           overrideOptions: { jwks: { keyPairConfig: { alg: 'ES256' } } },
         },
       });
