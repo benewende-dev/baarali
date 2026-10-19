@@ -547,13 +547,8 @@ export function desktopPlan() {
       edit(`${renderer}/hooks/useMeetingTranscription.ts`, 'if (exists) notePath = `knowledge/Meetings/rowboat/${dateFolder}/${filename}-${timestamp}.md`;', 'if (exists) notePath = `knowledge/Meetings/baarali/${dateFolder}/${filename}-${timestamp}.md`;'),
       edit(`${renderer}/components/todo-view.tsx`, '<Bot className="size-3" />\n              rowboat\n', '<Bot className="size-3" />\n              baarali\n'),
       edit(`${renderer}/components/spaces/composer-editor.ts`, "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'rowboat' })", "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'baarali' })"),
-      // BAARALI(11/10/2026): Chargement keeps the B compact and readable
-      // throughout page and chat waits, as requested by the founder.
-      edit(`${renderer}/components/work-steps.tsx`, "import * as React from 'react'", "import * as React from 'react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
-      edit(`${renderer}/components/work-steps.tsx`, '<span className="text-foreground">Baarali is working…</span>', '<BaaraliMark motion="loading" size={32} className="text-foreground" />\n            <span className="text-foreground">Baarali is working…</span>'),
-      edit(`${renderer}/components/reasoning-row.tsx`, "import { ChevronDownIcon, LoaderIcon } from 'lucide-react'", "import { ChevronDownIcon } from 'lucide-react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
-      edit(`${renderer}/components/reasoning-row.tsx`, '<span className={quietRowGlyphSlotClass}>', '<span className={cn(quietRowGlyphSlotClass, isStreaming && "!h-8 !w-8")}>'),
-      edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={32} className="text-foreground" />'),
+      // BAARALI(18/10/2026): one animated B owns the live activity row.
+      // The work history no longer repeats the logo or the product name.
     ],
     copies: [
       ['assets/desktop/workspace.tsx', `${renderer}/components/desktop-workspace.tsx`],
@@ -574,6 +569,9 @@ export function desktopPlan() {
       ['../instance/src/cad-scene.ts', `${renderer}/components/cad-scene.ts`],
       ['assets/motion/baarali-logo.tsx', `${renderer}/components/baarali-logo.tsx`],
       ['assets/motion/turn-activity-indicator.tsx', `${renderer}/components/turn-activity-indicator.tsx`],
+      ['assets/motion/work-steps.tsx', `${renderer}/components/work-steps.tsx`],
+      ['assets/desktop/agent-activity.ts', `${renderer}/lib/baarali-agent-activity.ts`],
+      ['assets/desktop/agent-activity.fixture.tsx', `${renderer}/components/turn-activity-indicator.test.tsx`],
       ['assets/motion/onboarding-duo.tsx', `${renderer}/components/baarali-onboarding/duo.tsx`],
       ['assets/icon.icns', `${main}/icons/icon.icns`],
       ['assets/icon.ico', `${main}/icons/icon.ico`],

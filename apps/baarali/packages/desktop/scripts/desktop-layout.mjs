@@ -9,6 +9,19 @@ export function desktopLayoutEdits() {
   const sidebarNavigation = fs.readFileSync(new URL('./anchors/desktop-sidebar.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const codeEmptyState = fs.readFileSync(new URL('./anchors/desktop-code-home.txt', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   return [
+    // BAARALI(18/10/2026): the active chat displays real execution activity,
+    // including before the first token; tool history keeps its own disclosure.
+    edit('components/chat-session.tsx', "import { hasActiveWork } from '@/lib/work-steps'\n", ''),
+    edit('components/chat-session.tsx', "import { shownSteps } from '@/lib/chat-steps'\n", ''),
+    edit('components/chat-session.tsx', '  const tabHasConversation = tabState.conversation.length > 0 || tabState.currentAssistantMessage', '  const tabHasConversation = tabState.conversation.length > 0 || tabState.currentAssistantMessage || (isActive && activeIsProcessing)'),
+    edit('components/chat-session.tsx', '{isActive && activeIsProcessing && !(activeIsReasoning && tabState.currentReasoning) && !hasActiveWork(shownSteps(tabState.conversation), true) && (', '{isActive && activeIsProcessing && ('),
+    edit('components/chat-session.tsx', '<TurnActivityIndicator isReasoning={activeIsReasoning} />', `<TurnActivityIndicator isReasoning={activeIsReasoning} sessionId={tab.runId} items={tabState.conversation} assistantText={tabState.currentAssistantMessage} reasoningText={tabState.currentReasoning} waitingForPerson={tabState.pendingAskHumanRequests.size > 0 || Array.from(tabState.allPermissionRequests.keys()).some(id => !tabState.permissionResponses.has(id))} />`),
+    edit('hooks/useSessionChat.ts', "import { useEffect, useMemo, useSyncExternalStore } from 'react'", "import { useEffect, useMemo, useSyncExternalStore } from 'react'\nimport { subscribeActivityRefresh } from '@/lib/baarali-agent-activity'"),
+    edit('hooks/useSessionChat.ts', 'new SessionChatStore(deps)', `new SessionChatStore({ ...deps, subscribeResync: listener => {
+    const offServer = deps.subscribeResync?.(listener)
+    const offActivity = subscribeActivityRefresh(sessionId, listener)
+    return () => { offServer?.(); offActivity() }
+  } })`),
     // BAARALI(16/10/2026): an empty session snapshot can arrive after a fast
     // first answer. Refetch if live durable/queue events overtook hydration;
     // otherwise the UI falls back to its legacy never-settled loading state.

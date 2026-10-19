@@ -126,7 +126,7 @@ jobs:
         working-directory: apps/x/apps/renderer
 
       - name: Test desktop Chat and Work access
-        run: pnpm exec vitest run src/components/desktop-workspace.test.tsx src/components/desktop-code-home.test.tsx src/lib/session-chat/baarali-load-race.test.ts src/components/code/code-view.test.tsx src/components/chat-input-harness.test.tsx --maxWorkers=1
+        run: pnpm exec vitest run src/components/desktop-workspace.test.tsx src/components/desktop-code-home.test.tsx src/lib/session-chat/baarali-load-race.test.ts src/components/code/code-view.test.tsx src/components/chat-input-harness.test.tsx src/components/turn-activity-indicator.test.tsx --maxWorkers=1
         working-directory: apps/x/apps/renderer
 
       - name: Apply and typecheck the mobile layout
