@@ -11,6 +11,33 @@ import type { Dictionary } from "./translate.js";
 
 export const FR: Dictionary = {
   exact: {
+    // 18/10/2026: approved execution activity, based on actual agent events.
+    "Agent activity": "Activité de l’agent",
+    "Waiting for the model": "En attente du modèle",
+    "Analyzing your request": "Analyse de votre demande",
+    "Writing the response": "Rédaction de la réponse",
+    "Your response is needed": "Votre réponse est nécessaire",
+    "The model reported an error": "Le modèle a signalé une erreur",
+    "Reading documents": "Lecture des documents",
+    "Updating files": "Mise à jour des fichiers",
+    "Inspecting files": "Examen des fichiers",
+    "Running a command": "Exécution d’une commande",
+    "Browsing the web": "Recherche sur le web",
+    "Working on the project": "Travail sur le projet",
+    "Delegated task in progress": "Tâche déléguée en cours",
+    "Using a tool": "Utilisation d’un outil",
+    "Preparing the response": "Préparation de la réponse",
+    "Network connection interrupted": "Connexion réseau interrompue",
+    "Please answer the request above to continue.": "Veuillez répondre à la demande ci-dessus pour poursuivre.",
+    "Your conversation is preserved. The connection will retry automatically.": "Votre conversation est conservée. La connexion sera rétablie automatiquement dès que possible.",
+    "Waiting for confirmed activity": "En attente d’une activité confirmée",
+    "Elapsed time": "Temps écoulé",
+    "The wait is taking longer. This does not confirm that the agent has stopped.": "L’attente se prolonge. Cela ne confirme pas que l’agent est arrêté.",
+    "Checking connection…": "Vérification de la connexion…",
+    "Check connection": "Vérifier la connexion",
+    "Server reachable. Refreshing the session state.": "Le serveur est joignable. Actualisation de l’état de la session.",
+    "The session state could not be checked. You can try again.": "L’état de la session n’a pas pu être vérifié. Vous pouvez réessayer.",
+    "Unfinished action": "Action inachevée",
     "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",
     "Project (optional)": "Projet (facultatif)",
     "Without a project": "Sans projet",
@@ -4045,6 +4072,8 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
+    "No new activity for $1": "Aucune nouvelle activité depuis $1",
+    "Last activity $1 ago": "Dernière activité il y a $1",
     "New thread in $1": "Nouvelle session dans $1",
     "$1% used this week": "$1 % utilisés cette semaine",
     // The Baarasseurs page brought back to its mockup (08/10/2026).
