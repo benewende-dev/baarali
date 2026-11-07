@@ -11,6 +11,22 @@ import type { Dictionary } from "./translate.js";
 
 export const FR: Dictionary = {
   exact: {
+    // BAARALI(07/11/2026): the agent on the phone, its pace and quiet hours (mobile baarali-agent-notifications.tsx).
+    "Your agent": "Votre agent",
+    "What Baarali tells you on this phone, even when the app is closed.": "Ce que Baarali vous dit sur ce téléphone, même app fermée.",
+    "Discreet": "Discret",
+    "Approvals and your morning brief only": "Seulement les accords et votre point du matin",
+    "Normal": "Normal",
+    "Also finished tasks and meeting notes": "Aussi les tâches terminées et les notes de réunion",
+    "Attentive": "Attentif",
+    "Also new important emails and every reply": "Aussi les e-mails importants et chaque réponse",
+    "Quiet hours": "Heures de silence",
+    "Silence at night": "Silence la nuit",
+    "Notifications arrive without sound. Nothing is lost.": "Les notifications arrivent sans son. Rien n’est perdu.",
+    "From": "De",
+    "Until": "À",
+    "Could not reach your agent. Check your connection.": "Impossible de joindre votre agent. Vérifiez votre connexion.",
+    "Could not save this. Please try again.": "L’enregistrement a échoué. Veuillez réessayer.",
     "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",
     "Project (optional)": "Projet (facultatif)",
     "Without a project": "Sans projet",
