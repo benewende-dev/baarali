@@ -124,7 +124,8 @@ export default function SettingsScreen() {
       </View>}
 
       <View style={card}>
-        <Row first label="Connect apps" detail="Gmail, Calendar, Drive and more" onPress={() => go('/connect')} />
+        <Row first label="Your Baarali" detail="Its shape and its colour" onPress={() => go('/look')} />
+        <Row label="Connect apps" detail="Gmail, Calendar, Drive and more" onPress={() => go('/connect')} />
         {/* BAARALI(07/11/2026): the announcements box had its bell in the old sidebar. */}
         <Row label="Messages from Baarali" detail="News and notices about your account" onPress={() => go('/inbox')} />
       </View>

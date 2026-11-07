@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { ActionSheetIOS, Alert, Pressable, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, Pressable, Text, View, useColorScheme } from 'react-native';
 import { baarasseurs as shared } from '@x/shared';
 
 import { BaaraliMark } from '@/components/baarali-mark';
+import { AgentShape, adaptive, useLook } from '@/components/agent-shape';
 import { BaarasseurAvatar, type Baarasseur } from '@/lib/baarasseurs';
 import { useColors } from '@/theme/colors';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
@@ -17,9 +18,11 @@ const profile = (b: Baarasseur | null) => b
 
 export function ChatTitle({ baarasseur }: { baarasseur: Baarasseur | null }) {
   const colors = useColors();
+  const look = useLook();
+  const dark = useColorScheme() === 'dark';
   return <Pressable accessibilityRole="button" accessibilityLabel={translate('View profile')} onPress={() => profile(baarasseur)}
     style={{ height: 44, paddingLeft: 6, paddingRight: 16, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.secondaryBackground }}>
-    {baarasseur ? <BaarasseurAvatar b={baarasseur} size={32} /> : <BaaraliMark size={32} />}
+    {baarasseur ? <BaarasseurAvatar b={baarasseur} size={32} /> : look ? <AgentShape shape={look.shape} color={adaptive(look.color, dark)} size={32} /> : <BaaraliMark size={32} />}
     <Text numberOfLines={1} style={{ maxWidth: 180, fontSize: 17, fontWeight: '500', color: colors.label }}>{baarasseur?.name ?? 'Baarali'}</Text>
   </Pressable>;
 }

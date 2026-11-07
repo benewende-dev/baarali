@@ -4,12 +4,13 @@ import * as Notifications from 'expo-notifications';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FlatList, Keyboard, KeyboardAvoidingView, Pressable, RefreshControl, Text, TextInput, View } from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { baarasseurs as team, sessions as sessionsShared } from '@x/shared';
 
 import { AnnouncementBanner } from '@/components/announcement-banner';
 import { BaaraliMark } from '@/components/baarali-mark';
+import { LivingShape, adaptive, useLook } from '@/components/agent-shape';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
 import { NOTIFY_INTRO_KEY } from '@/lib/push';
@@ -51,6 +52,9 @@ export default function HomeScreen() {
   const { pairing, sessions, events, rpc } = useConnection();
   const { team: agents, reload } = useBaarasseurs();
   const { access } = useWorkAccess();
+  // BAARALI(07/11/2026): the face the person chose for their Baarali (welcome.tsx).
+  const look = useLook();
+  const dark = useColorScheme() === 'dark';
   const [entries, setEntries] = useState<Entry[]>([]);
   const [email, setEmail] = useState<string>();
   const [refreshing, setRefreshing] = useState(false);
@@ -144,7 +148,7 @@ export default function HomeScreen() {
       <Pressable accessibilityRole="button" accessibilityLabel="Baarali" onPress={() => openChat(latest.mine ? { id: latest.mine.sessionId } : { first: '1' })}
         style={({ pressed }) => ({ alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
         <View>
-          <BaaraliMark size={104} motion="loading" />
+          {look ? <LivingShape shape={look.shape} color={adaptive(look.color, dark)} size={104} /> : <BaaraliMark size={104} motion="loading" />}
           <View style={{ position: 'absolute', right: -2, bottom: 2, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFA31A', borderWidth: 3, borderColor: colors.background }}>
             <Image source="sf:star.fill" style={{ width: 13, height: 13 }} tintColor="#FFFFFF" />
           </View>

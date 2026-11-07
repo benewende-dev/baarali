@@ -896,6 +896,8 @@ export function mobilePlan() {
       edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, "          <View style={s.guide}>\n            <View style={[s.bubble, { backgroundColor: colors.secondaryBackground, borderColor: colors.separator }]}>\n              <Text accessibilityLiveRegion=\"polite\" style={[s.hint, { color: error ? colors.destructive : colors.label }]}>{translate(hint)}</Text>\n            </View>\n            <BaaraliMark size={168} motion=\"loading\" />\n          </View>", "          {/* BAARALI(07/11/2026): lighter, as Grok Bot's: the B, and a line only when something happens. */}\n          <View style={s.guide}>\n            <BaaraliMark size={88} motion=\"loading\" />\n            {(error || busy) ? <Text accessibilityLiveRegion=\"polite\" style={[s.hint, { color: error ? colors.destructive : colors.secondaryLabel }]}>{translate(hint)}</Text> : null}\n          </View>"),
       edit(`${mobile}/src/app/chat.tsx`, "import { ChatMenu, ChatTitle } from '@/components/chat-header';", "import { BaaraliGreeting, ChatMenu, ChatTitle } from '@/components/chat-header';"),
       edit(`${mobile}/src/app/chat.tsx`, "            <BaaraliLogo />\n            <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>", "            <BaaraliLogo />\n            <BaaraliGreeting />"),
+      // BAARALI(07/11/2026): changing one's Baarali's face from the settings (look.tsx).
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"new-agent\"", "<Stack.Screen name=\"look\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"new-agent\""),
     ],
     copies: [
       ['assets/mobile/settings.tsx', `${mobile}/src/app/settings.tsx`],
@@ -940,6 +942,7 @@ export function mobilePlan() {
       ['assets/mobile/new-agent.tsx', `${mobile}/src/app/new-agent.tsx`],
       ['assets/mobile/welcome.tsx', `${mobile}/src/components/baarali-welcome.tsx`],
       ['assets/mobile/notify-intro.tsx', `${mobile}/src/app/notify-intro.tsx`],
+      ['assets/mobile/look.tsx', `${mobile}/src/app/look.tsx`],
       ['assets/mobile/space-composer.tsx', `${mobile}/src/components/space-composer.tsx`],
       ...['icon.png', 'splash-icon.png', 'android-icon-foreground.png', 'android-icon-monochrome.png', 'baarali-mark.png', 'baarali-tile.png'].map((f) => [`assets/mobile/${f}`, `${mobile}/assets/images/${f}`]),
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
