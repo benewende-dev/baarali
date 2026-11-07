@@ -886,6 +886,8 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/baarasseurs/index.tsx`, "                  onPress={() => router.push({ pathname: '/baarasseurs/recruit', params: { template: t.id } })}", "                  onPress={() => void hire(t)}"),
       // BAARALI(07/11/2026): an agent's first meeting, it greets first (chat.tsx).
       edit(`${mobile}/src/app/chat.tsx`, "            {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}\n          </View>", "            {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}\n            {/* BAARALI(07/11/2026): the first meeting, it speaks first (personaInstructions). */}\n            {baarasseur.memory.length === 0 ? <View style={{ alignSelf: 'stretch', marginTop: 18, padding: 14, borderRadius: 18, backgroundColor: colors.secondaryBackground }}>\n              <Text style={{ fontSize: 16, lineHeight: 22, color: colors.label }}>{`Hello, I'm ${baarasseur.name}. Before we start, what should I call you?`}</Text>\n            </View> : null}\n          </View>"),
+      // BAARALI(07/11/2026): « Talk » in the conversation's composer, as Grok Bot; the home has no composer any more.
+      edit(`${mobile}/src/app/chat.tsx`, "onVoice={rpc ? () => void dictate() : undefined} voiceActive={voice.state === 'recording'}", "onVoice={rpc ? () => void dictate() : undefined} onTalk={rpc ? () => void startConversation() : undefined} voiceActive={voice.state === 'recording'}"),
     ],
     copies: [
       ['assets/mobile/settings.tsx', `${mobile}/src/app/settings.tsx`],
