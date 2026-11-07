@@ -43,6 +43,7 @@ Les deux trous de fond sont notés dans `ETAT_DES_LIEUX_2026-11-07.md` (phases 3
 ## 3. Les chantiers, dans l'ordre
 
 ### A. Le réveil planifié (le socle)
+**Fait (07/11/2026)** : `control/src/wakes.ts` (migration 15) et `instance/src/schedule.ts`. Le plan de contrôle reste allumé (`min_machines_running = 1`).
 Sans lui, rien n'est proactif.
 - Le plan de contrôle garde, pour chaque instance, la prochaine heure à laquelle elle doit travailler : point du matin, routine, contrôle périodique.
 - À cette heure, il réveille la machine Fly, déclenche le travail, puis la laisse se rendormir.
@@ -51,6 +52,7 @@ Sans lui, rien n'est proactif.
 - Tests : le réveil est idempotent ; deux réveils rapprochés ne font qu'un passage ; une instance supprimée ne se réveille plus.
 
 ### B. L'agent écrit en premier
+**Fait (07/11/2026)** : `apps/server/src/baarali-phone-push.ts`, routine « Point du matin » (`instance/src/morning-brief.ts`), rythme et heures de silence (`mobile/src/components/baarali-agent-notifications.tsx`).
 - Un fil « Baarali », propre à chaque personne, sert de canal. On s'appuie sur ce que Harbor sait déjà faire : quand l'agent y écrit, la notification part toute seule.
 - Le **point du matin**, à l'heure choisie : ce qui vous attend, ce qu'il a fait pendant la nuit, ce qu'il propose.
 - Les **alertes** : seulement ce qui mérite votre attention (un mail urgent, un rendez-vous déplacé, une tâche terminée, une tâche bloquée).
@@ -72,6 +74,7 @@ Sans lui, rien n'est proactif.
 - Toujours interdit, même avec accord : déplacer de l'argent et acheter. Ça viendra avec le paiement.
 
 ### D. L'accueil « Aujourd'hui »
+**Fait (07/11/2026)** : `mobile/src/components/baarali-today.tsx`. Vérifié sur simulateur avec un serveur local.
 Une seule page en haut de l'app :
 1. **À valider** : les cartes d'accord. Elles s'approuvent d'un toucher, ou toutes ensemble comme le « Tout accepter » de Structured.
 2. **Fait pour vous** depuis la dernière visite.
@@ -81,11 +84,56 @@ Une seule page en haut de l'app :
 Le reste (e-mail, réunions, Espaces, routines, tâches) reste accessible dans les onglets.
 
 ### E. La voix
-- Le mode conversation de l'ordinateur passe dans l'app : on appuie, on parle, il répond à voix haute, et la conversation peut s'enchaîner.
-- Le point du matin peut s'écouter.
-- Plus tard : l'appel entrant et l'appel sortant (8b et 8c).
+
+Ce qui a guidé ce chantier : l'entretien du fondateur de Gradium (ex-Kyutai, Moshi). Son constat : le mode conversation du téléphone était un « talkie-walkie ». Il attendait 1,2 s de silence, envoyait le fichier entier, attendait la réponse complète, et on ne pouvait pas le couper.
+
+**Fait (07/11/2026)**, quand le téléphone est connecté à Baarali (`lib/baarali-conversation.ts`). Relié à un Mac, l'ancienne boucle reste.
+
+| Ce qu'il fallait | Comment |
+|---|---|
+| Garder l'agent entier au milieu | La chaîne reste : on transcrit, l'agent de la conversation répond, on lit. L'agent garde ses outils, sa mémoire et ses accords. Pas de modèle « voix à voix », qui perd de l'intelligence. |
+| Écouter en continu, sans exiger de rythme | Le micro part au fil de l'eau (`useAudioStream`, PCM 16 kHz) vers Deepgram Flux, par le plan de contrôle (`/deepgram/v2/listen`, ouvert avec la session du téléphone). Flux reconnaît la fin de phrase par un modèle et attend jusqu'à 5 s une phrase laissée en suspens. Une phrase qui finit par « et », « euh » ou une virgule attend encore 1,5 s sa suite (`looksUnfinished`). |
+| Parler tout de suite | Une phrase d'attente (« D'accord, je regarde. ») part si rien n'est dit après 0,9 s. Ces phrases sont synthétisées une fois et gardées. |
+| Dire ce que fait l'agent | Chaque appel d'outil a ses mots (« Je regarde vos e-mails. »), au plus un toutes les 8 s (`progressPhrase`). |
+| Lire en continu | La réponse est lue phrase par phrase pendant qu'elle s'écrit. La phrase suivante est synthétisée pendant la lecture de la précédente (`SpeechQueue`). On lit le résumé `<voice>` s'il y en a un, sinon le début de la réponse (600 caractères au plus). |
+| Pouvoir couper la parole | Le début d'un tour Flux (`StartOfTurn`, son signal prévu pour ça) coupe la lecture s'il contient au moins deux vrais mots. Ce qui ne coupe pas : un « hm », un « oui », un « d'accord » (`isBackchannel`), et la propre voix de l'agent revenue par le haut-parleur (`isEcho` : 60 % de mots en commun avec ce qu'il dit). |
+| Donner son accord à la voix | Un tour suspendu pose la question : « J'ai besoin de votre accord pour : … Je le fais ? ». « Oui », « vas-y », « envoie » valident ; « non », « attends », « annule » refusent. Sans réponse claire, la question est reposée une fois, puis l'action reste en attente dans la conversation. |
+| Endroits bruyants | « Maintenir pour parler » : la fin de phrase du modèle est coupée (`eot_threshold` à 1.0), seul le relâchement envoie (`ForceEndTurn`). |
+
+**Reste à faire**
+1. **Essai sur un vrai téléphone.** Le simulateur ne capte pas un vrai micro, et l'essai demande la session d'un vrai compte et la clé Deepgram. À mesurer : le temps entre la fin de la phrase et le premier mot de l'agent, en Wi-Fi et en 4G, à Abidjan.
+2. **Une couche de conversation rapide devant l'agent** (le système mixte de Gradium) :
+   - un petit modèle temps réel gère les tours de parole, les « hm hm » et les phrases d'attente ;
+   - il passe la main à l'agent par un outil (« demande à l'agent »), puis glisse la réponse dans la conversation.
+   - C'est la base des appels entrant et sortant (8b, 8c). À décider après la mesure du point 1 : si la chaîne actuelle répond assez vite, elle suffit pour l'app.
+3. **Des tests d'écoute à l'aveugle avec des voix d'ici.** Aucune mesure automatique ne juge bien une voix (entretien Gradium).
+   - Un panel de cinq à dix personnes à Abidjan.
+   - Chaque semaine, des paires d'extraits sans nom de fournisseur, et un seul choix : laquelle sonne le plus naturel en français d'ici, et laquelle a le mieux compris.
+   - Les mêmes phrases dans les deux cas : numéros de téléphone, montants en francs CFA, noms de quartiers et de personnes.
+4. **Les langues locales.**
+   - Pour le wolof, Google Chirp 3 (en aperçu) et Gladia annoncent la reconnaissance, avec le mélange wolof-français. À tester, ce n'est pas vérifié.
+   - Pour le bambara, un banc d'essai public de mars 2026 juge les modèles encore loin d'un usage réel. Kooma propose une API spécialisée.
+   - Pour le dioula et le mooré, aucun grand fournisseur trouvé.
+   - Tant que rien n'est fiable : le français, et les mots locaux tolérés dans une phrase française.
+5. **Choisir le fournisseur de lecture** (tableau ci-dessous) après les tests d'écoute du point 3.
+
+**Fournisseurs comparés** (07/11/2026 ; les chiffres viennent surtout des fournisseurs eux-mêmes)
+
+| | Deepgram (en place) | ElevenLabs (en place, forfaits Pro) | Gradium |
+|---|---|---|---|
+| Écoute | Nova-3 en `multi` ; Flux `flux-general-multi` (français inclus) avec fin de phrase par modèle (environ 260 ms annoncés) | — | Écoute en continu avec fin de pensée « sémantique », 5 langues dont le français ; taux d'erreur de 3,3 % annoncé (Coval, mai 2026) |
+| Lecture | Aura-2 : environ 30 $ par million de caractères, deux voix françaises seulement | Flash v2.5 : environ 40 à 50 $ par million de caractères, 32 langues | Environ 47 à 58 $ par million de caractères ; 258 ms annoncés jusqu'au premier son (332 ms mesurés par Vapi) ; 1 000 voix, dont le français québécois |
+| Voix clonée | — | Oui | Oui, avec 10 s d'audio et un consentement exigé |
+| Pour nous | Déjà branché, le moins cher, Flux suffit pour l'écoute | Meilleur choix de voix françaises aujourd'hui | Équipe parisienne, à tester en français d'Afrique de l'Ouest ; hébergement en UE à confirmer |
+
+Sources :
+- Deepgram : [Flux](https://developers.deepgram.com/docs/flux/quickstart) et [ses états](https://developers.deepgram.com/docs/flux/state).
+- Gradium : [sa comparaison avec Deepgram](https://gradium.ai/content/deepgram-alternative-gradium-voice-ai), à lire comme du discours de fournisseur, et l'[indice Vapi](https://humannessindex.vapi.ai/models/gradium-tts).
+- Prix de la lecture : [Deepgram contre ElevenLabs](https://deepgram.com/compare/elevenlabs-vs-deepgram), page publiée par Deepgram.
+- Langues locales : la [revue sur le bambara](https://aclanthology.org/2026.africanlp-main.26) et la [page wolof de Gladia](https://www.gladia.io/product/languages/wolof).
 
 ### F. La finition
+**Fait pour le français (07/11/2026)** : tout est traduit (`i18n-extract --check`), et les notifications du cœur arrivent en français. Le nom « Baarali » est appliqué à la construction (`brand.mjs`).
 - L'app en français d'abord, l'anglais ensuite.
 - L'onglet « Rowboat » devient « Baarali ».
 - Le compte App Store sera repris au nom d'OpenBaara à l'immatriculation. D'ici là : le simulateur et TestFlight interne sur le compte existant, si c'est possible.
