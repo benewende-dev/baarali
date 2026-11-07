@@ -23,7 +23,7 @@ describe('phone push (BAARALI)', () => {
     expect(phoneMessages({ message: 'Done', onlyWhenBackground: true }, phones, true)).toEqual([]);
     expect(phoneMessages({ message: 'Done', onlyWhenBackground: true }, phones, false)).toHaveLength(1);
     expect(phoneMessages({ title: 'Permission needed', message: 'Review to continue.', link: 'rowboat://open?type=chat&runId=r1' }, phones, true)).toEqual([
-      { to: 't', title: 'Permission needed', body: 'Review to continue.', sound: 'default', priority: 'high', data: { link: 'rowboat://open?type=chat&runId=r1', kind: 'agent' } },
+      { to: 't', title: 'Votre accord est demandé', body: 'Review to continue.', sound: 'default', priority: 'high', data: { link: 'rowboat://open?type=chat&runId=r1', kind: 'agent' } },
     ]);
   });
 
@@ -94,5 +94,23 @@ describe('quiet hours (BAARALI)', () => {
     expect(await push.send({ message: 'Permission needed' })).toBe(1);
     expect(bodies[0][0]).toMatchObject({ interruptionLevel: 'passive', priority: 'normal' });
     expect(bodies[0][0].sound).toBeUndefined();
+  });
+});
+
+describe('phone words (BAARALI)', () => {
+  it('turns the core\'s English into French, and leaves the agent\'s own words alone', async () => {
+    const { inFrench } = await import('./baarali-phone-push.js');
+    expect(inFrench('✓ To-do finished')).toBe('✓ Tâche terminée');
+    expect(inFrench('New email from Awa Koné')).toBe('Nouvel e-mail de Awa Koné');
+    expect(inFrench('Copilot wants to run "send-email". Review to continue.')).toBe('Copilot veut lancer « send-email ». Votre accord est demandé.');
+    expect(inFrench('Votre point du matin')).toBe('Votre point du matin');
+  });
+
+  it('never rings twice for what Harbor already pushes, but keeps the reminders', () => {
+    const phones = [{ token: 't', level: 'all' as const }];
+    const org = { title: 'Awa', message: 'On se voit à 10 h ?', link: 'rowboat://open?type=spaces&orgId=o&spaceId=s&messageId=m', onlyWhenBackground: true };
+    expect(phoneMessages(org, phones, false)).toEqual([]);
+    const reminder = { title: 'Reminder', message: 'Appeler la banque', link: 'rowboat://open?type=spaces&orgId=o&spaceId=s' };
+    expect(phoneMessages(reminder, phones, false)[0]).toMatchObject({ title: 'Rappel', body: 'Appeler la banque' });
   });
 });

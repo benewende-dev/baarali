@@ -101,13 +101,52 @@ export function phoneRegistrations(workDir: string): Registration[] {
   }
 }
 
+// The core writes its notifications in English (todo runner, email sync,
+// code mode…) and a phone shows a push as it comes: the app's translation
+// layer never runs on it. French first, as the app (spec §3 F); words the
+// agent wrote itself (notify-user) pass as they are.
+const FR_EXACT: Record<string, string> = {
+  Rowboat: 'Baarali',
+  'Response ready': 'Réponse prête',
+  'Your agent finished responding.': 'Votre agent a fini de répondre.',
+  'Permission needed': 'Votre accord est demandé',
+  Reminder: 'Rappel',
+  'Scheduled message failed': 'Message programmé non envoyé',
+  '✓ To-do finished': '✓ Tâche terminée',
+  'Rowboat needs an approval': 'Baarali attend votre accord',
+  'Coding session': 'Session de code',
+  'The coding agent needs your approval.': 'L’agent de code attend votre accord.',
+  'The coding agent finished its turn.': 'L’agent de code a fini son tour.',
+  'New email': 'Nouvel e-mail',
+};
+const FR_PATTERNS: Array<[RegExp, string]> = [
+  [/^New email from (.+)$/, 'Nouvel e-mail de $1'],
+  [/^(.+) wants to run "(.+)"\. Review to continue\.$/, '$1 veut lancer « $2 ». Votre accord est demandé.'],
+];
+
+export function inFrench(text: string): string {
+  if (FR_EXACT[text]) return FR_EXACT[text];
+  for (const [pattern, fr] of FR_PATTERNS) if (pattern.test(text)) return text.replace(pattern, fr);
+  return text;
+}
+
+/**
+ * The org's own notifications of a space (a mention, a DM, a reply): Harbor
+ * already pushes them to the phone (apps/harbor push.ts), so a second one
+ * from here would ring twice. Reminders set from this machine are not the
+ * org's: they still come from here.
+ */
+export function isHarborsOwn(input: NotifyInput): boolean {
+  return Boolean(input.onlyWhenBackground && input.link?.startsWith('rowboat://open?type=spaces'));
+}
+
 const cut = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 /** The messages to send, or none: ambient ones stay quiet while an app shows them already. */
 export function phoneMessages(input: NotifyInput, registrations: Registration[], clientConnected: boolean, quiet = false, extra: PhoneExtra = {}): PhoneMessage[] {
-  if (input.onlyWhenBackground && clientConnected) return [];
-  const title = cut(input.title?.trim() || 'Baarali', TITLE_MAX);
-  const body = cut(input.message.trim(), BODY_MAX);
+  if ((input.onlyWhenBackground && clientConnected) || isHarborsOwn(input)) return [];
+  const title = cut(inFrench(input.title?.trim() || 'Baarali'), TITLE_MAX);
+  const body = cut(inFrench(input.message.trim()), BODY_MAX);
   if (!body) return [];
   return registrations.map((r) => ({
     to: r.token,
