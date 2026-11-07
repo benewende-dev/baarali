@@ -407,6 +407,19 @@ export const MIGRATIONS: string[] = [
   `
   ALTER TABLE baarali.motion_renders ADD COLUMN delivered_at timestamptz;
   `,
+  // 15 — Scheduled wakes (07/11/2026, roadmap phase 6): an instance asleep
+  // runs nothing, so it says when it must be woken, and while it works.
+  // Its earliest due only (store.ts InstanceSchedule).
+  `
+  CREATE TABLE baarali.instance_schedules (
+    account_id text PRIMARY KEY REFERENCES baarali.accounts(id),
+    next_due_at timestamptz,
+    reason text,
+    busy_until timestamptz,
+    updated_at timestamptz NOT NULL
+  );
+  CREATE INDEX instance_schedules_due ON baarali.instance_schedules (next_due_at) WHERE next_due_at IS NOT NULL;
+  `,
 ];
 
 /** Brings the schema up to date. Safe on several machines at once: the lock serializes them. */

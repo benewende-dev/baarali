@@ -4,6 +4,7 @@ import { accountResolver, createApp } from './app.js';
 import { FlyMachines } from './fly.js';
 import { createGateway } from './gateway.js';
 import { Instances, settleOwnerInstance, type InstancesConfig } from './instances.js';
+import { SWEEP_MS, sweepWakes } from './wakes.js';
 import { SOCIAL_PROVIDERS, createAuth, migrateAuth, type AuthDeps, type SocialCredentials, type BaaraliAuth } from './auth.js';
 import { LogSender, NoSender, ResendSender, type CodeSender } from './codes.js';
 import { ASSUMPTIONS, MEDIA_PACKS, OFFERS } from './catalog.js';
@@ -162,6 +163,9 @@ if (process.env.BAARALI_GATEWAY_SECRET) {
   // A running instance on an old image moves once unused for 10 minutes.
   const sweeping = instances;
   setInterval(() => void sweeping.updateIdle().catch((err) => console.error('[instances] idle sweep', err)), 2 * 60_000).unref();
+  // Routines due with every app closed (wakes.ts, 07/11/2026).
+  const waking = { store, instances, fetch: globalThis.fetch, now: Date.now };
+  setInterval(() => void sweepWakes(waking).catch((err) => console.error('[wakes] sweep', err)), SWEEP_MS).unref();
 }
 const gateway = instances ? createGateway({ store, instances, now: Date.now, fetch: globalThis.fetch }) : undefined;
 

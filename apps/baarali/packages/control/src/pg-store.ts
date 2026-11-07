@@ -23,6 +23,7 @@ import {
   type PublishedSidebar,
   type Plan,
   type UsageRecord,
+  type InstanceSchedule,
 } from './store.js';
 
 // The durable store (decided 01/10/2026): what phase 0 kept in memory, in the
@@ -30,6 +31,22 @@ import {
 
 const ms = (d: Date | null): number | null => (d === null ? null : d.getTime());
 const date = (t: number | null): Date | null => (t === null ? null : new Date(t));
+
+const SCHEDULE_COLUMNS = 'account_id, next_due_at, reason, busy_until, updated_at';
+interface ScheduleRow {
+  account_id: string;
+  next_due_at: Date | null;
+  reason: string | null;
+  busy_until: Date | null;
+  updated_at: Date;
+}
+const scheduleOf = (r: ScheduleRow): InstanceSchedule => ({
+  accountId: r.account_id,
+  nextDueAt: ms(r.next_due_at),
+  reason: r.reason,
+  busyUntil: ms(r.busy_until),
+  updatedAt: r.updated_at.getTime(),
+});
 
 const PARTNER_COLUMNS = 'id, name, code, network, city, account_id, email, status, created_at, created_by, payout_method, payout_number';
 interface PartnerRow {
@@ -287,6 +304,38 @@ export class PgStore implements ControlStore {
 
   async removeInstance(accountId: string) {
     await this.db.query('DELETE FROM baarali.instances WHERE account_id = $1', [accountId]);
+  }
+
+  async saveSchedule(s: InstanceSchedule) {
+    await this.db.query(
+      `INSERT INTO baarali.instance_schedules (account_id, next_due_at, reason, busy_until, updated_at) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (account_id) DO UPDATE SET next_due_at = EXCLUDED.next_due_at, reason = EXCLUDED.reason,
+         busy_until = EXCLUDED.busy_until, updated_at = EXCLUDED.updated_at`,
+      [s.accountId, date(s.nextDueAt), s.reason, date(s.busyUntil), new Date(s.updatedAt)],
+    );
+  }
+
+  async schedule(accountId: string): Promise<InstanceSchedule | null> {
+    const { rows } = await this.db.query<ScheduleRow>(`SELECT ${SCHEDULE_COLUMNS} FROM baarali.instance_schedules WHERE account_id = $1`, [accountId]);
+    return rows[0] ? scheduleOf(rows[0]) : null;
+  }
+
+  async schedulesToWake(before: number, now: number, limit: number): Promise<InstanceSchedule[]> {
+    const { rows } = await this.db.query<ScheduleRow>(
+      `SELECT ${SCHEDULE_COLUMNS} FROM baarali.instance_schedules
+       WHERE next_due_at <= $1 OR busy_until > $2
+       ORDER BY LEAST(next_due_at, CASE WHEN busy_until > $2 THEN $2::timestamptz END) NULLS LAST
+       LIMIT $3`,
+      [new Date(before), new Date(now), limit],
+    );
+    return rows.map(scheduleOf);
+  }
+
+  async clearDue(accountId: string, dueAt: number) {
+    await this.db.query('UPDATE baarali.instance_schedules SET next_due_at = NULL, reason = NULL WHERE account_id = $1 AND next_due_at = $2', [
+      accountId,
+      new Date(dueAt),
+    ]);
   }
 
   async countInstances() {

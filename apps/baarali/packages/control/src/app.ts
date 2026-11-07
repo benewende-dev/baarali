@@ -22,6 +22,7 @@ import { html } from './html.js';
 import { LEGAL_PATHS, legalPage, type LegalDoc } from './legal-page.js';
 import { GATEWAY_PATH, type Gateway } from './gateway.js';
 import { InstanceUnavailable, type Instances } from './instances.js';
+import { parsePublication } from './wakes.js';
 import { createGeneration, getGeneration, listMediaModels, mediaBalance, mediaHistory } from './media-route.js';
 import { advance, budgetsForWeek, gauges, initialState } from './quota.js';
 import { hashToken, type Account, type ControlStore } from './store.js';
@@ -226,6 +227,20 @@ export function createApp(deps: ControlDeps) {
 
   // A cloud instance trades its token for a Spaces one (core
   // auth/spaces-exchange.ts): Spaces verify only our signed JWTs.
+  // Scheduled wakes (07/11/2026, wakes.ts): the instance says when it must
+  // be woken, and while it works. Its own token only: a device's sign-in
+  // would let a phone keep the machine up for nothing.
+  app.put('/v1/instance/schedule', async (c) => {
+    const token = bearer(c.req.header('authorization'));
+    const account = token ? await deps.store.accountByToken(token) : null;
+    if (!account) return c.json({ error: { code: 'unauthorized' } }, 401);
+    const parsed = parsePublication(account.id, await c.req.json().catch(() => null), deps.now());
+    if (!parsed.ok) return c.json({ error: { code: 'invalid_request', message: parsed.message } }, 400);
+    await deps.store.saveSchedule(parsed.schedule);
+    if (parsed.schedule.busyUntil !== null) deps.instances?.used(account.id);
+    return c.json({ ok: true });
+  });
+
   app.post('/v1/spaces/token', async (c) => {
     const traded = deps.auth && deps.spacesUrl ? await deps.auth.spacesTokenFor(c.get('account').id) : null;
     if (!traded) return c.json({ error: { code: 'not_found' } }, 404);

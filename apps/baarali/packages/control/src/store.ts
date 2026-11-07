@@ -155,6 +155,25 @@ export interface InstanceRecord {
   keys: number;
 }
 
+/**
+ * What an instance said of its next work (scheduled wakes, decided
+ * 07/11/2026, roadmap phase 6): an instance asleep runs nothing, so it tells
+ * the control plane, before Fly suspends it, when it must be woken. One row
+ * per account, its earliest due only: the instance republishes after every
+ * run, so a list would only hold what the next publication replaces
+ * (AGENTIC_DATA_MODEL.md `scheduled_wakes`, kept to its earliest row).
+ */
+export interface InstanceSchedule {
+  accountId: string;
+  /** When its earliest routine is due; null: nothing planned. */
+  nextDueAt: number | null;
+  /** What is due then (`routine`, `check`…), for the logs and the console. */
+  reason: string | null;
+  /** Until when it is at work: the control plane keeps it awake till then. */
+  busyUntil: number | null;
+  updatedAt: number;
+}
+
 /** One app install that may reach its owner's instance through the gateway (security §2). */
 export interface Device {
   id: string;
@@ -252,6 +271,13 @@ export interface ControlStore {
   /** `at` suspends, null lifts it; false when there is no such account. */
   setSuspended(accountId: string, at: number | null): Promise<boolean>;
   allInstances(): Promise<InstanceRecord[]>;
+  /** Replaces what the instance said before. */
+  saveSchedule(schedule: InstanceSchedule): Promise<void>;
+  schedule(accountId: string): Promise<InstanceSchedule | null>;
+  /** Due at `before` or earlier, or at work past `now`: the instances to wake or keep awake, earliest first. */
+  schedulesToWake(before: number, now: number, limit: number): Promise<InstanceSchedule[]>;
+  /** Clears a due once woken, unless the instance published another meanwhile. */
+  clearDue(accountId: string, dueAt: number): Promise<void>;
   appendAdminLog(entry: AdminLogEntry): Promise<void>;
   /** Newest first; with `accountId`, that account's entries only. */
   adminLog(limit: number, accountId?: string): Promise<AdminLogEntry[]>;
@@ -344,6 +370,7 @@ export class MemoryStore implements ControlStore {
   private readonly jobs = new Map<string, MediaJob>();
   private readonly renders = new Map<string, MotionRender>();
   private readonly instances = new Map<string, InstanceRecord>();
+  private readonly schedules = new Map<string, InstanceSchedule>();
   private readonly deviceList: Array<Device & { keyHash: string }> = [];
 
   private readonly tokens: Map<string, Account>;
@@ -465,6 +492,25 @@ export class MemoryStore implements ControlStore {
   }
   async countInstances() {
     return this.instances.size;
+  }
+  async saveSchedule(schedule: InstanceSchedule) {
+    this.schedules.set(schedule.accountId, { ...schedule });
+  }
+  async schedule(accountId: string) {
+    const s = this.schedules.get(accountId);
+    return s ? { ...s } : null;
+  }
+  async schedulesToWake(before: number, now: number, limit: number) {
+    const key = (s: InstanceSchedule) => Math.min(s.nextDueAt ?? Infinity, s.busyUntil !== null && s.busyUntil > now ? now : Infinity);
+    return [...this.schedules.values()]
+      .filter((s) => (s.nextDueAt !== null && s.nextDueAt <= before) || (s.busyUntil !== null && s.busyUntil > now))
+      .sort((a, b) => key(a) - key(b))
+      .slice(0, limit)
+      .map((s) => ({ ...s }));
+  }
+  async clearDue(accountId: string, dueAt: number) {
+    const s = this.schedules.get(accountId);
+    if (s && s.nextDueAt === dueAt) this.schedules.set(accountId, { ...s, nextDueAt: null, reason: null });
   }
   async addDevice(device: Device, keyHash: string) {
     this.deviceList.push({ ...device, keyHash });
