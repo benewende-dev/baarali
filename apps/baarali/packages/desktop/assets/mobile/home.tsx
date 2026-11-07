@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -10,6 +12,7 @@ import { AnnouncementBanner } from '@/components/announcement-banner';
 import { BaaraliMark } from '@/components/baarali-mark';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
+import { NOTIFY_INTRO_KEY } from '@/lib/push';
 import { searchKey } from '@/lib/team-directory';
 import { useWorkAccess } from '@/lib/work-access-provider';
 import { useColors } from '@/theme/colors';
@@ -78,6 +81,19 @@ export default function HomeScreen() {
     return () => { alive = false; };
   }, [rpc]);
   useFocusEffect(useCallback(() => { void reload(); void refresh(); }, [reload, refresh]));
+  // Once linked, say why notifications matter before iPhone asks (notify-intro.tsx).
+  useEffect(() => {
+    if (!pairing) return;
+    let alive = true;
+    void (async () => {
+      const asked = await AsyncStorage.getItem(NOTIFY_INTRO_KEY).catch(() => 'later');
+      if (asked || !alive) return;
+      const { granted, canAskAgain } = await Notifications.getPermissionsAsync();
+      if (granted || !canAskAgain) { await AsyncStorage.setItem(NOTIFY_INTRO_KEY, granted ? 'yes' : 'later').catch(() => {}); return; }
+      if (alive) router.push('/notify-intro');
+    })();
+    return () => { alive = false; };
+  }, [pairing]);
 
   // Each agent's latest conversation; Baarali's are the ones no agent had.
   const latest = useMemo(() => {
@@ -99,7 +115,7 @@ export default function HomeScreen() {
     return searchKey(`${e.title ?? ''} ${b?.name ?? ''}`).includes(needle);
   }), [entries, needle, byId]);
 
-  const openChat = (params: { id?: string; agent?: string }) => {
+  const openChat = (params: { id?: string; agent?: string; first?: '1' }) => {
     tap(); Keyboard.dismiss();
     router.push({ pathname: '/chat', params: { id: '', ...params } });
   };
@@ -125,7 +141,7 @@ export default function HomeScreen() {
   const hero = (
     <View style={{ paddingTop: 8, paddingBottom: 24, gap: 18 }}>
       <AnnouncementBanner />
-      <Pressable accessibilityRole="button" accessibilityLabel="Baarali" onPress={() => openChat({ id: latest.mine?.sessionId ?? '' })}
+      <Pressable accessibilityRole="button" accessibilityLabel="Baarali" onPress={() => openChat(latest.mine ? { id: latest.mine.sessionId } : { first: '1' })}
         style={({ pressed }) => ({ alignItems: 'center', gap: 10, opacity: pressed ? 0.7 : 1 })}>
         <View>
           <BaaraliMark size={104} motion="loading" />

@@ -1,6 +1,6 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Image } from 'expo-image';
-import { ActionSheetIOS, Alert, Pressable, Text } from 'react-native';
+import { ActionSheetIOS, Alert, Pressable, Text, View } from 'react-native';
 import { baarasseurs as shared } from '@x/shared';
 
 import { BaaraliMark } from '@/components/baarali-mark';
@@ -44,4 +44,14 @@ export function ChatMenu({ baarasseur }: { baarasseur: Baarasseur | null }) {
     style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
     <Image source="sf:ellipsis" style={{ width: 18, height: 18 }} tintColor={colors.label} />
   </Pressable>;
+}
+
+/** The empty conversation with Baarali: its greeting the first time (home passes `first`), else a hint. */
+export function BaaraliGreeting() {
+  const colors = useColors();
+  const { first } = useLocalSearchParams<{ first?: string }>();
+  if (first !== '1') return <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>;
+  return <View style={{ alignSelf: 'stretch', marginTop: 18, marginHorizontal: 24, padding: 14, borderRadius: 18, backgroundColor: colors.secondaryBackground }}>
+    <Text style={{ fontSize: 16, lineHeight: 22, color: colors.label }}>Hello, I'm Baarali. Before we start, what should I call you?</Text>
+  </View>;
 }
