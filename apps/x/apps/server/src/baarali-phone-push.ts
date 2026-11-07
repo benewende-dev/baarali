@@ -47,7 +47,15 @@ export interface PhoneMessage {
   sound?: 'default';
   priority: 'high' | 'normal';
   interruptionLevel?: 'passive';
-  data: { link?: string; kind: 'agent' };
+  /** The phone's action buttons for it (baarali-approvals.ts registers `baarali-approval`). */
+  categoryId?: string;
+  data: Record<string, string>;
+}
+
+/** What a sender adds beyond the notification's words. */
+export interface PhoneExtra {
+  categoryId?: string;
+  data?: Record<string, string>;
 }
 
 export interface PhonePrefs {
@@ -96,7 +104,7 @@ export function phoneRegistrations(workDir: string): Registration[] {
 const cut = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 /** The messages to send, or none: ambient ones stay quiet while an app shows them already. */
-export function phoneMessages(input: NotifyInput, registrations: Registration[], clientConnected: boolean, quiet = false): PhoneMessage[] {
+export function phoneMessages(input: NotifyInput, registrations: Registration[], clientConnected: boolean, quiet = false, extra: PhoneExtra = {}): PhoneMessage[] {
   if (input.onlyWhenBackground && clientConnected) return [];
   const title = cut(input.title?.trim() || 'Baarali', TITLE_MAX);
   const body = cut(input.message.trim(), BODY_MAX);
@@ -106,7 +114,8 @@ export function phoneMessages(input: NotifyInput, registrations: Registration[],
     title,
     body,
     ...(quiet ? { priority: 'normal' as const, interruptionLevel: 'passive' as const } : { sound: 'default' as const, priority: 'high' as const }),
-    data: { ...(input.link ? { link: input.link } : {}), kind: 'agent' as const },
+    ...(extra.categoryId ? { categoryId: extra.categoryId } : {}),
+    data: { kind: 'agent', ...(input.link ? { link: input.link } : {}), ...extra.data },
   }));
 }
 
@@ -114,9 +123,9 @@ export function createPhonePush(deps: PhonePushDeps) {
   return {
     /** Some phone would receive it: the server may offer notifications even with no app connected. */
     hasPhones: () => phoneRegistrations(deps.workDir).length > 0,
-    async send(input: NotifyInput): Promise<number> {
+    async send(input: NotifyInput, extra?: PhoneExtra): Promise<number> {
       const quiet = isQuiet(phonePrefs(deps.workDir), deps.now?.() ?? new Date());
-      const messages = phoneMessages(input, phoneRegistrations(deps.workDir), deps.clientConnected(), quiet);
+      const messages = phoneMessages(input, phoneRegistrations(deps.workDir), deps.clientConnected(), quiet, extra);
       for (let i = 0; i < messages.length; i += CHUNK) {
         try {
           const res = await deps.fetch(EXPO_PUSH_URL, {

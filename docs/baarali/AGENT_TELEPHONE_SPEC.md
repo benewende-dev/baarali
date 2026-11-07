@@ -62,16 +62,13 @@ Sans lui, rien n'est proactif.
 - Chaque message dit pourquoi il vous dérange. Un bouton « Moins de ce genre » ajuste les envois suivants.
 
 ### C. Les accords à distance
-- Le plan de contrôle enregistre chaque demande d'accord : l'action, une empreinte du contenu exact, une échéance, puis la décision.
-- La notification porte des boutons, grâce aux catégories d'`expo-notifications` :
+- **Fait (07/11/2026).** Quand un tour s'arrête pour attendre un accord (`turn_suspended`), l'instance envoie au téléphone une notification par action en attente (`apps/x/apps/server/src/baarali-approvals.ts`).
+- La notification porte des boutons (catégorie `baarali-approval`) :
   - « Approuver » ;
   - « Refuser » ;
-  - « Voir », qui ouvre le brouillon complet.
-- Une approbation ne vaut que pour **ce contenu-là**. Si le brouillon change, il faut redonner son accord.
-- Trois niveaux, comme ChatGPT Codex :
-  - toujours demander ;
-  - demander seulement pour ce qui engage (envoyer, payer, signer, supprimer) ;
-  - autonome sur une liste d'actions choisie.
+  - « Voir », qui ouvre la conversation.
+- Le téléphone répond par `sessions:respondToPermission`, avec l'identifiant de l'action.
+- **Pas de table d'accords à part** (première idée de cette spec) : une décision nomme son appel d'outil, et le contenu d'un appel est figé dès que le modèle l'a écrit. Un oui couvre donc toujours exactement ce qui a été montré. Un brouillon modifié est un nouvel appel, qui redemande l'accord.
 - Toujours interdit, même avec accord : déplacer de l'argent et acheter. Ça viendra avec le paiement.
 
 ### D. L'accueil « Aujourd'hui »

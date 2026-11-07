@@ -16,6 +16,9 @@ import { prepareCoreData, initCoreServices } from '@x/core/dist/boot/services.js
 import { createRowboatServer } from './server.js';
 import { capabilityBroker } from './capabilities.js';
 import { createPhonePush } from './baarali-phone-push.js';
+import { watchApprovals } from './baarali-approvals.js';
+import type { ITurnEventBus } from '@x/core/dist/runtime/turns/event-hub.js';
+import { isNotificationCategoryEnabled } from '@x/core/dist/config/notification_config.js';
 import { registerUrlOpener } from '@x/core/dist/auth/url-opener.js';
 import { installLoopbackRelay } from './loopback-relay.js';
 import { createFileCipher } from './file-cipher.js';
@@ -60,6 +63,8 @@ async function main(): Promise<void> {
       void phones.send(input);
     },
   });
+  // BAARALI(07/11/2026): a turn waiting for a yes reaches the phone, with its buttons (baarali-approvals.ts).
+  watchApprovals({ subscribeAll: (l) => container.resolve<ITurnEventBus>('turnEventBus').subscribeAll(l), send: phones.send, enabled: () => isNotificationCategoryEnabled('agent_permission') });
   registerBrowserControlService({
     execute: async (input, ctx) => {
       void ctx;
