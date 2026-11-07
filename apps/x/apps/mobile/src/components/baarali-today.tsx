@@ -63,12 +63,14 @@ export function briefPath(day: Date): string {
   return `knowledge/Point du matin/${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}.md`;
 }
 
-/** The brief's lines as a person reads them: no front matter, headings or list marks. */
+/** The brief's lines as a person reads them: no front matter, no headings, no list marks. */
 export function briefLines(markdown: string): string[] {
   const body = markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
   return body
     .split('\n')
-    .map((l) => l.replace(/^#+\s*/, '').replace(/^\s*[-*•]\s+/, '').replace(/\*\*/g, '').trim())
+    // Headings name the brief; the card says it already.
+    .filter((l) => !/^\s*#/.test(l))
+    .map((l) => l.replace(/^\s*[-*•]\s+/, '').replace(/\*\*/g, '').trim())
     .filter(Boolean)
     .slice(0, 6);
 }

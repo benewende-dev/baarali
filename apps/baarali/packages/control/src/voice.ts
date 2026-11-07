@@ -14,6 +14,15 @@ import type { Account, ControlStore, Plan } from './store.js';
 
 export const DEEPGRAM_HOST = 'api.deepgram.com';
 export const LISTEN_PATH = '/deepgram/v1/listen';
+/**
+ * Flux (decided 07/11/2026, AGENT_TELEPHONE_SPEC.md §3 E): Deepgram's
+ * conversational recognition, which hears the end of a turn from what is
+ * said, not from a fixed silence, and says when someone starts talking over
+ * the agent (StartOfTurn, its barge-in signal). `flux-general-multi` speaks
+ * French. The phone's conversation mode streams to it.
+ */
+export const LISTEN_V2_PATH = '/deepgram/v2/listen';
+export const FLUX_MODEL = 'flux-general-multi';
 
 /** Aura-2, in dollars per 1 000 characters. */
 export const TTS_USD_PER_1K_CHARS = 0.03;
@@ -347,6 +356,19 @@ export function upstreamQuery(url: URL): URLSearchParams {
   return params;
 }
 
+/** Flux's query: the multilingual model, French and English hinted unless the app says otherwise. */
+export function fluxQuery(url: URL): URLSearchParams {
+  const params = new URLSearchParams(url.searchParams);
+  params.delete('token');
+  params.delete('language');
+  params.set('model', FLUX_MODEL);
+  if (!params.has('language_hint')) {
+    params.append('language_hint', 'fr');
+    params.append('language_hint', 'en');
+  }
+  return params;
+}
+
 function channelsOf(params: URLSearchParams): number {
   if (params.get('multichannel') !== 'true') return 1;
   const n = Number(params.get('channels') ?? '1');
@@ -365,7 +387,8 @@ export function createListenRelay(deps: ListenDeps) {
     };
     socket.on('error', () => socket.destroy());
     const key = req.headers['sec-websocket-key'];
-    if (url.pathname !== LISTEN_PATH || typeof key !== 'string') {
+    const flux = url.pathname === LISTEN_V2_PATH;
+    if ((url.pathname !== LISTEN_PATH && !flux) || typeof key !== 'string') {
       console.warn('[voice] listen refused: not a WebSocket handshake');
       return refuse('404 Not Found');
     }
@@ -385,7 +408,7 @@ export function createListenRelay(deps: ListenDeps) {
         return refuse(gate.status === 429 ? '429 Too Many Requests' : '403 Forbidden');
       }
 
-      const params = upstreamQuery(url);
+      const params = flux ? fluxQuery(url) : upstreamQuery(url);
       const channels = channelsOf(params);
       const upstream = connect();
       upstream.on('error', (err) => {
@@ -394,7 +417,7 @@ export function createListenRelay(deps: ListenDeps) {
       });
       upstream.write(
         [
-          `GET /v1/listen?${params.toString()} HTTP/1.1`,
+          `GET /${flux ? 'v2' : 'v1'}/listen?${params.toString()} HTTP/1.1`,
           `Host: ${DEEPGRAM_HOST}`,
           'Upgrade: websocket',
           'Connection: Upgrade',
@@ -429,7 +452,7 @@ export function createListenRelay(deps: ListenDeps) {
         await meter();
         console.log(`[voice] listen closed for ${account.id}: ${Math.round((deps.now() - startedAt) / 1000)} s, ${heard} bytes heard, ${said} bytes back`);
         await deps.store.appendUsage({
-          accountId: account.id, at: deps.now(), path: '/voice/listen', model: 'nova-3', requestedModel: null,
+          accountId: account.id, at: deps.now(), path: '/voice/listen', model: flux ? FLUX_MODEL : 'nova-3', requestedModel: null,
           status: 101, credits: total, estimated: false, useCase: 'voice', agentName: null,
         });
       };

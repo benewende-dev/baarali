@@ -99,6 +99,21 @@ export function accountResolver(store: ControlStore, auth?: BaaraliAuth) {
   };
 }
 
+/**
+ * The listening WebSocket's door (voice.ts): what opens /v1, and the phone
+ * app's own sign-in session, which holds no OAuth token (07/11/2026, the
+ * phone's conversation mode streams the mic to Flux).
+ */
+export function listenAccountResolver(store: ControlStore, auth?: BaaraliAuth) {
+  const base = accountResolver(store, auth);
+  return async (token: string): Promise<Account | null> => {
+    const account = await base(token);
+    if (account || !auth) return account;
+    const userId = await auth.userIdForSession(token);
+    return userId ? store.accountForUser(userId) : null;
+  };
+}
+
 /** A code is checked as it is typed: enough for typing, not for guessing. */
 const CODE_CHECKS_PER_MINUTE = 30;
 

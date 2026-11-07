@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import pg from 'pg';
-import { accountResolver, createApp } from './app.js';
+import { accountResolver, createApp, listenAccountResolver } from './app.js';
 import { FlyMachines } from './fly.js';
 import { createGateway } from './gateway.js';
 import { Instances, settleOwnerInstance, type InstancesConfig } from './instances.js';
@@ -11,7 +11,7 @@ import { ASSUMPTIONS, MEDIA_PACKS, OFFERS } from './catalog.js';
 import { packCredits, plansFrom } from './pricing.js';
 import { migrate, poolDb } from './db.js';
 import { PgStore } from './pg-store.js';
-import { LISTEN_PATH, createListenRelay } from './voice.js';
+import { LISTEN_PATH, LISTEN_V2_PATH, createListenRelay } from './voice.js';
 import { MemoryStore, hashToken, type Account, type ControlStore } from './store.js';
 import { AutoMessages } from './auto-messages.js';
 import { PartnerProgram } from './partner-program.js';
@@ -238,11 +238,14 @@ const server = serve({ fetch: app.fetch, port }, () => {
   console.log(`[control] listening on :${port}`);
 });
 // Two WebSockets: listening (voice.ts), and the instance's events through the gateway.
+// The phone's conversation mode opens it with its sign-in session (07/11/2026).
+const listenAccount = listenAccountResolver(store, auth);
 const listen = deepgramKey
-  ? createListenRelay({ store, deepgramKey, fetch: globalThis.fetch, now: Date.now, accountFor: accountResolver(store, auth) })
+  ? createListenRelay({ store, deepgramKey, fetch: globalThis.fetch, now: Date.now, accountFor: listenAccount })
   : undefined;
 server.on('upgrade', (req, socket, head) => {
-  if (listen && (req.url ?? '').split('?')[0] === LISTEN_PATH) listen(req, socket, head);
+  const path = (req.url ?? '').split('?')[0];
+  if (listen && (path === LISTEN_PATH || path === LISTEN_V2_PATH)) listen(req, socket, head);
   else if (gateway) gateway.upgrade(req, socket, head);
   else socket.destroy();
 });
