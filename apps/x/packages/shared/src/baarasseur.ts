@@ -28,6 +28,13 @@ export const AGENT_AVATARS: ReadonlyArray<{ id: AgentAvatarId; label: string }> 
     { id: "ink", label: "Ink" }, { id: "street", label: "Street" },
 ];
 
+// BAARALI(07/11/2026): the shapes a new agent picks (Grok Bot's way of
+// making one: a shape, a colour, a name), all of the B's family: the same
+// two round eyes. The phone draws them (agent-shape.tsx); an agent without
+// one keeps its avatar.
+export const SHAPE_IDS = ["b", "round", "pebble", "dome", "drop", "pill", "square", "arch", "bean", "cloud", "leaf", "kite"] as const;
+export type AgentShapeId = typeof SHAPE_IDS[number];
+
 export const BaarasseurScheduleSchema = z.object({
     every: z.enum(["day", "weekday", "week", "month"]),
     /** The day of the week (0 = Sunday) for "week", of the month (1–28) for "month". */
@@ -44,6 +51,7 @@ export const BaarasseurSchema = z.object({
     color: z.string().max(20).default("clay"),
     // Missing or future avatars keep old profiles readable with their initials.
     avatar: z.enum(AVATAR_IDS).optional().catch(undefined),
+    shape: z.enum(SHAPE_IDS).optional().catch(undefined),
     /** The tools it works with, as the app names them (Gmail, WhatsApp…). */
     tools: z.array(z.string().max(40)).max(20).default([]),
     model: z.string().optional(),
@@ -69,6 +77,7 @@ export interface Baarasseur {
     mission: string;
     color: string;
     avatar?: AgentAvatarId;
+    shape?: AgentShapeId;
     tools: string[];
     model?: string;
     provider?: string;
@@ -217,6 +226,8 @@ export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
 
 /** The avatar tints, by name. */
 export const COLORS = ["clay", "blue", "green", "violet", "rose", "amber", "teal"] as const;
+/** More colours for a shape (07/11/2026); the tints above read them as clay. */
+export const SHAPE_COLORS = ["white", "brown", "red", "orange", "amber", "green", "teal", "blue", "violet", "rose", "gray"] as const;
 
 type Words = { fr: string; en: string };
 export interface Template {

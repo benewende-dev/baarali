@@ -7,11 +7,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { baarasseurs as shared } from '@x/shared';
 
-import { BaarasseurAvatar, phoneLang, useBaarasseurs, useTint, type Baarasseur } from '@/lib/baarasseurs';
+import { BaarasseurAvatar, phoneLang, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useModels } from '@/lib/use-models';
 import { useColors } from '@/theme/colors';
-import { AvatarTile } from '@/components/agent-avatar';
-import { preferredAgentAvatar } from '@/lib/agent-avatar-preference';
+import { AgentShape, SHAPE_FILL } from '@/components/agent-shape';
 import { BaaraliMark } from '@/components/baarali-mark';
 import { AgentDocuments } from '@/components/agent-documents';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
@@ -31,11 +30,12 @@ const EVERY: Array<{ value: 'never' | shared.BaarasseurSchedule['every']; label:
 ];
 
 function hoursLabel(s: shared.BaarasseurSchedule | null | undefined): string {
-  if (!s) return 'Only when I write';
+  // BAARALI(07/11/2026): said in the phone's language, piece by piece.
+  if (!s) return translate('Only when I write');
   const at = `${String(s.hour).padStart(2, '0')}:00`;
-  if (s.every === 'week') return `Every ${shared.WEEKDAYS[s.day ?? 1]} · ${at}`;
-  if (s.every === 'month') return `Monthly · ${s.day ?? 1} · ${at}`;
-  return `${EVERY.find((e) => e.value === s.every)?.label} · ${at}`;
+  if (s.every === 'week') return `${translate('Every $1', [translate(shared.WEEKDAYS[s.day ?? 1]).toLowerCase()])} · ${at}`;
+  if (s.every === 'month') return `${translate('Monthly')} · ${s.day ?? 1} · ${at}`;
+  return `${translate(EVERY.find((e) => e.value === s.every)?.label ?? '')} · ${at}`;
 }
 
 export default function RecruitScreen() {
@@ -58,14 +58,10 @@ export default function RecruitScreen() {
   const [step, setStep] = useState(0);
   const scroll = useRef<ScrollView>(null);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [step]);
-  const [avatarChanged, setAvatarChanged] = useState(false);
-  useEffect(() => setB(initial), [initial]);
-  useEffect(() => {
-    if (!isNew || params.template || avatarChanged) return;
-    let alive = true;
-    void preferredAgentAvatar().then((avatar) => { if (alive) setB((cur) => ({ ...cur, avatar })); });
-    return () => { alive = false; };
-  }, [isNew, params.template, avatarChanged]);
+  // BAARALI(07/11/2026): a new agent is a shape of the B's family, as the
+  // home's « + » makes it (new-agent.tsx); an old one keeps its look until
+  // a shape is picked.
+  useEffect(() => setB(isNew && !initial.shape ? { ...initial, shape: 'b' } : initial), [initial, isNew]);
   const set = (patch: Partial<Baarasseur>) => {
     setB((cur) => ({ ...cur, ...patch }));
     setTrial([]);
@@ -141,7 +137,7 @@ export default function RecruitScreen() {
   };
 
   const confirmRemove = () => {
-    Alert.alert('Remove this baarasseur?', 'Its conversations stay.', [
+    Alert.alert('Remove this agent?', 'Its conversations stay.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => { void remove(b.id).then(() => router.back()); } },
     ]);
@@ -158,7 +154,8 @@ export default function RecruitScreen() {
   const label = { fontSize: 13, color: colors.secondaryLabel, fontWeight: '600' as const, marginBottom: 6, marginLeft: 4 };
   const showIdentity = !isNew || step === 0;
   const showMission = !isNew || step === 1;
-  const showTrial = !isNew || step === 2;
+  // BAARALI(07/11/2026): an agent already hired is tried in its conversation.
+  const showTrial = isNew && step === 2;
   const steps = [{ label: 'Identity' }, { label: 'Mission' }, { label: 'Try-out' }];
 
   return (
@@ -204,7 +201,7 @@ export default function RecruitScreen() {
 
         <View style={group}>
           <View style={[rowStyle, { paddingVertical: 12 }]}>
-            <BaarasseurAvatar b={{ name: b.name || '?', color: b.color, avatar: b.avatar }} size={52} />
+            <BaarasseurAvatar b={{ name: b.name || '?', color: b.color, avatar: b.avatar, shape: b.shape }} size={52} />
             <View style={{ flex: 1, gap: 4 }}>
               <TextInput value={b.name} onChangeText={(name) => set({ name })} placeholder="Name" placeholderTextColor={colors.tertiaryLabel} maxLength={40}
                 style={{ fontSize: 17, fontWeight: '600', color: colors.label }} accessibilityLabel="Name" />
@@ -212,26 +209,21 @@ export default function RecruitScreen() {
                 style={{ fontSize: 15, color: colors.secondaryLabel }} accessibilityLabel="Role" />
             </View>
           </View>
-          <View style={[rowStyle, { borderBottomWidth: 0, gap: 8 }]} accessibilityRole="radiogroup" accessibilityLabel="Colour">
-            {shared.COLORS.map((c) => <Swatch key={c} color={c} on={b.color === c} onPress={() => set({ color: c })} />)}
+          <View style={[rowStyle, { borderBottomWidth: 0, gap: 8, flexWrap: 'wrap', paddingVertical: 10 }]} accessibilityRole="radiogroup" accessibilityLabel="Colour">
+            {shared.SHAPE_COLORS.map((c) => <Swatch key={c} color={c} on={b.color === c} onPress={() => set({ color: c })} />)}
           </View>
         </View>
 
         <View>
-          <Text style={label}>Agent avatar</Text>
-          <View accessibilityRole="radiogroup" accessibilityLabel="Choose an avatar" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {shared.AGENT_AVATARS.map((choice) => (
-              <Pressable key={choice.id} accessibilityRole="radio" aria-checked={b.avatar === choice.id} accessibilityLabel={choice.label} accessibilityState={{ checked: b.avatar === choice.id }}
-                onPress={() => { setAvatarChanged(true); set({ avatar: choice.id }); }}
-                style={{ width: '17%', flexGrow: 1, minHeight: 72, maxWidth: '20%', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 4, borderRadius: 14, backgroundColor: colors.background, borderWidth: 2, borderColor: b.avatar === choice.id ? colors.accent : 'transparent' }}>
-                <AvatarTile avatar={choice.id} size={46} />
-                <Text style={{ fontSize: 12, color: colors.label }}>{choice.label}</Text>
+          <Text style={label}>Shape</Text>
+          <View accessibilityRole="radiogroup" accessibilityLabel="Choose a shape" style={[group, { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, padding: 12 }]}>
+            {shared.SHAPE_IDS.map((id) => (
+              <Pressable key={id} accessibilityRole="radio" accessibilityLabel={id} accessibilityState={{ checked: b.shape === id }}
+                onPress={() => { if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync(); set({ shape: id }); }}
+                style={{ width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: b.shape === id ? colors.secondaryLabel : 'transparent' }}>
+                <AgentShape shape={id} color={b.color} size={40} />
               </Pressable>
             ))}
-            <Pressable accessibilityRole="radio" aria-checked={!b.avatar} accessibilityState={{ checked: !b.avatar }} onPress={() => { setAvatarChanged(true); set({ avatar: undefined }); }}
-              style={{ minHeight: 44, width: '100%', justifyContent: 'center', paddingHorizontal: 12 }}>
-              <Text style={{ fontSize: 14, color: colors.accent }}>Use initials</Text>
-            </Pressable>
           </View>
         </View>
         </>}
@@ -248,19 +240,14 @@ export default function RecruitScreen() {
 
         <AgentDocuments documents={b.documents ?? []} onChange={(documents) => set({ documents })} />
 
+        {/* BAARALI(07/11/2026): the apps are connected in one place for every
+            agent (connect.tsx), as Grok Bot does; the agent uses what is connected. */}
         <View>
-          <Text style={label}>Tools</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {shared.TOOLS.map((t) => {
-              const on = b.tools.includes(t);
-              return (
-                <Pressable key={t} accessibilityRole="checkbox" accessibilityState={{ checked: on }}
-                  onPress={() => set({ tools: on ? b.tools.filter((x) => x !== t) : [...b.tools, t] })}
-                  style={{ paddingHorizontal: 12, height: 36, borderRadius: 18, justifyContent: 'center', backgroundColor: on ? colors.accent : colors.background }}>
-                  <Text style={{ fontSize: 14, fontWeight: on ? '600' : '400', color: on ? colors.onAccent : colors.label }}>{translate(t)}</Text>
-                </Pressable>
-              );
-            })}
+          <View style={group}>
+            <Pressable accessibilityRole="button" style={[rowStyle, { borderBottomWidth: 0 }]} onPress={() => router.push('/connect')}>
+              <Text style={{ flex: 1, fontSize: 16, color: colors.label }}>Connect apps</Text>
+              <Text style={{ fontSize: 16, color: colors.tertiaryLabel }}>›</Text>
+            </Pressable>
           </View>
           <Text style={{ fontSize: 13, color: colors.tertiaryLabel, marginTop: 6, marginLeft: 4 }}>Sending, posting or paying always waits for your approval.</Text>
         </View>
@@ -272,7 +259,7 @@ export default function RecruitScreen() {
           </Pressable>
           <Pressable style={[rowStyle, { borderBottomWidth: 0 }]} onPress={() => setSheet('hours')}>
             <Text style={{ flex: 1, fontSize: 16, color: colors.label }}>Works on its own</Text>
-            <Text style={{ fontSize: 16, color: colors.secondaryLabel }}>{translate(hoursLabel(b.schedule))}</Text>
+            <Text style={{ fontSize: 16, color: colors.secondaryLabel }}>{hoursLabel(b.schedule)}</Text>
           </Pressable>
         </View>
 
@@ -326,7 +313,7 @@ export default function RecruitScreen() {
 
         {!isNew && (
           <Pressable onPress={confirmRemove} style={[group, { height: 48, alignItems: 'center', justifyContent: 'center' }]}>
-            <Text style={{ fontSize: 16, color: colors.destructive }}>Remove this baarasseur?</Text>
+            <Text style={{ fontSize: 16, color: colors.destructive }}>Remove this agent</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -383,11 +370,12 @@ export default function RecruitScreen() {
 }
 
 function Swatch({ color, on, onPress }: { color: string; on: boolean; onPress: () => void }) {
-  const { bg } = useTint(color);
   const colors = useColors();
   return (
     <Pressable accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={color} onPress={onPress} hitSlop={6}
-      style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: bg, borderWidth: on ? 3 : 0, borderColor: colors.accent }} />
+      style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: on ? colors.secondaryLabel : 'transparent' }}>
+      <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: SHAPE_FILL[color], borderWidth: color === 'white' ? 1 : 0, borderColor: colors.separator }} />
+    </Pressable>
   );
 }
 

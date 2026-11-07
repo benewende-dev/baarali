@@ -32,10 +32,12 @@ export function AttachmentChips({ files, onRemove, disabled }: { files: Composer
 
 // BAARALI(12/10/2026): the same compact card lets home, agents and spaces
 // expose useful actions without crowding the input or enlarging the model.
-export function ChatComposer({ draft, onChange, placeholder, files, onRemove, onAttach, picking, busy, onSend, onStop, onVoice, voiceLabel, voiceActive, leading, extra, inputRef, embedded = false }: {
+// BAARALI(07/11/2026): `onTalk` puts « Talk » where « Send » is while nothing
+// is written, as Grok's « Speak »: one tap from the home to a conversation.
+export function ChatComposer({ draft, onChange, placeholder, files, onRemove, onAttach, picking, busy, onSend, onStop, onVoice, voiceLabel, voiceActive, onTalk, leading, extra, inputRef, embedded = false }: {
   draft: string; onChange: (text: string) => void; placeholder: string; files: ComposerAttachment[];
   onRemove: (id: string) => void; onAttach: () => void; picking?: boolean; busy?: boolean;
-  onSend: () => void; onStop?: () => void; onVoice?: () => void; voiceLabel?: string; voiceActive?: boolean;
+  onSend: () => void; onStop?: () => void; onVoice?: () => void; voiceLabel?: string; voiceActive?: boolean; onTalk?: () => void;
   leading?: ReactNode; extra?: ReactNode; inputRef?: Ref<TextInput>; embedded?: boolean;
 }) {
   const colors = useColors();
@@ -48,7 +50,12 @@ export function ChatComposer({ draft, onChange, placeholder, files, onRemove, on
       {leading}
       <View style={{ flex: 1 }} />
       {onVoice && <ComposerButton icon={voiceActive ? 'sf:stop.fill' : 'sf:mic'} label={voiceLabel ?? 'Dictate a message'} onPress={onVoice} disabled={busy} active={voiceActive} />}
-      {busy && onStop ? <ComposerButton icon="sf:stop.fill" label="Stop" onPress={onStop} primary />
+      {onTalk && !busy && !voiceActive && !draft.trim() && !files.length ? <Pressable accessibilityRole="button" accessibilityLabel={translate('Talk with Baarali')} onPress={onTalk}
+          style={({ pressed }) => ({ height: 38, paddingHorizontal: 14, borderRadius: 19, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.label, opacity: pressed ? 0.7 : 1 })}>
+          <Image source="sf:waveform" style={{ width: 16, height: 16 }} tintColor={colors.background} />
+          <Text style={{ fontSize: 15, fontWeight: '600', color: colors.background }}>{translate('Talk')}</Text>
+        </Pressable>
+      : busy && onStop ? <ComposerButton icon="sf:stop.fill" label="Stop" onPress={onStop} primary />
         : <ComposerButton icon="sf:arrow.up" label={busy ? 'Sending…' : 'Send'} onPress={onSend} disabled={busy || picking || voiceActive || (!draft.trim() && !files.length)} primary />}
     </View>
     {extra}

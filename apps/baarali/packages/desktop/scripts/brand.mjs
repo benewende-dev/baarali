@@ -401,6 +401,9 @@ export function corePlan() {
       edit(`${core}/runtime/assembly/copilot/instructions.ts`, CODE_SELF_FROM, CODE_SELF_TO),
       // The agent's name is Baarali, never « Baarali Copilot » (09/10/2026).
       edit(`${core}/runtime/assembly/copilot/instructions.ts`, 'You are Rowboat Copilot - an AI assistant', 'You are Baarali - an AI assistant'),
+      // BAARALI(07/11/2026): clean, professional replies in the user's register, no long dashes (the founder's call).
+      edit(`${core}/runtime/assembly/copilot/instructions.ts`, "You're an insightful, encouraging assistant who combines meticulous clarity with genuine enthusiasm and gentle humor.\n\n## Core Personality\n- **Supportive thoroughness:** Patiently explain complex topics clearly and comprehensively.\n- **Lighthearted interactions:** Maintain a friendly tone with subtle humor and warmth.\n- **Adaptive teaching:** Flexibly adjust explanations based on perceived user proficiency.\n- **Confidence-building:** Foster intellectual curiosity and self-assurance.", "You're a sharp, reliable professional assistant: clear, precise and calm.\n\n## Core Personality\n- **Clarity first:** Explain what matters, in as few words as the task allows.\n- **Professional warmth:** Courteous and human, never gushing, never jokey unless the user is.\n- **Adaptive:** Adjust depth and vocabulary to the user's level and to what they asked."),
+      edit(`${core}/runtime/assembly/copilot/instructions.ts`, "## Tool Priority", "## Writing Style\nWrite like a skilled human professional, never like a chatbot.\n- Never use the long dash (— or –) to join or interrupt sentences, in any language. Use a period, a comma, a colon or parentheses instead.\n- Match the user: their language, their register (formal or relaxed, « vous » or « tu » as they do) and their length. A short message gets a short answer.\n- No filler: no \"Great question\", \"Absolutely!\", \"I hope this helps\", \"Feel free to…\", « N'hésitez pas », no restating the request, no closing recap of what you just said.\n- No emoji unless the user uses them first.\n- Avoid stock AI phrasing: \"delve\", \"seamless\", \"robust\", \"leverage\", \"it's worth noting\", \"not just X but Y\", rhetorical triplets, exclamation marks for enthusiasm.\n- Prefer concrete facts, figures, names and next actions to adjectives.\n\n## Tool Priority"),
       edit(`${core}/runtime/assembly/skills/builtin-tools/skill.ts`, 'The Rowboat copilot has access', 'Baarali, the assistant, has access'),
       edit(
         `${core}/runtime/assembly/connections.ts`,
@@ -566,6 +569,7 @@ export function desktopPlan() {
       ['assets/mobile/work-access.ts', `${renderer}/lib/work-access.ts`],
       ['../control/src/plan-access-copy.ts', `${renderer}/lib/plan-access-copy.ts`],
       ['../control/src/oval-b.ts', `${renderer}/lib/baarali-oval-motion.ts`],
+      ['../control/src/b-mark.ts', `${renderer}/lib/baarali-b-mark.ts`],
       ['assets/motion/baarali-mark.tsx', `${renderer}/components/baarali-mark.tsx`],
       ['assets/motion/motion-export-image.ts', `${renderer}/components/motion-export-image.ts`],
       ['assets/motion/cad-editor.tsx', `${renderer}/components/cad-editor.tsx`],
@@ -647,17 +651,14 @@ export function mobilePlan() {
   return {
     edits: [
       edit(`${mobile}/src/app/_layout.tsx`, "    </GestureHandlerRootView>", "      </AppThemeProvider>\n    </GestureHandlerRootView>"),
-      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />", "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />\n            <Stack.Screen name=\"plans\" options={{ title: 'Plans' }} />"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />", "<Stack.Screen name=\"settings\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"plans\" options={{ title: 'Plans' }} />\n            {/* BAARALI(07/11/2026): Grok Bot's sheets, from the home (connect.tsx, new-agent.tsx). */}\n            <Stack.Screen name=\"connect\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"new-agent\" options={{ headerShown: false, presentation: 'formSheet', sheetCornerRadius: 32 }} />"),
       edit(`${mobile}/src/lib/voice.ts`, "import { useCallback, useEffect, useRef, useState } from 'react';", "import { useCallback, useEffect, useRef, useState } from 'react';\nimport { DeviceEventEmitter } from 'react-native';"),
       edit(`${mobile}/src/lib/voice.ts`, "  const set = useCallback((next: boolean) => {", "  useEffect(() => { const sub = DeviceEventEmitter.addListener('baarali:readAloud', setOn); return () => sub.remove(); }, []);\n  const set = useCallback((next: boolean) => {"),
       edit(`${mobile}/src/lib/voice.ts`, "    setOn(next);\n    if (!next)", "    setOn(next);\n    DeviceEventEmitter.emit('baarali:readAloud', next);\n    if (!next)"),
       edit(`${mobile}/src/app/inbox.tsx`, "  // The plan and the week's use live in Settings on the phone.\n  else if (n.target === 'plans' || n.target === 'usage') router.push('/settings');", "  // BAARALI(13/10/2026): mobile notifications open the same quota or offer shown on desktop.\n  else if (n.target === 'plans') router.push('/plans');\n  else if (n.target === 'usage') router.push({ pathname: '/settings', params: { section: 'usage' } });"),
       edit(`${mobile}/src/components/announcement-banner.tsx`, "  // The plan and the week's use live in Settings on the phone.\n  else if (a.target === 'plans' || a.target === 'usage') router.push('/settings');", "  // BAARALI(13/10/2026): mobile notifications open the same quota or offer shown on desktop.\n  else if (a.target === 'plans') router.push('/plans');\n  else if (a.target === 'usage') router.push({ pathname: '/settings', params: { section: 'usage' } });"),
-      // The accent: the brand's blue on the system's neutrals, as on the desktop.
-      // BAARALI(12/10/2026): normal-size action labels need 4.5:1 contrast;
-      // dark mode keeps a brighter blue with dark text, including chat bubbles.
-      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#000000',\n  onAccent: '#ffffff',", "  accent: '#196bff',\n  onAccent: '#ffffff',"),
-      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#ffffff',\n  onAccent: '#000000',", "  accent: '#4d8dff',\n  onAccent: '#000000',"),
+      // BAARALI(07/11/2026): no blue any more (the founder's sign C, black and
+      // white as OpenBaara): the accent stays the system's black / white.
       // BAARALI(12/10/2026): Expo config uses a global status bar, so its
       // declarative component follows appearance changes across all routes.
       edit(`${mobile}/src/app/_layout.tsx`, "import * as SplashScreen from 'expo-splash-screen';", "import * as SplashScreen from 'expo-splash-screen';\nimport { StatusBar } from 'expo-status-bar';\nimport { AppThemeProvider } from '@/lib/app-theme';"),
@@ -736,11 +737,10 @@ export function mobilePlan() {
       edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, 'onPress={() => { setFocused(false); onChange(); }}', 'onPress={onChange}'),
       // BAARALI(13/10/2026): Chat / Work and the sidebar replace
       // bottom navigation. Deeper team and email routes keep native back.
-      edit(`${mobile}/src/app/_layout.tsx`, "import { BackButton } from '@/components/back-button';", "import { TopNavigation } from '@/components/top-navigation';"),
-      edit(`${mobile}/src/app/_layout.tsx`, '                headerLeft: () => <BackButton />,', "                header: ({ route }) => <TopNavigation mode={(route.params as { mode?: string } | undefined)?.mode === 'work' ? 'work' : 'chat'} />,"),
+      // 07/11/2026: not the conversation any more, Grok Bot's header there (chat-header.tsx).
       edit(`${mobile}/src/app/(tabs)/email/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack } from 'expo-router';\nimport { TopNavigation } from '@/components/top-navigation';"),
       edit(`${mobile}/src/app/(tabs)/email/_layout.tsx`, "options={{ title: 'Email', headerLargeTitle: true }}", "options={{ title: 'Email', header: () => <TopNavigation mode=\"work\" /> }}"),
-      edit(`${mobile}/src/app/chat.tsx`, "  const top = embedded ? 8 : insets.top + 52;", "  const top = embedded ? 8 : insets.top + (baarasseur && id ? 100 : 60);"),
+      edit(`${mobile}/src/app/chat.tsx`, "  const top = embedded ? 8 : insets.top + 52;", "  const top = embedded ? 8 : insets.top + 60;"),
       edit(`${mobile}/src/app/chat.tsx`, "top: insets.top + 6, left: 64, right: 16", "top: insets.top + 56, left: 20, right: 16"),
       edit(`${mobile}/src/app/studio.tsx`, "import { phoneLang } from '@/lib/baarasseurs';", "import { phoneLang } from '@/lib/baarasseurs';\nimport { StudioLibrary } from '@/components/studio-library';"),
       edit(`${mobile}/src/app/studio.tsx`, "import { StudioLibrary } from '@/components/studio-library';", "import { StudioLibrary } from '@/components/studio-library';\nimport { StudioCadFiles } from '@/components/studio-cad-files';"),
@@ -856,6 +856,32 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "    } finally {\n      setSending(false);\n    }", "    } finally {\n      setSending(false);\n      sendingRef.current = false;\n    }"),
       edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "      {/* Composer — Slack's single rounded field; send arrow appears with a draft */}\n      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <View\n          style={{\n            flexDirection: 'row', alignItems: 'flex-end',\n            backgroundColor: colors.secondaryBackground, borderRadius: 24, borderCurve: 'continuous',\n            paddingLeft: 16, paddingRight: 6, minHeight: 46,\n          }}\n        >\n          <TextInput\n            ref={inputRef}\n            style={{ flex: 1, maxHeight: 120, fontSize: 16, color: colors.label, paddingVertical: 12 }}\n            placeholder=\"Add a reply\"\n            placeholderTextColor={colors.tertiaryLabel}\n            value={draft}\n            onChangeText={setDraft}\n            multiline\n          />\n          {draft.trim() ? (\n            <Pressable onPress={() => void send()} disabled={sending} style={{ padding: 6, opacity: sending ? 0.4 : 1 }}>\n              <Image source=\"sf:arrow.up.circle.fill\" style={{ width: 30, height: 30 }} tintColor={colors.label} />\n            </Pressable>\n          ) : null}\n        </View>\n      </View>", "      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <SpaceComposer draft={draft} onChange={setDraft} placeholder={\"Add a reply\"} attachments={attachments} sending={sending} onSend={() => void send()} inputRef={inputRef} />\n      </View>"),
       edit(`${mobile}/src/components/turn-view.tsx`, "        <Text style={styles.userText}>{userText(state.definition.input)}</Text>", "        {!!userText(state.definition.input) && <Text style={styles.userText}>{userText(state.definition.input)}</Text>}\n        {Array.isArray(state.definition.input.content) && state.definition.input.content.map((part, index) => part.type === 'attachment' ? <Text key={index} style={styles.meta}>📎 {part.filename}</Text> : null)}"),
+      // BAARALI(07/11/2026): Grok Bot's conversation header (chat-header.tsx).
+      edit(`${mobile}/src/app/chat.tsx`, "import { Redirect, router, useLocalSearchParams, useFocusEffect } from 'expo-router';", "import { Redirect, Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';\nimport { ChatMenu, ChatTitle } from '@/components/chat-header';"),
+      edit(`${mobile}/src/app/chat.tsx`, "        {/* Whom you are talking to, in a baarasseur's chat (below the floating header). */}\n        {baarasseur && id && !embedded ? (\n          <View style={{ position: 'absolute', top: insets.top + 56, left: 20, right: 16, zIndex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>\n            <BaarasseurAvatar b={baarasseur} size={30} />\n            <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>\n          </View>\n        ) : null}", "        {/* BAARALI(07/11/2026): Grok Bot's header, whom you talk to in the middle and « … » (chat-header.tsx). */}\n        {!embedded && <Stack.Screen options={{ headerTitle: () => <ChatTitle baarasseur={baarasseur} />, headerTitleAlign: 'center', headerRight: () => <ChatMenu baarasseur={baarasseur} /> }} />}"),
+      edit(`${mobile}/src/app/chat.tsx`, "placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}", "placeholder={baarasseur ? `Ask ${baarasseur.name}` : 'Ask Baarali'}"),
+      // BAARALI(07/11/2026): « Recruit » opens the home's sheet (new-agent.tsx), black as the rest.
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "            <Pressable onPress={() => router.push('/baarasseurs/recruit')} hitSlop={8}\n              style={{ backgroundColor: colors.accent, borderRadius: 17, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>\n              <Text style={{ color: colors.onAccent, fontWeight: '600', fontSize: 15 }}>Recruit</Text>", "            <Pressable onPress={() => router.push('/new-agent')} hitSlop={8}\n              style={{ backgroundColor: colors.label, borderRadius: 17, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>\n              <Text style={{ color: colors.background, fontWeight: '600', fontSize: 15 }}>Recruit</Text>"),
+      // BAARALI(07/11/2026): the introduction in black and white, with the B's shapes.
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "import { AgentAvatarImage, useReducedMotion } from '@/components/agent-avatar';", "import { useReducedMotion } from '@/components/agent-avatar';\nimport { AgentShape } from '@/components/agent-shape';"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "const PICKS = ['original', 'moki', 'tiko', 'nimbo', 'pixel', 'zest'] as const;", "// BAARALI(07/11/2026): black and white, and the agents are the B's shapes (agent-shape.tsx).\nconst PICKS = ['b', 'round', 'pebble', 'cloud', 'drop', 'kite'] as const;\nconst SHAPE_NAME: Record<string, string> = { b: 'B', round: 'Round', pebble: 'Pebble', cloud: 'Cloud', drop: 'Drop', kite: 'Kite' };"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "  const name = shared.AGENT_AVATARS.find((a) => a.id === avatar)?.label ?? 'Original';", "  const name = SHAPE_NAME[avatar] ?? 'B';"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<Stop offset=\"0\" stopColor=\"#243F8B\" /><Stop offset=\"0.7\" stopColor=\"#1A6DFF\" /><Stop offset=\"1\" stopColor=\"#5393FF\" />", "<Stop offset=\"0\" stopColor=\"#0A0A0A\" /><Stop offset=\"0.7\" stopColor=\"#151515\" /><Stop offset=\"1\" stopColor=\"#262626\" />"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "accessibilityLabel={shared.AGENT_AVATARS.find((a) => a.id === id)!.label}", "accessibilityLabel={SHAPE_NAME[id]}"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<AgentAvatarImage avatar={id} size={compact ? 62 : 70} />", "<AgentShape shape={id} color=\"white\" size={compact ? 58 : 64} />"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<Text style={s.pickLabel}>{shared.AGENT_AVATARS.find((a) => a.id === id)!.label}</Text>", "<Text style={s.pickLabel}>{SHAPE_NAME[id]}</Text>"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<AgentAvatarImage avatar={avatar} size={mascotSize} />", "<AgentShape shape={(PICKS as readonly string[]).includes(avatar) ? avatar as typeof PICKS[number] : 'b'} color=\"white\" size={mascotSize} />"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "hero: { backgroundColor: '#1A6DFF',", "hero: { backgroundColor: '#0A0A0A',"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "backgroundColor: '#173966B0'", "backgroundColor: '#FFFFFF20'"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "picked: { borderColor: '#DCF6A3',", "picked: { borderColor: '#FFFFFF',"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "  const [avatar, setAvatar] = useState<shared.AgentAvatarId>('original');", "  const [avatar, setAvatar] = useState<string>('b');"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "backgroundColor: step === i ? '#1A6DFF' : colors.separator", "backgroundColor: step === i ? colors.label : colors.separator"),
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "          title: 'Baarasseurs',", "          title: 'Your agents',"),
+      // BAARALI(07/11/2026): a template hires in one tap (baarasseurs/index.tsx).
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';", "import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "  const { team, reload } = useBaarasseurs();", "  const { team, reload, upsert } = useBaarasseurs();"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "  const lang = phoneLang();\n", "  const lang = phoneLang();\n  // BAARALI(07/11/2026): a template hires in one tap, as Grok Bot makes a bot,\n  // and its conversation opens; its look is a shape from its name.\n  const hire = async (t: (typeof shared.TEMPLATES)[number]) => {\n    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();\n    try {\n      const b = { ...shared.templateToBaarasseur(t, (team ?? []).map((x) => x.id), lang), avatar: undefined };\n      await upsert(b);\n      router.push({ pathname: '/chat', params: { id: '', agent: shared.baarasseurAgentId(b.id) } });\n    } catch {\n      Alert.alert('The agent could not be created', 'Please try again.');\n    }\n  };\n"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "                  onPress={() => router.push({ pathname: '/baarasseurs/recruit', params: { template: t.id } })}", "                  onPress={() => void hire(t)}"),
     ],
     copies: [
       ['assets/mobile/settings.tsx', `${mobile}/src/app/settings.tsx`],
@@ -868,6 +894,7 @@ export function mobilePlan() {
       [path.relative(PKG, path.join(ROOT, 'apps/x/apps/renderer/src/lib/usage-reset.ts')), `${mobile}/src/lib/usage-reset.ts`],
       [path.relative(PKG, path.join(ROOT, 'apps/x/apps/renderer/src/lib/media-credits.ts')), `${mobile}/src/lib/media-credits.ts`],
       ['../control/src/oval-b.ts', `${mobile}/src/lib/baarali-oval-motion.ts`],
+      ['../control/src/b-mark.ts', `${mobile}/src/lib/baarali-b-mark.ts`],
       ['assets/motion/baarali-mark.native.tsx', `${mobile}/src/components/baarali-mark.tsx`],
       ['assets/motion/baarali-logo.native.tsx', `${mobile}/src/components/baarali-logo.tsx`],
       ['assets/mobile/home.tsx', `${mobile}/src/app/(tabs)/home.tsx`],
@@ -893,6 +920,10 @@ export function mobilePlan() {
       ['assets/mobile/attachment-content.ts', `${mobile}/src/lib/attachment-content.ts`],
       ['assets/mobile/composer-attachments.ts', `${mobile}/src/lib/composer-attachments.ts`],
       ['assets/mobile/chat-composer.tsx', `${mobile}/src/components/chat-composer.tsx`],
+      ['assets/mobile/agent-shape.tsx', `${mobile}/src/components/agent-shape.tsx`],
+      ['assets/mobile/chat-header.tsx', `${mobile}/src/components/chat-header.tsx`],
+      ['assets/mobile/connect.tsx', `${mobile}/src/app/connect.tsx`],
+      ['assets/mobile/new-agent.tsx', `${mobile}/src/app/new-agent.tsx`],
       ['assets/mobile/space-composer.tsx', `${mobile}/src/components/space-composer.tsx`],
       ...['icon.png', 'splash-icon.png', 'android-icon-foreground.png', 'android-icon-monochrome.png', 'baarali-mark.png', 'baarali-tile.png'].map((f) => [`assets/mobile/${f}`, `${mobile}/assets/images/${f}`]),
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
@@ -919,7 +950,7 @@ export function mobilePlan() {
         expo.scheme = ['baarali', MOBILE_ID];
         expo.ios = { ...expo.ios, bundleIdentifier: MOBILE_ID, infoPlist: { ...expo.ios.infoPlist, ...MOBILE_PERMISSIONS.en } };
         expo.locales = { fr: './baarali-locales/fr.json' };
-        const android = { ...expo.android, package: MOBILE_ID, adaptiveIcon: { ...expo.android.adaptiveIcon, backgroundColor: '#1A6DFF' } };
+        const android = { ...expo.android, package: MOBILE_ID, adaptiveIcon: { ...expo.android.adaptiveIcon, backgroundColor: '#0A0A0A' } };
         delete android.adaptiveIcon.backgroundImage;
         expo.android = android;
         expo.plugins = expo.plugins.map((p) => (Array.isArray(p) && p[0] === 'expo-splash-screen' ? ['expo-splash-screen', { ...p[1], backgroundColor: '#0A0A0A', imageWidth: 140 }] : p));

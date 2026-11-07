@@ -4,6 +4,7 @@ import { baarasseurs as shared } from '@x/shared';
 
 import { useConnection } from '@/lib/connection';
 import { AgentAvatarImage } from '@/components/agent-avatar';
+import { AgentShape } from '@/components/agent-shape';
 
 // BAARALI(06/10/2026): the baarasseurs on the phone — the same workspace file
 // as the desktop, read and written over the Mac's RPC, with the shared
@@ -78,10 +79,21 @@ export function useTint(color: string): { bg: string; fg: string } {
   return dark ? { bg: bgDark, fg: fgDark } : { bg, fg };
 }
 
-export function BaarasseurAvatar({ b, size = 48 }: { b: Pick<Baarasseur, 'name' | 'color' | 'avatar'>; size?: number }) {
+/** The same shape for the same name, every time. */
+function shapeFor(name: string): shared.AgentShapeId {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return shared.SHAPE_IDS[h % shared.SHAPE_IDS.length];
+}
+
+export function BaarasseurAvatar({ b, size = 48 }: { b: Pick<Baarasseur, 'name' | 'color' | 'avatar' | 'shape'>; size?: number }) {
   const { bg, fg } = useTint(b.color);
+  // BAARALI(07/11/2026): an agent made with a shape is that shape, no disc;
+  // one from before the shapes, with no avatar either, gets one from its name.
+  // The old blue B with feet ('original') is the B now.
+  if (b.shape || !b.avatar || b.avatar === 'original') return <AgentShape shape={b.shape ?? (b.avatar ? 'b' : shapeFor(b.name))} color={b.color} size={size} />;
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: b.avatar === 'original' ? '#1A6DFF' : bg }}>
+    <View style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: bg }}>
       {b.avatar ? <AgentAvatarImage avatar={b.avatar} size={size * .9} /> : <Text style={{ fontSize: size * 0.4, fontWeight: '700', color: fg }}>{(b.name.trim()[0] ?? '?').toUpperCase()}</Text>}
     </View>
   );

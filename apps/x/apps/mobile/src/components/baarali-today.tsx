@@ -79,7 +79,8 @@ const tap = () => {
   if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
 };
 
-export function Today() {
+/** `quiet`: nothing at all when nothing waits (the home's mark stands alone, as in Grok). */
+export function Today({ quiet = false }: { quiet?: boolean } = {}) {
   const colors = useColors();
   const { rpc, sessions, events } = useConnection();
   const [waiting, setWaiting] = useState<Waiting[] | null>(null);
@@ -153,6 +154,7 @@ export function Today() {
   });
 
   const nothing = !brief.length && !waiting.length && !running.length && !done.length;
+  if (nothing && quiet) return null;
 
   const listen = async () => {
     tap();

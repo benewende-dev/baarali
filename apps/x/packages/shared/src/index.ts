@@ -42,3 +42,5 @@ export * as autoRoute from './auto-route.js';
 export * as find from './find.js';
 export { PrefixLogger };
 export * as sidebarLayout from './sidebar-layout.js';
+// BAARALI(07/11/2026): the apps the phone offers to connect (connect.tsx).
+export * as composio from './composio.js';
