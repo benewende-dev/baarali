@@ -149,15 +149,16 @@ describe('the plans, for the app', () => {
     expect(JSON.stringify(offers)).not.toMatch(/weekBudget|usd|marginRate|weekCredits/i);
   });
 
-  it('keeps Discovery on Chat and adds Work to every paid offer in both languages', async () => {
+  it('keeps Découverte on conversations and opens the agents on every paid offer, in both languages', async () => {
     for (const lang of ['fr', 'en']) {
       const offers = PlanOffersSchema.parse(await (await app.request(`/v1/plans?lang=${lang}`)).json());
       const free = offers.plans.find(plan => plan.free)!;
-      expect(free.points.join(' ')).toContain('Chat');
-      expect(free.points.join(' ')).not.toMatch(/Work|Studio|routines|background|arrière-plan/);
+      expect(free.points.join(' ')).toContain('Baarali');
+      expect(free.points.join(' ')).not.toMatch(/\b(Chat|Work)\b|Studio|routines|background|arrière-plan/);
       expect(free.points.join(' ')).toMatch(lang === 'fr' ? /fichiers/ : /files/);
       expect(free.points.join(' ')).toMatch(lang === 'fr' ? /crédits médias séparés/ : /separate media credits/);
-      for (const plan of offers.plans.filter(plan => !plan.free)) expect(plan.points.join(' ')).toContain('Work');
+      for (const plan of offers.plans.filter(plan => !plan.free)) expect(plan.points.join(' ')).not.toMatch(/\b(Chat|Work)\b/);
+      for (const plan of offers.plans.filter(plan => !plan.free && !plan.id.startsWith('pro'))) expect(plan.points[0]).toMatch(/agents/);
       const page = await (await app.request('/tarifs', { headers: { 'accept-language': lang } })).text();
       expect(page).toContain(free.points[0]);
       expect(page).toContain('Studio');

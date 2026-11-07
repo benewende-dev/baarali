@@ -1,4 +1,6 @@
-import { planAccessCopy } from './plan-access-copy.js';
+import { SITE_FOOTER_CSS, siteFooter } from './site-footer.js';
+import { LIVING_JS } from './living-shapes.js';
+import { lockedNote, planAccess, planAccessCopy, type Cell, type Tier } from './plan-access-copy.js';
 import { ANNUAL_DISCOUNT } from './catalog.js';
 import { formatPrice, type HomeData } from './home-page.js';
 import { CONTACT, legalLinks } from './legal-page.js';
@@ -44,7 +46,7 @@ const STRINGS = {
     start: 'Créer mon compte gratuit',
     getApp: 'Télécharger l’app',
     soon: 'Paiement bientôt disponible',
-    // BAARALI(13/10/2026): planAccessCopy owns the shared Chat / Work split.
+    // BAARALI(07/11/2026): planAccessCopy owns who gets what (plan-access-copy.ts).
     plans: {
       decouverte: { tag: 'Pour essayer', for: '', plus: 'Inclus', points: [] },
       semaine: { tag: 'Sans engagement', for: 'Pour une semaine chargée, payée en Mobile Money.', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel pendant 7 jours', '25 fois l’utilisation de Découverte', 'Payé en Mobile Money, quand vous en avez besoin', 'Rien ne se renouvelle tout seul'] },
@@ -91,20 +93,18 @@ const STRINGS = {
       ['Chaque semaine', 'Une seconde jauge couvre la semaine entière, pour que l’utilisation reste régulière.'],
       ['À la limite', 'Attendez la fin de la fenêtre ou passez au forfait du dessus. Une réponse commencée n’est jamais coupée.'],
     ],
-    compareKicker: 'Comparer',
-    compareTitle: ['Tout, ', 'en un coup d’œil', '.'],
+    compareKicker: 'Les accès',
+    compareTitle: ['Ce que chaque forfait ', 'vous ouvre', '.'],
+    compareLead: 'Découverte vous laisse parler avec Baarali. Dès Semaine, vos agents travaillent pour vous, avec tout l’espace de travail.',
+    planGroup: 'Le forfait',
     rows: {
       price: 'Prix',
       billing: 'Paiement',
       models: 'Modèles',
       usage: 'Utilisation',
       windows: 'Jauges 5 h et semaine',
-      work: 'Work : projets, agents, tâches, code et Studio',
-      media: 'Vidéos, voix, musique',
-      approval: 'Votre accord avant chaque envoi',
-      apps: 'Apps Mac et Windows',
-      space: 'Espace personnel, hébergé en Europe',
     },
+    notIncluded: 'Non inclus',
     billingNone: 'Aucun',
     billingWeek: 'Chaque semaine, à la main',
     billingMonth: `Au mois ou à l’année (−${OFF} %)`,
@@ -220,20 +220,18 @@ const STRINGS = {
       ['Every week', 'A second gauge covers the whole week, so usage stays steady.'],
       ['At the limit', 'Wait for the window to end or move up a plan. An answer already started is never cut.'],
     ],
-    compareKicker: 'Compare',
-    compareTitle: ['Everything, ', 'at a glance', '.'],
+    compareKicker: 'Access',
+    compareTitle: ['What each plan ', 'opens for you', '.'],
+    compareLead: 'Découverte lets you talk with Baarali. From Semaine on, your agents work for you, with the whole workspace.',
+    planGroup: 'The plan',
     rows: {
       price: 'Price',
       billing: 'Payment',
       models: 'Models',
       usage: 'Usage',
       windows: '5-hour and weekly gauges',
-      work: 'Work: projects, agents, tasks, code and Studio',
-      media: 'Videos, voices, music',
-      approval: 'Your approval before anything is sent',
-      apps: 'Mac and Windows apps',
-      space: 'Personal workspace, hosted in Europe',
     },
+    notIncluded: 'Not included',
     billingNone: 'None',
     billingWeek: 'Each week, by hand',
     billingMonth: `Monthly or yearly (−${OFF}%)`,
@@ -308,6 +306,7 @@ function both(prices: Money[], lang: Lang, render: (p: Money) => string): string
 
 const SUN = '<svg class="i sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
 const MOON = '<svg class="i moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
+const LOCK = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 const CHECK = '<svg class="i ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
 const PAY_ICONS = [
   '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
@@ -336,7 +335,7 @@ export function planOffers(data: HomeData, acceptLanguage: string | null): PlanO
     offer.billing.kind === 'free'
       ? { id: offer.id, label, price: null, per: t.forever, note }
       : { id: offer.id, label, price: written(offer.billing.prices), per: offer.billing.period === 'week' ? t.perWeek : t.perMonth, note };
-  const copy = (offer: Offer) => planAccessCopy(t.plans[offer.id] ?? t.plans.pro, offer.billing.kind === 'free', lang);
+  const copy = (offer: Offer) => planAccessCopy(t.plans[offer.id] ?? t.plans.pro, offer.billing.kind === 'free', lang, offer.category !== 'pro');
   const plan = (offer: Offer, levels: PlanOfferLevel[]): PlanOffer => ({
     id: offer.id,
     name: offer.displayName,
@@ -394,7 +393,7 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
   };
 
   const card = (offer: Offer, extra = '') => {
-    const copy = planAccessCopy(t.plans[offer.id] ?? t.plans.pro, offer.billing.kind === 'free', lang);
+    const copy = planAccessCopy(t.plans[offer.id] ?? t.plans.pro, offer.billing.kind === 'free', lang, offer.category !== 'pro');
     const featured = offer.id === 'essentiel';
     return `<article class="plan${featured ? ' featured' : ''}">
       ${featured ? `<p class="badge">${escape(t.popular)}</p>` : ''}
@@ -405,6 +404,7 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
       ${offer.billing.kind === 'free' ? (data.downloadBase ? `<a class="cta cta-blue" href="/#telecharger">${escape(t.getApp)}</a>` : `<a class="cta cta-blue" href="/auth/v1/sign-in">${escape(t.start)}</a>`) : `<p class="cta cta-off" aria-disabled="true">${escape(t.soon)}</p>`}
       <p class="plus">${escape(copy.plus)}</p>
       <ul>${copy.points.map((p) => `<li>${CHECK}${escape(p)}</li>`).join('')}</ul>
+      ${offer.billing.kind === 'free' ? `<p class="locked">${LOCK}${escape(lockedNote(lang))}</p>` : ''}
     </article>`;
   };
 
@@ -417,8 +417,11 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
       ${pros.map((o, i) => `<div class="level" data-level="${i}"${i === 0 ? '' : ' hidden'}>${priceBlock(o)}<p class="usage">${escape(t.usage(ratio(o.id)))}</p></div>`).join('')}`)
     : '';
 
-  // The comparison: one column per plan, Pro shown with both levels.
+  // The comparison: one column per plan, Pro shown with both levels; the
+  // plan's figures first, then what it opens, by group (plan-access-copy.ts).
   const columns = [...others, ...pros.slice(0, 1)];
+  const tier = (o: Offer): Tier => o.category;
+  const mark = (c: Cell) => c === true ? `${CHECK}<span class="sr">${escape(t.yes)}</span>` : c === false ? `<span class="no" aria-label="${escape(t.notIncluded)}">—</span>` : `<span class="txt">${escape(c)}</span>`;
   const cell = (o: Offer, row: keyof typeof t.rows): string => {
     switch (row) {
       case 'price':
@@ -433,19 +436,19 @@ export function pricingPage(data: HomeData, opts: { lang: string | null; nonce: 
         if (o.category === 'free') return escape(t.usageLimited);
         if (o.category === 'pro') return escape(pros.map((p) => t.usageX(ratio(p.id))).join(' · '));
         return escape(t.usageBase);
-      case 'work':
-        return o.category === 'free' ? '—' : `${CHECK}<span class="sr">${escape(t.yes)}</span>`;
-      case 'media':
-        return escape(t.mediaCredits);
       default:
-        return `${CHECK}<span class="sr">${escape(t.yes)}</span>`;
+        return mark(true);
     }
   };
+  const hl = (o: Offer) => (o.id === 'essentiel' ? ' class="hl"' : '');
+  const group = (title: string) => `<tr class="grp"><th scope="colgroup" colspan="${columns.length + 1}">${escape(title)}</th></tr>`;
   const table = `<table>
-    <thead><tr><td></td>${columns.map((o) => `<th scope="col"${o.id === 'essentiel' ? ' class="hl"' : ''}>${escape(o.displayName)}</th>`).join('')}</tr></thead>
-    <tbody>${(Object.keys(t.rows) as Array<keyof typeof t.rows>)
-      .map((r) => `<tr><th scope="row">${escape(t.rows[r])}</th>${columns.map((o) => `<td${o.id === 'essentiel' ? ' class="hl"' : ''}>${cell(o, r)}</td>`).join('')}</tr>`)
-      .join('')}</tbody>
+    <thead><tr><td></td>${columns.map((o) => `<th scope="col"${hl(o)}>${escape(o.displayName)}</th>`).join('')}</tr></thead>
+    <tbody>${group(t.planGroup)}${(Object.keys(t.rows) as Array<keyof typeof t.rows>)
+      .map((r) => `<tr><th scope="row">${escape(t.rows[r])}</th>${columns.map((o) => `<td${hl(o)}>${cell(o, r)}</td>`).join('')}</tr>`)
+      .join('')}${planAccess(lang).map((g) => group(g.name) + g.rows
+      .map((r) => `<tr><th scope="row">${escape(r.text)}</th>${columns.map((o) => `<td${hl(o)}>${mark(r.cells[tier(o)])}</td>`).join('')}</tr>`)
+      .join('')).join('')}</tbody>
   </table>`;
 
   const packs = data.packs
@@ -472,9 +475,9 @@ try { if (localStorage.getItem("baarali-currency") === "eur") document.documentE
 @font-face { font-family:"Inter"; src:url(/assets/inter.woff2) format("woff2"); font-weight:400 800; font-display:swap; }
 @font-face { font-family:"Source Serif 4"; src:url(/assets/source-serif-4.woff2) format("woff2"); font-weight:400 700; font-style:normal; font-display:swap; }
 /* The home page's palette and type (home-page.ts), in both themes. */
-:root { --paper:#ffffff; --mist:#f5f5f5; --surface:#ffffff; --line:#e7e7e7; --ink:#0d0d0d; --on-ink:#ffffff; --text:#2b2b2b; --muted:#5d5d5d; --blue:#1a6dff; --blue-deep:#155eef; --blue-soft:#eef3ff; --blue-line:#d3e0ff; --top-bg:rgb(255 255 255 / .85); --night:#f5f5f5; --night-line:#e7e7e7; --night-muted:#5d5d5d; --featured:#ffffff; --featured-line:#155eef; --track:#e5e5e5; --night-2:#ffffff; --surface-2:#fafafa; --dot:#e3e3e3; --skeleton:#e0e0e0; --hover-line:#cfcfcf; --glass:rgb(255 255 255 / .7); color-scheme:light; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper:#212121; --mist:#1a1a1a; --surface:#2a2a2a; --line:#333333; --ink:#ececec; --on-ink:#0d0d0d; --text:#d4d4d4; --muted:#a6a6a6; --blue:#4d8dff; --blue-deep:#1a6dff; --blue-soft:#1d2738; --blue-line:#2f4670; --top-bg:rgb(33 33 33 / .85); --night:#1a1a1a; --featured:#2a2a2a; --featured-line:#4d8dff; --track:#3a3a3a; --night-2:#2a2a2a; --night-line:#333333; --night-muted:#a6a6a6; --surface-2:#262626; --dot:#3a3a3a; --skeleton:#3a3a3a; --hover-line:#474747; --glass:rgb(42 42 42 / .7); color-scheme:dark; } }
-:root[data-theme="dark"] { --paper:#212121; --mist:#1a1a1a; --surface:#2a2a2a; --line:#333333; --ink:#ececec; --on-ink:#0d0d0d; --text:#d4d4d4; --muted:#a6a6a6; --blue:#4d8dff; --blue-deep:#1a6dff; --blue-soft:#1d2738; --blue-line:#2f4670; --top-bg:rgb(33 33 33 / .85); --night:#1a1a1a; --featured:#2a2a2a; --featured-line:#4d8dff; --track:#3a3a3a; --night-2:#2a2a2a; --night-line:#333333; --night-muted:#a6a6a6; --surface-2:#262626; --dot:#3a3a3a; --skeleton:#3a3a3a; --hover-line:#474747; --glass:rgb(42 42 42 / .7); color-scheme:dark; }
+:root { --paper:#ffffff; --mist:#f5f5f5; --surface:#ffffff; --line:#e7e7e7; --ink:#0a0a0a; --on-ink:#ffffff; --text:#2b2b2b; --muted:#5d5d5d; --blue:#0a0a0a; --blue-deep:#0a0a0a; --blue-soft:#f2f2f2; --blue-line:#d4d4d4; --top-bg:rgb(255 255 255 / .85); --night:#f5f5f5; --night-line:#e7e7e7; --night-muted:#5d5d5d; --featured:#ffffff; --featured-line:#0a0a0a; --track:#e5e5e5; --night-2:#ffffff; --surface-2:#fafafa; --dot:#e3e3e3; --skeleton:#e0e0e0; --hover-line:#cfcfcf; --glass:rgb(255 255 255 / .7); color-scheme:light; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper:#0a0a0a; --mist:#0f0f0f; --surface:#141414; --line:#262626; --ink:#ffffff; --on-ink:#0a0a0a; --text:#d6d6d6; --muted:#9b9b9b; --blue:#ffffff; --blue-deep:#ffffff; --blue-soft:#1b1b1b; --blue-line:#3a3a3a; --top-bg:rgb(10 10 10 / .82); --night:#111111; --night-line:#262626; --night-muted:#9b9b9b; --featured:#161616; --featured-line:#ffffff; --track:#262626; --night-2:#141414; --surface-2:#121212; --dot:#2a2a2a; --skeleton:#222; --hover-line:#3a3a3a; --glass:rgb(20 20 20 / .7); color-scheme:dark; } }
+:root[data-theme="dark"] { --paper:#0a0a0a; --mist:#0f0f0f; --surface:#141414; --line:#262626; --ink:#ffffff; --on-ink:#0a0a0a; --text:#d6d6d6; --muted:#9b9b9b; --blue:#ffffff; --blue-deep:#ffffff; --blue-soft:#1b1b1b; --blue-line:#3a3a3a; --top-bg:rgb(10 10 10 / .82); --night:#111111; --night-line:#262626; --night-muted:#9b9b9b; --featured:#161616; --featured-line:#ffffff; --track:#262626; --night-2:#141414; --surface-2:#121212; --dot:#2a2a2a; --skeleton:#222; --hover-line:#3a3a3a; --glass:rgb(20 20 20 / .7); color-scheme:dark; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; scroll-padding-top:88px; }
 body { margin:0; background:var(--paper); color:var(--text); font:16px/1.6 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing:antialiased; }
@@ -496,6 +499,8 @@ a { color:inherit; }
 .theme .moon, :root[data-theme="dark"] .theme .sun { display:none; }
 :root[data-theme="dark"] .theme .moon { display:block; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme .sun { display:none; } :root:not([data-theme="light"]) .theme .moon { display:block; } }
+/* A white shape follows the theme (ink on a light page), as the B does in the app. */
+svg.is-white path { fill:var(--ink); } svg.is-white circle { fill:var(--paper); }
 .kicker { display:inline-flex; align-items:center; gap:8px; margin:0 0 14px; font-size:13px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--blue-deep); }
 .kicker::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--blue); }
 h1, h2 { font-family:"Source Serif 4", Georgia, serif; margin:0; color:var(--ink); letter-spacing:-.022em; font-weight:500; text-wrap:balance; }
@@ -535,20 +540,20 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .levels button[aria-checked="true"] { background:var(--ink); color:var(--on-ink); }
 .level .price { margin-top:14px; }
 .cta { display:flex; align-items:center; justify-content:center; text-align:center; margin:22px 0 0; border-radius:999px; padding:12px 16px; font-weight:650; font-size:15px; text-decoration:none; }
-.cta-blue { background:var(--blue-deep); color:#fff; }
-.cta-blue:hover { background:var(--blue); }
+.cta-blue { background:var(--ink); color:var(--on-ink); }
+.cta-blue:hover { opacity:.88; }
 .cta-off { background:var(--mist); color:var(--muted); border:1px dashed var(--line); font-size:14px; }
 .plan ul { list-style:none; margin:22px 0 0; padding:20px 0 0; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:10px; font-size:14.5px; }
 .plan li { display:flex; gap:10px; }
 .plan li .ok { color:var(--blue); margin-top:2px; }
-.plan.featured { background:var(--featured); border:2px solid var(--featured-line); color:var(--text); box-shadow:0 30px 60px -34px rgb(21 94 239 / .45); }
+.plan.featured { background:var(--featured); border:2px solid var(--featured-line); color:var(--text); box-shadow:0 30px 60px -34px rgb(255 255 255 / .18); }
 .plan.featured h3, .plan.featured .price strong { color:var(--ink); }
 .plan.featured .tag, .plan.featured .usage { color:var(--blue); }
 .plan.featured .for, .plan.featured .alt, .plan.featured .price > span { color:var(--muted); }
 .plan.featured ul { border-color:var(--night-line); }
 .plan.featured li .ok { color:var(--blue); }
 .plan.featured .cta-off { background:var(--mist); border-color:var(--night-line); color:var(--muted); }
-.badge { position:absolute; top:-12px; left:24px; margin:0; background:var(--blue-deep); color:#fff; font-size:12.5px; font-weight:650; border-radius:999px; padding:4px 12px; }
+.badge { position:absolute; top:-12px; left:24px; margin:0; background:var(--ink); color:var(--on-ink); font-size:12.5px; font-weight:650; border-radius:999px; padding:4px 12px; }
 .fine { margin:20px 0 0; text-align:center; font-size:13.5px; color:var(--muted); }
 /* Monthly or yearly: a year shows only on the monthly plans. */
 .p-year, :root[data-period="year"] .p-month { display:none; }
@@ -557,7 +562,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .plan.featured .note-y { color:var(--blue); }
 .switches { display:flex; flex-wrap:wrap; justify-content:center; gap:12px 28px; margin-top:32px; }
 .switches .switch { margin-top:0; }
-.save { font-weight:700; font-size:12px; color:#fff; background:var(--blue-deep); border-radius:999px; padding:2px 7px; margin-left:4px; }
+.save { font-weight:700; font-size:12px; color:var(--on-ink); background:var(--ink); border-radius:999px; padding:2px 7px; margin-left:4px; }
 .plus { margin:20px 0 0; padding-top:18px; border-top:1px solid var(--line); font-size:13px; font-weight:650; color:var(--ink); }
 .plan.featured .plus { color:var(--ink); border-color:var(--night-line); }
 .plan .plus + ul { margin-top:12px; padding-top:0; border-top:0; }
@@ -570,7 +575,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .biz-head { display:grid; grid-template-columns:minmax(0, 1fr) 260px; gap:40px; align-items:end; }
 .biz-side { display:flex; flex-direction:column; gap:10px; }
 .biz-price { margin:0; color:var(--ink); font-family:"Source Serif 4", Georgia, serif; font-size:32px; font-weight:500; letter-spacing:-.02em; }
-.cta-white { background:var(--blue-deep); color:#fff; margin:0; }
+.cta-white { background:var(--ink); color:var(--on-ink); margin:0; }
 .biz-mail { margin:0; font-size:13.5px; }
 .biz-for { list-style:none; margin:32px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
 .biz-for li { border:1px solid var(--night-line); border-radius:999px; padding:6px 14px; font-size:14px; color:var(--text); }
@@ -614,6 +619,12 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom:0; }
 td { color:var(--ink); font-variant-numeric:tabular-nums; }
 td .ok { color:var(--blue); }
 .hl { background:var(--blue-soft); }
+.grp th { padding:22px 18px 10px; font-size:12.5px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); background:var(--surface); }
+td .no { color:#555; }
+td .txt { font-size:13.5px; color:var(--text); }
+.locked { display:flex; gap:10px; margin:16px 0 0; padding:12px 14px; border-radius:14px; background:var(--mist); border:1px dashed var(--line); font-size:13.5px; color:var(--muted); }
+.locked .i { width:16px; height:16px; margin-top:2px; }
+.cmp-lead { margin:12px 0 0; }
 /* Media */
 .media-grid { display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, .9fr); gap:20px; margin-top:40px; }
 .packs { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
@@ -635,7 +646,7 @@ td .ok { color:var(--blue); }
 .pay b { display:block; margin:14px 0 4px; color:var(--ink); font-size:17px; }
 .pay p { margin:0; color:var(--muted); font-size:14.5px; }
 .soon { display:flex; align-items:center; gap:10px; margin:16px 0 0; background:var(--blue-soft); border:1px solid var(--blue-line); border-radius:14px; padding:13px 16px; color:var(--ink); font-size:14.5px; font-weight:550; }
-.soon::before { content:""; flex:none; width:8px; height:8px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px rgb(26 109 255 / .2); }
+.soon::before { content:""; flex:none; width:8px; height:8px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px rgb(255 255 255 / .12); }
 /* FAQ */
 .faq { margin-top:36px; border-top:1px solid var(--line); }
 .faq details { border-bottom:1px solid var(--line); }
@@ -653,13 +664,7 @@ td .ok { color:var(--blue); }
 .final h2 { color:var(--ink); }
 .final h2 em { color:var(--blue); }
 .final p { margin:14px auto 0; max-width:52ch; font-size:17px; }
-.final a { display:inline-flex; margin-top:28px; background:var(--blue-deep); color:#fff; text-decoration:none; font-weight:650; border-radius:999px; padding:14px 24px; }
-footer { background:var(--night); color:var(--night-muted); margin-top:96px; padding-block:40px; font-size:14px; border-top:1px solid var(--night-line); }
-footer .wrap { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; }
-footer .brand { color:var(--ink); }
-footer nav { display:flex; flex-wrap:wrap; gap:18px; }
-footer a { text-decoration:none; }
-footer a:hover { color:var(--ink); }
+.final a { display:inline-flex; margin-top:28px; background:var(--ink); color:var(--on-ink); text-decoration:none; font-weight:650; border-radius:999px; padding:14px 24px; }
 :focus-visible { outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
 @media (max-width: 1040px) {
   .plans { grid-template-columns:repeat(2, minmax(0, 1fr)); }
@@ -677,6 +682,7 @@ footer a:hover { color:var(--ink); }
 @media (max-width: 440px) { .menu .btn { display:none; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } .faq summary::after, .bar i { transition:none; } .live, .feed li { animation:none; } }
 ${LOGO_ALIVE_CSS}
+${SITE_FOOTER_CSS}
 </style>
 </head>
 <body>
@@ -712,6 +718,11 @@ ${LOGO_ALIVE_CSS}
 <div class="wrap">
   <div class="plans">${others.map((o) => card(o)).join('')}${proCard}</div>
 
+  <section class="section" id="comparer" aria-labelledby="compare-title">
+    <div class="head"><p class="kicker">${escape(t.compareKicker)}</p><h2 id="compare-title">${titled(t.compareTitle)}</h2><p class="lead cmp-lead">${escape(t.compareLead)}</p></div>
+    <div class="table">${table}</div>
+  </section>
+
   <section class="section" id="utilisation" aria-labelledby="usage-title">
     <div class="head"><p class="kicker">${escape(t.usageKicker)}</p><h2 id="usage-title">${titled(t.usageTitle)}</h2><p class="lead">${escape(t.usageLead)}</p></div>
     <div class="usage-grid">
@@ -735,10 +746,6 @@ ${LOGO_ALIVE_CSS}
     <p class="biz-note">${escape(t.bizNote)}</p>
   </section>
 
-  <section class="section" id="comparer" aria-labelledby="compare-title">
-    <div class="head"><p class="kicker">${escape(t.compareKicker)}</p><h2 id="compare-title">${titled(t.compareTitle)}</h2></div>
-    <div class="table">${table}</div>
-  </section>
 
   <section class="section" id="medias" aria-labelledby="media-title">
     <div class="head"><p class="kicker">${escape(t.mediaKicker)}</p><h2 id="media-title">${titled(t.mediaTitle)}</h2><p class="lead">${escape(t.mediaLead)}</p></div>
@@ -768,13 +775,7 @@ ${LOGO_ALIVE_CSS}
   </div>
 </div>
 </main>
-<footer>
-  <div class="wrap">
-    <a class="brand" href="/">${logoTile(28)}${logoWord(22)}</a>
-    <nav aria-label="${escape(legal[0]?.label ?? '')}">${legal.map((l) => `<a href="${l.href}">${escape(l.label)}</a>`).join('')}<a href="mailto:${CONTACT}">${CONTACT}</a></nav>
-    <span>© ${new Date().getFullYear()} OpenBaara SAS · Burkina Faso</span>
-  </div>
-</footer>
+${siteFooter(lang, opts.lang, data.downloadBase ? '/#telecharger' : null)}
 <script nonce="${opts.nonce}">
 "use strict";
 const root = document.documentElement;
@@ -842,7 +843,7 @@ for (const b of document.querySelectorAll(".levels button")) {
     for (const l of document.querySelectorAll(".level")) l.hidden = l.dataset.level !== b.dataset.level;
   });
 }
-${LOGO_ALIVE_JS}
+${LOGO_ALIVE_JS}${LIVING_JS}
 </script>
 </body>
 </html>`;

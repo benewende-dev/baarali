@@ -118,7 +118,10 @@ export function segmentTurns(items: ConversationItem[], working: boolean): TurnS
     const index = r++
     const items = runs[index]
     const last = index === runs.length - 1
-    const finished = items.some(isTurnUsageMessage) || !working || !last
+    // BAARALI(07/11/2026): the usage line comes after the first model call,
+    // not at the end: only the turn itself says it is over (it made a
+    // turn waiting for an approval look « Worked 0 s »).
+    const finished = !working || !last
     let answer = -1
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i]

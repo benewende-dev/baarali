@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PlanOffers } from '@x/shared/src/billing.js'
 import { PlansDialog } from './plans-dialog'
 import { closePlans, openPlans } from '@/lib/plans-window'
@@ -37,11 +37,13 @@ beforeEach(() => {
   }
 })
 
+afterEach(() => cleanup())
+
 describe('PlansDialog', () => {
   it('shows the plans with the person\'s own marked, in CFA francs first', async () => {
     render(<PlansDialog />)
     act(() => openPlans())
-    await waitFor(() => expect(screen.getByText('Essentiel')).toBeTruthy())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Essentiel' })).toBeTruthy())
     expect(screen.getByText('Your plan')).toBeTruthy()
     expect(screen.getByText('Current plan')).toBeTruthy()
     expect(screen.getByText('13 119 F CFA')).toBeTruthy()

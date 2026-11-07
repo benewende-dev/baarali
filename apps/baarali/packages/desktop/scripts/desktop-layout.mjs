@@ -30,7 +30,7 @@ export function desktopLayoutEdits() {
     edit('components/chat-input-with-mentions.tsx', '                  if (!inCall && canToggleConversation()) {', '                  if (!inCall && canToggleConversation() && !callRequiresSession) {'),
     edit('main.tsx', "import App from './App.tsx'", "import App from './App.tsx'\nimport { DesktopWorkspaceProvider } from '@/components/desktop-workspace'"),
     edit('main.tsx', '          <App />', '          <DesktopWorkspaceProvider><App /></DesktopWorkspaceProvider>'),
-    edit('App.tsx', "import { SidebarContentPanel } from '@/components/sidebar-content';", "import { SidebarContentPanel } from '@/components/sidebar-content';\nimport { DesktopModeTabs, DesktopWorkGate, useDesktopWorkspace, workspaceForNav } from '@/components/desktop-workspace';\nimport { DesktopStudioLibrary } from '@/components/desktop-studio-library';"),
+    edit('App.tsx', "import { SidebarContentPanel } from '@/components/sidebar-content';", "import { SidebarContentPanel } from '@/components/sidebar-content';\nimport { DesktopModeSync, DesktopWorkGate, useDesktopWorkspace, workspaceForNav } from '@/components/desktop-workspace';\nimport { DesktopStudioLibrary } from '@/components/desktop-studio-library';"),
     edit('App.tsx', "currentViewState.type !== 'prompts' && currentViewState.type !== 'baarasseurs'", "currentViewState.type !== 'studio' && currentViewState.type !== 'prompts' && currentViewState.type !== 'baarasseurs'"),
     edit('App.tsx', 'function App() {', 'function App() {\n  const desktopWorkspace = useDesktopWorkspace();'),
     edit('App.tsx', "  | { type: 'apps' }", "  | { type: 'apps' }\n  | { type: 'studio' }"),
@@ -73,8 +73,8 @@ export function desktopLayoutEdits() {
     // BAARALI(16/10/2026): Electron computes native draggable regions in
     // paint order. Tabs must follow every drag region, like FixedSidebarToggle;
     // z-index alone leaves real mouse clicks captured by the titlebar.
-    edit('App.tsx', '            <MenuSidebarToggleBridge />', '            <MenuSidebarToggleBridge />\n            <DesktopModeTabs activeNav={sidebarNavProps.activeNav} onChat={openAssistant} onWork={openCodeView} />'),
-    edit('App.tsx', '            <SidebarInset\n', "            <DesktopWorkGate required={workspaceForNav(sidebarNavProps.activeNav) === 'work' || (isStudioOpen || !!selectedPath?.startsWith('motion/'))} onChat={openAssistant}>\n            <SidebarInset\n"),
+    edit('App.tsx', '            <MenuSidebarToggleBridge />', '            <MenuSidebarToggleBridge />\n            <DesktopModeSync activeNav={sidebarNavProps.activeNav} />'),
+    edit('App.tsx', '            <SidebarInset\n', "            <DesktopWorkGate required={workspaceForNav(sidebarNavProps.activeNav) === 'work' || (isStudioOpen || !!selectedPath?.startsWith('motion/'))} page={sidebarNavProps.activeNav} studio={isStudioOpen || !!selectedPath?.startsWith('motion/')} onChat={openAssistant}>\n            <SidebarInset\n"),
     edit('App.tsx', '            {/* Full-screen call: user tile', '            </DesktopWorkGate>\n            {/* Full-screen call: user tile'),
     edit('App.tsx', "              {activeMiddle === 'suggested-topics' && (", "              {activeMiddle === 'studio' && <DesktopStudioLibrary onOpen={navigateToFile} onCreate={() => prefillChat('Help me prepare a creative project in Studio. ')} />}\n              {activeMiddle === 'suggested-topics' && ("),
     edit('App.tsx', "      return { ...style, width: codeRailWidth, flex: '0 0 auto' }", "      return { ...style, width: desktopWorkspace.mode === 'work' && sidebarOpen ? 0 : codeRailWidth, flex: '0 0 auto' }"),
@@ -82,29 +82,36 @@ export function desktopLayoutEdits() {
     edit('components/sidebar-content.tsx', 'import { SidebarChatContextMenu }', "import { useDesktopWorkspace } from './desktop-workspace'\nimport { Search, Clapperboard, Users } from 'lucide-react'\nimport { SidebarChatContextMenu }"),
     edit('components/sidebar-content.tsx', '  onOpenMeetings?: () => void', '  onSearch?: () => void\n  onOpenStudio?: () => void\n  onNewWork?: () => void\n  onOpenMeetings?: () => void'),
     edit('components/sidebar-content.tsx', "| 'spaces' | 'workspaces' | null", "| 'studio' | 'spaces' | 'workspaces' | null"),
-    edit('components/sidebar-content.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onSearch, onOpenStudio, onNewWork, onOpenSpaces,\n  onOpenMeetings,\n  onOpenBgTasks,'),
+    edit('components/sidebar-content.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onSearch, onOpenStudio, onOpenSpaces,\n  onOpenMeetings,\n  onOpenBgTasks,'),
     edit('components/sidebar-content.tsx', '  onOpenSpace,\n  activeSpace,\n', ''),
-    edit('components/sidebar-content.tsx', '  const { sessions: projectSessions,', '  const workspace = useDesktopWorkspace()\n  const { sessions: projectSessions,'),
-    edit('components/sidebar-content.tsx', sidebarNavigation, `  const isWork = workspace.mode === 'work'
-  menuRun.push(<SidebarMenuItem key="new"><SidebarMenuButton className="baarali-new-action" onClick={() => isWork ? onNewWork?.() : onNewChat?.()}><SquarePen className="size-4 shrink-0" /><span>{isWork ? 'New work' : 'New chat'}</span></SidebarMenuButton></SidebarMenuItem>)
-  if (!isWork) menuRun.push(<SidebarMenuItem key="search"><SidebarMenuButton onClick={onSearch}><Search className="size-4" /><span>Search</span></SidebarMenuButton></SidebarMenuItem>)
-  for (const id of (isWork ? ['code', 'email', 'meetings', 'coworkers', 'routines', 'apps'] : ['todo', 'library', 'prompts']) as SidebarPage[]) {
-    const row = sidebarRows.find(row => row.id === id)
-    menuRun.push(renderPage({ id, label: (row && 'label' in row ? row.label : null) ?? (id === 'coworkers' ? 'Agents' : null) }))
+    edit('components/sidebar-content.tsx', '  const { sessions: projectSessions,', '  const workspace = useDesktopWorkspace()\n  const onCode = activeNav === \'code\' || activeNav === \'workspaces\'\n  const { sessions: projectSessions,'),
+    // BAARALI(07/11/2026): one sidebar, as in Claude Code (the founder's
+    // call): the everyday pages first, the rest folded under « More ». On
+    // Découverte a paid page wears a padlock and opens its explanation.
+    edit('components/sidebar-content.tsx', sidebarNavigation, `  const locked = workspace.access === 'denied'
+  const PAID: string[] = ['coworkers', 'routines', 'code', 'email', 'meetings', 'apps', 'spaces', 'studio']
+  const lock = (id: string, node: React.ReactNode) => locked && PAID.includes(id) && React.isValidElement(node) ? React.cloneElement(node as React.ReactElement<{ className?: string }>, { className: 'baarali-locked' }) : node
+  const page = (id: SidebarPage) => {
+    const row = sidebarRows.find(row => row.id === id) as { id: SidebarPage; label: string | null } | undefined
+    return row ? lock(id, renderPage({ id, label: row.label ?? (id === 'coworkers' ? 'Agents' : null) })) : null
   }
-  if (isWork) {
-    if (SPACES_ENABLED) menuRun.push(<SidebarMenuItem key="spaces"><SidebarMenuButton isActive={activeNav === 'spaces'} onClick={onOpenSpaces}><Users className="size-4" /><span>Team spaces</span></SidebarMenuButton></SidebarMenuItem>)
-    menuRun.push(<SidebarMenuItem key="studio"><SidebarMenuButton isActive={activeNav === 'studio'} onClick={onOpenStudio}><Clapperboard className="size-4" /><span>Studio</span></SidebarMenuButton></SidebarMenuItem>)
-  }
-  flushMenu()`),
+  menuRun.push(<SidebarMenuItem key="new"><SidebarMenuButton className="baarali-new-action" onClick={() => onNewChat?.()}><SquarePen className="size-4 shrink-0" /><span>New chat</span></SidebarMenuButton></SidebarMenuItem>)
+  menuRun.push(<SidebarMenuItem key="search"><SidebarMenuButton onClick={onSearch}><Search className="size-4" /><span>Search</span></SidebarMenuButton></SidebarMenuItem>)
+  for (const id of ['coworkers', 'routines', 'code', 'todo', 'library'] as SidebarPage[]) { const node = page(id); if (node) menuRun.push(node) }
+  flushMenu()
+  const more: React.ReactNode[] = (['email', 'meetings', 'apps', 'prompts'] as SidebarPage[]).map(page).filter(Boolean)
+  if (SPACES_ENABLED && sidebarRows.some(row => row.id === 'spaces')) more.push(lock('spaces', <SidebarMenuItem key="spaces"><SidebarMenuButton isActive={activeNav === 'spaces'} onClick={onOpenSpaces}><Users className="size-4" /><span>Team spaces</span></SidebarMenuButton></SidebarMenuItem>))
+  more.push(lock('studio', <SidebarMenuItem key="studio"><SidebarMenuButton isActive={activeNav === 'studio'} onClick={onOpenStudio}><Clapperboard className="size-4" /><span>Studio</span></SidebarMenuButton></SidebarMenuItem>))
+  const moreActive = ['email', 'meetings', 'apps', 'prompts', 'spaces', 'studio'].includes(activeNav ?? '')
+  sidebarBlocks.push(<details key="more" className="baarali-more" open={moreActive || undefined}><summary>More</summary><SidebarGroup className="flex flex-col py-0"><SidebarGroupContent><SidebarMenu>{more}</SidebarMenu></SidebarGroupContent></SidebarGroup></details>)`),
     // Keep the entire profile/usage/status footer unchanged; only the body differs.
-    edit('components/sidebar-content.tsx', '        {/* Chats */}\n        <SidebarGroup', '        {isWork && workspace.access === \'allowed\' && <div ref={workspace.setProjectHost} className="baarali-project-host min-h-0 flex-1" />}\n        {/* Chats */}\n        <SidebarGroup hidden={isWork}'),
+    edit('components/sidebar-content.tsx', '        {/* Chats */}\n        <SidebarGroup', '        {onCode && workspace.access === \'allowed\' && <div ref={workspace.setProjectHost} className="baarali-project-host min-h-0 flex-1" />}\n        {/* Chats */}\n        <SidebarGroup hidden={onCode && workspace.access === \'allowed\'}'),
     edit('components/sidebar-content.tsx', 'import { SpacesSidebarSection } from "@/components/spaces-sidebar-section"\n', ''),
     edit('components/dock-sidebar.tsx', 'export function DockSidebar({', "import { useDesktopWorkspace } from './desktop-workspace'\nimport { Clapperboard, Bot } from 'lucide-react'\n\nexport function DockSidebar({"),
     edit('components/dock-sidebar.tsx', '  onOpenMeetings?: () => void', '  onOpenStudio?: () => void\n  onOpenBaarasseurs?: () => void\n  onNewWork?: () => void\n  onOpenMeetings?: () => void'),
     edit('components/dock-sidebar.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onOpenStudio, onOpenBaarasseurs, onNewWork,\n  onOpenMeetings,\n  onOpenBgTasks,'),
     edit('components/dock-sidebar.tsx', '  // ----- interaction state -----', "  const workspace = useDesktopWorkspace()\n  // ----- interaction state -----"),
-    edit('components/dock-sidebar.tsx', '    return items\n  }, [', "    const work = workspace.mode === 'work'\n    const filtered = items.filter(row => {\n      if ('sep' in row && row.sep) return false\n      const key = row.item.key\n      return work ? ['workspaces', 'email', 'meetings', 'spaces', 'agents', 'apps', 'settings'].includes(key) || key.startsWith('app:') : ['new-chat', 'assistant', 'home', 'brain', 'chats', 'settings'].includes(key)\n    })\n    if (work) filtered.unshift({ item: { key: 'new-work', label: 'New work', icon: SquarePen, onClick: () => onNewWork?.() } }, { item: { key: 'baarasseurs', label: 'Agents', icon: Bot, onClick: () => onOpenBaarasseurs?.() } }, { item: { key: 'studio', label: 'Studio', icon: Clapperboard, onClick: () => onOpenStudio?.() } })\n    return filtered\n  }, [workspace.mode, onOpenStudio, onOpenBaarasseurs, onNewWork,"),
+    edit('components/dock-sidebar.tsx', '    return items\n  }, [', "    // BAARALI(07/11/2026): one dock, like the one sidebar: no Chat page, Agents and Studio added.\n    const filtered = items.filter(row => !('item' in row) || row.item.key !== 'assistant')\n    const at = Math.max(0, filtered.findIndex(row => 'item' in row && row.item.key === 'new-chat') + 1)\n    filtered.splice(at, 0, { item: { key: 'baarasseurs', label: 'Agents', icon: Bot, onClick: () => onOpenBaarasseurs?.() } }, { item: { key: 'studio', label: 'Studio', icon: Clapperboard, onClick: () => onOpenStudio?.() } })\n    void workspace; void onNewWork\n    return filtered\n  }, [workspace.mode, onOpenStudio, onOpenBaarasseurs, onNewWork,"),
     edit('components/code/code-view.tsx', "import { SessionRail } from './session-rail'", "import { SessionRail } from './session-rail'\nimport { DesktopCodeRail, useDesktopWorkspace } from '../desktop-workspace'\nimport { DesktopCodeHome, type WorkSubmission, type WorkVoiceProps } from '../desktop-code-home'\nimport { useSidebar } from '../ui/sidebar'"),
     edit('components/code/code-view.tsx', '  onSessionSelected,\n  focusSessionId,', '  onSessionSelected, onStartWork, workVoice,\n  focusSessionId,'),
     edit('components/code/code-view.tsx', '  onSessionSelected?: (active: ActiveCodeSession | null) => void', '  workVoice?: WorkVoiceProps\n  onStartWork?: (session: CodeSession, submission: WorkSubmission) => Promise<void>\n  onSessionSelected?: (active: ActiveCodeSession | null) => void'),
@@ -142,5 +149,24 @@ const invoke = vi.fn(async (channel: string) => {`),
     edit('components/chat-input-with-mentions.tsx', '<div className="px-4 pt-5 pb-3">', '<div className="px-3.5 pt-3 pb-2">'),
     edit('components/chat-input-with-mentions.tsx', 'className="flex items-center gap-2 px-4 pb-3"', 'className="flex items-center gap-1.5 px-3 pb-2"'),
     edit('components/chat-input-with-mentions.tsx', '<div title="Assistant model" aria-label="Assistant model">', '<div className="baarali-compact-model" title="Assistant model" aria-label="Assistant model">'),
+    // BAARALI(07/11/2026): the steps' real times. The view dated every item
+    // « turn start + n ms », so a long piece of work read « Worked 0 s ». A
+    // model call is dated by its first tool (asked, run or answered), the
+    // last one by the turn's end, a tool by its result.
+    edit('lib/session-chat/turn-view.ts', "    if (call.response === undefined) continue\n", "    if (call.response === undefined) continue\n    const callTools = state.toolCalls.filter((t) => t.modelCallIndex === call.index)\n    const toolTimes = callTools.map((t) => t.permission?.required?.ts ?? t.invocation?.ts ?? t.result?.ts).filter((x): x is string => typeof x === 'string').map((x) => Date.parse(x))\n    const lastCall = call.index === state.modelCalls[state.modelCalls.length - 1]?.index\n    const endTs = (state.terminal as { ts?: string } | undefined)?.ts\n    const callAt = toolTimes.length ? Math.min(...toolTimes) : lastCall && endTs ? Date.parse(endTs) : null\n    const at = () => (callAt === null ? ts() : callAt + seq++)\n"),
+    edit('lib/session-chat/turn-view.ts', "        content: reasoning,\n        timestamp: ts(),", "        content: reasoning,\n        timestamp: at(),"),
+    edit('lib/session-chat/turn-view.ts', "        content: text,\n        timestamp: ts(),", "        content: text,\n        timestamp: at(),"),
+    edit('lib/session-chat/turn-view.ts', "          status: tc ? toolStatus(tc) : 'running',\n          timestamp: ts(),", "          status: tc ? toolStatus(tc) : 'running',\n          timestamp: tc?.result?.ts ? Date.parse(tc.result.ts) : at(),"),
+    // BAARALI(07/11/2026): the screen keeps up with the agent. The live link
+    // can die without closing (sleep, Wi-Fi, a proxy), and the chat then
+    // froze on « Working… » while the agent went on. A running turn whose
+    // feed stays quiet is read again; the window coming back resyncs; an
+    // approval already settled refreshes the turn instead of an error.
+    edit('lib/session-chat/store.ts', '  private deltaUnsub: (() => void) | null = null\n', '  private deltaUnsub: (() => void) | null = null\n  private lastFeedAt = Date.now()\n  private watchdog: ReturnType<typeof setInterval> | null = null\n'),
+    edit('lib/session-chat/store.ts', '  private onTurnEvent = (event: TurnBusEvent): void => {\n', '  private onTurnEvent = (event: TurnBusEvent): void => {\n    this.lastFeedAt = Date.now()\n'),
+    edit('lib/session-chat/store.ts', '      this.resyncDisconnect = this.subscribeResync?.(this.resync) ?? null\n      this.syncDeltas()\n    }\n', "      this.resyncDisconnect = this.subscribeResync?.(this.resync) ?? null\n      this.syncDeltas()\n      if (!this.watchdog) this.watchdog = setInterval(this.checkQuiet, 5_000)\n      if (typeof window !== 'undefined') window.addEventListener('focus', this.resync)\n    }\n"),
+    edit('lib/session-chat/store.ts', '      this.sessionFeedDisconnect = null\n      this.syncDeltas()\n', "      this.sessionFeedDisconnect = null\n      if (this.watchdog) clearInterval(this.watchdog)\n      this.watchdog = null\n      if (typeof window !== 'undefined') window.removeEventListener('focus', this.resync)\n      this.syncDeltas()\n"),
+    edit('lib/session-chat/store.ts', '  private async load(sessionId: string, generation: number): Promise<void> {\n', "  /** A running turn with nothing heard for 15 s: read it again. */\n  private checkQuiet = (): void => {\n    if (this.sessionId === null || !this.latestEvents) return\n    if (Date.now() - this.lastFeedAt < 15_000) return\n    let running = false\n    try { running = !reduceTurn(this.latestEvents).terminal } catch { running = false }\n    if (!running) return\n    this.lastFeedAt = Date.now()\n    void this.load(this.sessionId, this.generation)\n  }\n\n  private async load(sessionId: string, generation: number): Promise<void> {\n"),
+    edit('lib/session-chat/store.ts', '    await this.client.respondToPermission(turnId, toolCallId, decision, metadata)\n', "    try {\n      await this.client.respondToPermission(turnId, toolCallId, decision, metadata)\n    } catch (error) {\n      // Settled already, or the turn ended: the screen was behind, catch up.\n      if (/no pending permission|is terminal/.test(error instanceof Error ? error.message : String(error))) { this.resync(); return }\n      throw error\n    }\n"),
   ];
 }

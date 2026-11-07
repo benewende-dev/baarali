@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { BriefcaseBusiness, LockKeyhole, MessagesSquare, RefreshCw } from 'lucide-react'
+import { LockKeyhole, RefreshCw } from 'lucide-react'
 import { canUseWork } from '@/lib/work-access'
 import { openPlans } from '@/lib/plans-window'
 import { BaaraliMark } from '@/components/baarali-mark'
@@ -51,49 +51,45 @@ export function workspaceForNav(nav: string | null | undefined): WorkspaceMode |
   return null
 }
 
-export function DesktopModeTabs({ activeNav, onChat, onWork }: { activeNav?: string | null; onChat: () => void; onWork: () => void }) {
-  const workspace = useDesktopWorkspace()
-  const { setMode } = workspace
-  const [pendingWork, setPendingWork] = useState(false)
-  useEffect(() => { const mode = workspaceForNav(activeNav); if (mode) setMode(mode) }, [activeNav, setMode])
-  useEffect(() => {
-    if (pendingWork && workspace.mode === 'work' && workspace.access === 'allowed') { setPendingWork(false); onWork() }
-  }, [pendingWork, workspace.mode, workspace.access, onWork])
-  const select = (mode: WorkspaceMode) => {
-    setMode(mode)
-    if (mode === 'chat') { setPendingWork(false); onChat() }
-    else if (workspace.access === 'allowed') { setPendingWork(false); onWork() }
-    else setPendingWork(true)
-  }
-  return <div className="baarali-mode-tabs titlebar-no-drag" role="tablist" aria-label="Chat and Work">
-    {(['chat', 'work'] as const).map(mode => {
-      const Icon = mode === 'chat' ? MessagesSquare : BriefcaseBusiness
-      return <button key={mode} type="button" role="tab" aria-selected={workspace.mode === mode}
-        onClick={() => select(mode)} onKeyDown={event => {
-          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-            event.preventDefault(); select(mode === 'chat' ? 'work' : 'chat')
-            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[mode === 'chat' ? 1 : 0]?.focus()
-          }
-        }}><Icon size={14} />{mode === 'chat' ? 'Chat' : 'Work'}{mode === 'work' && workspace.access === 'denied' && <LockKeyhole size={11} />}</button>
-    })}
-  </div>
+// BAARALI(07/11/2026): no Chat/Work switch any more (the founder's call,
+// one sidebar as in Claude Code). The mode follows the page, so Code keeps
+// its projects in the sidebar; nothing to click.
+export function DesktopModeSync({ activeNav }: { activeNav?: string | null }) {
+  const { setMode } = useDesktopWorkspace()
+  useEffect(() => { setMode(workspaceForNav(activeNav) ?? 'chat') }, [activeNav, setMode])
+  return null
 }
 
-export function DesktopWorkGate({ children, required = false, onChat }: { children: ReactNode; required?: boolean; onChat: () => void }) {
+/** What each paid page is, said on its padlock screen. */
+const PAID_PAGES: Record<string, { title: string; text: string }> = {
+  baarasseurs: { title: 'Your agents', text: 'Agents with a name, a role and a face, who work on their own and wait for your approval before anything leaves.' },
+  agents: { title: 'Routines', text: 'Your agents act at set times: the morning brief, a weekly follow-up, a report every month.' },
+  code: { title: 'Code and projects', text: 'Open a folder, let an agent read, write and run code, and review each change.' },
+  workspaces: { title: 'Code and projects', text: 'Open a folder, let an agent read, write and run code, and review each change.' },
+  email: { title: 'Email', text: 'Your inbox sorted, answers drafted in your tone, nothing sent without you.' },
+  meetings: { title: 'Meetings', text: 'Notes taken for you, a summary and the next steps at the end of each meeting.' },
+  apps: { title: 'Apps', text: 'Connect the tools you use every day so your agents can work with them.' },
+  spaces: { title: 'Team spaces', text: 'Share agents, documents and conversations with your team.' },
+  studio: { title: 'Studio', text: 'Videos, motion and 3D made with your agents, with media credits.' },
+}
+
+export function DesktopWorkGate({ children, required = false, page, studio = false, onChat }: { children: ReactNode; required?: boolean; page?: string | null; studio?: boolean; onChat: () => void }) {
   const workspace = useDesktopWorkspace()
-  if ((!required && workspace.mode !== 'work') || workspace.access === 'allowed') return children
-  return <div className="baarali-work-gate" role="region" aria-label="Work access">
+  if (!required || workspace.access === 'allowed') return children
+  const about = PAID_PAGES[studio ? 'studio' : page ?? ''] ?? { title: 'This page', text: 'Agents, routines, code, email, meetings, apps, team spaces and Studio.' }
+  return <div className="baarali-work-gate" role="region" aria-label="Plan access">
     {workspace.access === 'checking' ? <><BaaraliMark size={44} motion="loading" /><p role="status">Checking your plan…</p></> : <>
       <span className="baarali-gate-symbol"><LockKeyhole size={25} /></span>
-      <h1>{workspace.access === 'denied' ? 'Work is available with a paid plan' : 'Your plan could not be verified'}</h1>
-      <p>{workspace.access === 'denied' ? 'Bring your projects, email, meetings, team spaces, agents, routines, Code and Studio together in one workspace.' : 'Check your connection and try again to open your workspace.'}</p>
+      {workspace.access === 'denied' && <span className="baarali-gate-pill">From the Semaine plan</span>}
+      <h1>{workspace.access === 'denied' ? about.title : 'Your plan could not be verified'}</h1>
+      <p>{workspace.access === 'denied' ? about.text : 'Check your connection and try again.'}</p>
       <div className="flex flex-wrap justify-center gap-2">
         <button type="button" className="baarali-primary" onClick={workspace.access === 'denied' ? openPlans : () => void workspace.refresh()}>
           {workspace.access === 'unavailable' && <RefreshCw size={14} />}{workspace.access === 'denied' ? 'View plans' : 'Retry'}
         </button>
-        <button type="button" onClick={() => { workspace.setMode('chat'); onChat() }}>Return to Chat</button>
+        <button type="button" onClick={onChat}>Back to the conversation</button>
       </div>
-      <small>Chat, web search, files, writing and voice remain available within your plan’s limits.</small>
+      {workspace.access === 'denied' && <small>On Découverte you keep conversations with Baarali, web search, your files, voice, personal tasks and the library.</small>}
     </>}
   </div>
 }

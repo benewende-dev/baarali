@@ -97,27 +97,29 @@ describe('neutral interface icons', () => {
 });
 
 describe('apply on this checkout', () => {
-  it('keeps the full profile, consumption and synchronization footer while separating Chat and Work', () => {
+  it('keeps the full profile, consumption and synchronization footer with one sidebar', () => {
     const file = 'apps/x/apps/renderer/src/components/sidebar-content.tsx';
     const original = fs.readFileSync(path.join(ROOT, file), 'utf8');
     let branded = original;
     for (const edit of desktopPlan().edits.filter(edit => edit.file === file)) branded = branded.replace(edit.from, () => edit.to);
     const footer = '{/* Bottom: who is signed in';
     expect(branded.slice(branded.indexOf(footer))).toBe(original.slice(original.indexOf(footer)));
-    expect(branded).toContain("['todo', 'library', 'prompts']");
-    expect(branded).toContain("['code', 'email', 'meetings', 'coworkers', 'routines', 'apps']");
+    // BAARALI(07/11/2026): no Chat/Work switch; the everyday pages, then « More ».
+    expect(branded).toContain("['coworkers', 'routines', 'code', 'todo', 'library']");
+    expect(branded).toContain("['email', 'meetings', 'apps', 'prompts']");
+    expect(branded).not.toContain("workspace.mode === 'work'");
     expect(branded).not.toContain('<SpacesSidebarSection');
     expect(branded).toContain('onClick={onOpenSpaces}');
     expect(branded).toContain('onClick={onOpenStudio}');
+    expect(branded).toContain("'baarali-locked'");
   });
-  it('keeps mode tabs after native draggable regions so mouse clicks reach them', () => {
+  it('has no Chat/Work tabs left in the window', () => {
     const file = 'apps/x/apps/renderer/src/App.tsx';
     let branded = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const edit of desktopPlan().edits.filter(edit => edit.file === file)) branded = branded.replace(edit.from, () => edit.to);
-    const tabs = branded.indexOf('<DesktopModeTabs');
-    expect(tabs).toBeGreaterThan(branded.lastIndexOf('titlebar-drag-region'));
-    expect(tabs).toBeGreaterThan(branded.indexOf('<FixedSidebarToggle'));
-    expect(fs.readFileSync(path.join(ROOT, 'apps/baarali/packages/desktop/assets/desktop/workspace.tsx'), 'utf8')).toContain('baarali-mode-tabs titlebar-no-drag');
+    expect(branded).not.toContain('<DesktopModeTabs');
+    expect(branded).toContain('<DesktopModeSync activeNav={sidebarNavProps.activeNav} />');
+    expect(fs.readFileSync(path.join(ROOT, 'apps/baarali/packages/desktop/assets/desktop/workspace.tsx'), 'utf8')).not.toContain('baarali-mode-tabs');
   });
   it('finds every anchor of the desktop brand', () => {
     const changes = apply({ write: false });

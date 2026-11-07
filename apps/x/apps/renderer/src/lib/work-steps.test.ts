@@ -18,6 +18,14 @@ describe('stepTitle', () => {
 })
 
 describe('segmentTurns', () => {
+  // BAARALI(07/11/2026): the usage line lands after the first model call.
+  it('keeps a turn waiting for an approval at work, usage line or not', () => {
+    const items = [user('Crée un portefeuille'), say('Pas de bibliothèque Solana installée.'), tool('executeCommand', 'running'), done()]
+    const work = segmentTurns(items, true).find((s) => s.kind === 'work')
+    expect(work).toMatchObject({ kind: 'work', active: true })
+    expect(hasActiveWork(items, true)).toBe(true)
+    expect(segmentTurns(items, false).find((s) => s.kind === 'work')).toMatchObject({ active: false })
+  })
   it('folds the work of a finished turn into steps, the answer in the open', () => {
     const items = [
       user('Une annonce animée'),

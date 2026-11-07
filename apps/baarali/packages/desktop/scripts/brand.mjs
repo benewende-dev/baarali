@@ -460,6 +460,11 @@ export function desktopPlan() {
 
       edit(`${renderer}/components/plans-dialog.tsx`, "import type { BillingInfo, PlanOffer, PlanOffers } from '@x/shared/src/billing.js'", "import type { BillingInfo, PlanOffer, PlanOffers } from '@x/shared/src/billing.js'\nimport { withPlanAccess } from '@/lib/plan-access-copy'"),
       edit(`${renderer}/components/plans-dialog.tsx`, "                setOffers(result)", "                setOffers(result ? withPlanAccess(result) : null)"),
+      // BAARALI(07/11/2026): what each plan opens, under the cards (assets/desktop/plan-access-table.tsx).
+      edit(`${renderer}/components/plans-dialog.tsx`, "import { withPlanAccess } from '@/lib/plan-access-copy'", "import { withPlanAccess } from '@/lib/plan-access-copy'\nimport { LockedNote, PlanAccessTable } from '@/components/baarali-plan-access'"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "                            <PlanCard key={plan.id} plan={plan} currency={currency} currentId={currentId} soon={offers.soon} />\n                        ))}\n                    </div>", "                            <PlanCard key={plan.id} plan={plan} currency={currency} currentId={currentId} soon={offers.soon} lang={offers.lang} />\n                        ))}\n                    </div>\n                ) : null}\n                {offers ? (\n                    <PlanAccessTable plans={offers.plans} lang={offers.lang} currentId={currentId} />"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "function PlanCard({ plan, currency, currentId, soon }: {\n    plan: PlanOffer", "function PlanCard({ plan, currency, currentId, soon, lang }: {\n    lang: 'fr' | 'en'\n    plan: PlanOffer"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "                ))}\n            </ul>\n        </article>", "                ))}\n            </ul>\n            {plan.free && <LockedNote lang={lang} />}\n        </article>"),
       edit(`${renderer}/components/settings/account-settings.tsx`, "import { openPlans } from '@/lib/plans-window'", "import { openPlans } from '@/lib/plans-window'\nimport { withPlanAccess } from '@/lib/plan-access-copy'"),
       edit(`${renderer}/components/settings/account-settings.tsx`, "setOffers(result?.plans ?? null)", "setOffers(result ? withPlanAccess(result).plans : null)"),
 
@@ -553,9 +558,8 @@ export function desktopPlan() {
       edit(`${renderer}/components/todo-view.tsx`, '<Bot className="size-3" />\n              rowboat\n', '<Bot className="size-3" />\n              baarali\n'),
       edit(`${renderer}/components/spaces/composer-editor.ts`, "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'rowboat' })", "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'baarali' })"),
       // BAARALI(11/10/2026): Chargement keeps the B compact and readable
-      // throughout page and chat waits, as requested by the founder.
-      edit(`${renderer}/components/work-steps.tsx`, "import * as React from 'react'", "import * as React from 'react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
-      edit(`${renderer}/components/work-steps.tsx`, '<span className="text-foreground">Baarali is working…</span>', '<BaaraliMark motion="loading" size={32} className="text-foreground" />\n            <span className="text-foreground">Baarali is working…</span>'),
+      // throughout page and chat waits, as requested by the founder. (The work
+      // block draws its B itself since 07/11/2026: components/work-steps.tsx.)
       edit(`${renderer}/components/reasoning-row.tsx`, "import { ChevronDownIcon, LoaderIcon } from 'lucide-react'", "import { ChevronDownIcon } from 'lucide-react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
       edit(`${renderer}/components/reasoning-row.tsx`, '<span className={quietRowGlyphSlotClass}>', '<span className={cn(quietRowGlyphSlotClass, isStreaming && "!h-8 !w-8")}>'),
       edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={32} className="text-foreground" />'),
@@ -570,6 +574,8 @@ export function desktopPlan() {
       ['assets/desktop/studio-library.tsx', `${renderer}/components/desktop-studio-library.tsx`],
       ['assets/mobile/work-access.ts', `${renderer}/lib/work-access.ts`],
       ['../control/src/plan-access-copy.ts', `${renderer}/lib/plan-access-copy.ts`],
+      ['assets/desktop/plan-access-table.tsx', `${renderer}/components/baarali-plan-access.tsx`],
+      ['assets/desktop/agent-shape.tsx', `${renderer}/components/baarali-agent-shape.tsx`],
       ['../control/src/oval-b.ts', `${renderer}/lib/baarali-oval-motion.ts`],
       ['../control/src/b-mark.ts', `${renderer}/lib/baarali-b-mark.ts`],
       ['assets/motion/baarali-mark.tsx', `${renderer}/components/baarali-mark.tsx`],
