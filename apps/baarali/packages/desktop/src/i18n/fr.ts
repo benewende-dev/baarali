@@ -36,6 +36,9 @@ export const FR: Dictionary = {
     "In progress": "En cours",
     "Nothing is waiting for you.": "Rien ne vous attend.",
     "Your morning brief": "Votre point du matin",
+    // BAARALI(07/11/2026): the continuous conversation (mobile chat.tsx, lib/baarali-conversation.ts).
+    "Talk freely": "Parler librement",
+    "The conversation was cut. Tap the microphone to start again.": "La conversation a été coupée. Touchez le micro pour reprendre.",
     "Your answer was not sent": "Votre réponse n’est pas partie",
     "The action may have been settled already. Open the chat to check.": "L’action a peut-être déjà été tranchée. Ouvrez la conversation pour vérifier.",
     "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",

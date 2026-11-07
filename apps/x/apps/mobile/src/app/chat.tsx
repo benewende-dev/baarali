@@ -25,6 +25,9 @@ import { useColors } from '@/theme/colors';
 import { baarasseurs } from '@x/shared';
 import { BaarasseurAvatar, useBaarasseurs } from '@/lib/baarasseurs';
 import { speak, spokenPart, stopSpeaking, useReadAloud, useVoiceInput } from '@/lib/voice';
+// BAARALI(07/11/2026): the continuous conversation (lib/baarali-conversation.ts).
+import { useLiveConversation } from '@/lib/baarali-conversation';
+import { useSpacesAccount } from '@/lib/spaces/account';
 
 /** The reply's text: the last model call that answered in words. */
 function replyText(state: { modelCalls: Array<{ response?: { content?: unknown } | null }> }): string {
@@ -278,7 +281,33 @@ export function ChatView({ id, agent, onCreated, embedded = false, initialDraft,
   const voiceRef = useRef(voice);
   voiceRef.current = voice;
 
+  // BAARALI(07/11/2026): signed in to Baarali, the conversation is continuous
+  // (Flux, spoken as it is written, cut-in, spoken approvals); else the loop below.
+  const account = useSpacesAccount();
+  const idRef = useRef(id);
+  idRef.current = id;
+  const live = useLiveConversation({
+    rpc,
+    sessions,
+    events,
+    session: account.voiceSession(),
+    send: (spoken) => sendRef.current(spoken),
+    sessionId: () => idRef.current,
+    knownTurns: () => turnIdsRef.current,
+    onState: (state) => setConversation(state),
+    onHeard: () => undefined,
+    onError: () => {
+      setError(new Error('The conversation was cut. Tap the microphone to start again.').message);
+      endConversationRef.current();
+    },
+  });
+  const liveRef = useRef(live);
+  const [holding, setHolding] = useState(false);
+  liveRef.current = live;
+  const endConversationRef = useRef<() => void>(() => undefined);
+
   const endConversation = useCallback(() => {
+    liveRef.current.stop();
     conversationOn.current = false;
     setConversation('off');
     voiceRef.current.stopListening();
@@ -288,8 +317,15 @@ export function ChatView({ id, agent, onCreated, embedded = false, initialDraft,
     waiter?.resolve('');
   }, []);
 
+  endConversationRef.current = endConversation;
+
   const startConversation = useCallback(async () => {
     if (conversationOn.current || !rpc) return;
+    if (await liveRef.current.start()) {
+      conversationOn.current = true;
+      if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      return;
+    }
     conversationOn.current = true;
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
@@ -418,6 +454,23 @@ export function ChatView({ id, agent, onCreated, embedded = false, initialDraft,
               ) : (
                 <ActivityIndicator />
               )}
+              {/* BAARALI(07/11/2026): push-to-talk for noisy places, only the release sends. */}
+              {live.pushToTalk ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPressIn={() => {
+                    setHolding(true);
+                    live.holdToTalk(true);
+                  }}
+                  onPressOut={() => {
+                    setHolding(false);
+                    live.holdToTalk(false);
+                  }}
+                  style={{ flex: 1, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center', backgroundColor: holding ? colors.accent : colors.secondaryBackground }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: holding ? colors.onAccent : colors.label }}>{holding ? 'Release to send' : 'Hold to talk'}</Text>
+                </Pressable>
+              ) : (
               <Text style={{ flex: 1, fontSize: 15, color: colors.secondaryLabel }} numberOfLines={2}>
                 {voice.state === 'transcribing'
                   ? 'Getting what you said…'
@@ -427,10 +480,25 @@ export function ChatView({ id, agent, onCreated, embedded = false, initialDraft,
                       ? 'Rowboat is working on it…'
                       : 'Rowboat is answering…'}
               </Text>
+              )}
+              {account.voiceSession() ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={live.pushToTalk ? 'Talk freely' : 'Hold to talk'}
+                  onPress={() => live.setPushToTalk(!live.pushToTalk)}
+                  hitSlop={6}
+                  style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.separator }}
+                >
+                  <Image source={live.pushToTalk ? 'sf:waveform' : 'sf:hand.tap'} style={{ width: 16, height: 16 }} tintColor={colors.label} />
+                </Pressable>
+              ) : null}
               {conversation === 'speaking' ? (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => stopSpeaking()}
+                  onPress={() => {
+                    stopSpeaking();
+                    live.interrupt();
+                  }}
                   hitSlop={6}
                   style={{ paddingHorizontal: 12, height: 34, borderRadius: 17, justifyContent: 'center', backgroundColor: colors.accent }}
                 >
