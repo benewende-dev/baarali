@@ -263,6 +263,7 @@ const HISTORICAL_KEY_ORDER = [
     "whiteboard-read",
     "whiteboard-draw",
     "baarasseur-remember",
+    "baarasseur-update",
     "spawn-agent",
 ];
 

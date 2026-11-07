@@ -12,7 +12,7 @@ vi.mock('../runtime/assembly/copilot/agent.js', () => ({
 }));
 import { loadAgent } from '../runtime/assembly/registry.js';
 import { carriesSkillsForward, hasWorkspaceContext } from '../runtime/assembly/traits.js';
-import { rememberFor } from './repo.js';
+import { rememberFor, updateFor } from './repo.js';
 import { nextRunAt, personaInstructions, scheduleCron, parseBaarasseurs, type Baarasseur } from '@x/shared/dist/baarasseur.js';
 
 const mariama: Baarasseur = {
@@ -30,12 +30,12 @@ describe('the baarasseurs (06/10/2026)', () => {
     beforeEach(() => write([mariama]));
     afterAll(() => fs.rm(workDir, { recursive: true, force: true }));
 
-    it('loads one as the copilot with its persona, its memory tool and its model', async () => {
+    it('loads one as the copilot with its persona, its memory and name tools and its model', async () => {
         const agent = await loadAgent('baarasseur-mariama');
         expect(agent.instructions.startsWith('COPILOT\n\n# You are Mariama, Commerciale')).toBe(true);
         expect(agent.instructions).toContain('<mission>\nRelance mes prospects.\n</mission>');
         expect(agent.instructions).toContain('every Monday at 8:00');
-        expect(Object.keys(agent.tools ?? {})).toEqual(['web-search', 'baarasseur-remember']);
+        expect(Object.keys(agent.tools ?? {})).toEqual(['web-search', 'baarasseur-remember', 'baarasseur-update']);
         expect(agent).toMatchObject({ name: 'baarasseur-mariama', model: 'deepseek/deepseek-v4', provider: 'rowboat' });
     });
 
@@ -61,6 +61,21 @@ describe('the baarasseurs (06/10/2026)', () => {
         expect(raw.baarasseurs[1]).toEqual({ id: 'ibrahim', name: 'Ibrahim', createdAt: 'x', extra: 1 });
         const agent = await loadAgent('baarasseur-mariama');
         expect(agent.instructions).toContain('- Livraison offerte au-delà de 50 sacs');
+    });
+
+    // BAARALI(07/11/2026): the first meeting, then a new name from the conversation.
+    it('gets to know the user until it remembers something, and renames itself on request', async () => {
+        expect(personaInstructions({ ...mariama, memory: [] })).toContain('## First meeting');
+        expect(personaInstructions({ ...mariama, memory: ['Appeler l’utilisateur Yann'] })).not.toContain('## First meeting');
+        expect(personaInstructions(mariama)).toContain('baarasseur-update');
+        expect(personaInstructions({ ...mariama, role: '' })).toContain('## Your title');
+        expect(personaInstructions(mariama)).not.toContain('## Your title');
+        await write([{ ...mariama, avatar: 'street' }]);
+        expect(await updateFor('mariama', { name: '  Awa  ', role: 'Comptable' })).toEqual({ name: 'Awa', role: 'Comptable' });
+        expect(await updateFor('mariama', {})).toBeNull();
+        expect(await updateFor('nobody', { name: 'x' })).toBeNull();
+        const raw = JSON.parse(await fs.readFile(path.join(workDir, 'config', 'baarasseurs.json'), 'utf8'));
+        expect(raw.baarasseurs[0]).toMatchObject({ name: 'Awa', role: 'Comptable', avatar: 'street' });
     });
 
     it('turns hours into cron, and forbids sending during a scheduled run', () => {

@@ -45,3 +45,23 @@ export async function rememberFor(id: string, note: string): Promise<string[] | 
     await fs.writeFile(filePath(), JSON.stringify(raw, null, 2));
     return entry.memory as string[];
 }
+
+/** Renames it or changes its role, as the user asked in a conversation. Returns it. */
+export async function updateFor(id: string, patch: { name?: string; role?: string }): Promise<{ name: string; role: string } | null> {
+    const name = patch.name?.replace(/\s+/g, " ").trim().slice(0, 40);
+    const role = patch.role?.replace(/\s+/g, " ").trim().slice(0, 60);
+    if (!name && role === undefined) return null;
+    let raw: { baarasseurs?: unknown[] } & Record<string, unknown>;
+    try {
+        raw = JSON.parse(await fs.readFile(filePath(), "utf8"));
+    } catch {
+        return null;
+    }
+    const list = Array.isArray(raw.baarasseurs) ? raw.baarasseurs : [];
+    const entry = list.find((b) => (b as { id?: unknown })?.id === id) as { name?: unknown; role?: unknown } | undefined;
+    if (!entry) return null;
+    if (name) entry.name = name;
+    if (role !== undefined) entry.role = role;
+    await fs.writeFile(filePath(), JSON.stringify(raw, null, 2));
+    return { name: String(entry.name ?? ""), role: String(entry.role ?? "") };
+}

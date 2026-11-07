@@ -4091,6 +4091,7 @@ export const FR: Dictionary = {
     "Name your agent": "Nommez votre agent",
     "Search apps": "Rechercher des applications",
     "Waits for you": "Vous attend",
+    "News and notices about your account": "Nouveautés et avis sur votre compte",
     "Remove this agent?": "Supprimer cet agent ?",
     "Remove this agent": "Supprimer cet agent",
     "Choose a shape": "Choisissez une forme",
@@ -4121,6 +4122,7 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
+    "Hello, I'm $1. Before we start, what should I call you?": "Bonjour, je suis $1. Avant de commencer, comment souhaitez-vous que je vous appelle ?",
     "Ask $1": "Demander à $1",
     "Disconnect $1?": "Déconnecter $1 ?",
     "$1 connected": "$1 connecté(s)",

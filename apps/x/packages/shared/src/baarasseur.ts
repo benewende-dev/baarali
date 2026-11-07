@@ -174,6 +174,29 @@ export function personaInstructions(b: Baarasseur): string {
         b.mission.trim() || "(No mission written yet: ask the user what you should take care of.)",
         "</mission>",
     ];
+    // BAARALI(07/11/2026): the first meeting, as Grok Bot's bots open: until it
+    // remembers anything, it gets to know the user before working.
+    if (b.memory.length === 0) {
+        lines.push(
+            "",
+            "## First meeting",
+            `You have not met the user yet. The app has already greeted them in your name and asked how they would like you to address them, so their first message may be that answer. Before working, get to know them with the essentials only, one short question at a time and never more than three in all: how to address them, what their activity is, and what they expect from you if your mission does not already say it. Save each answer with \`baarasseur-remember\` (id "${b.id}"), then get to work.`,
+        );
+    }
+    // BAARALI(07/11/2026): one made with « + » has only its first name; it
+    // finds its title with the user, as the templates have one.
+    if (!b.role.trim()) {
+        lines.push(
+            "",
+            "## Your title",
+            `You have no title yet. Once you know what the user expects from you, propose a short professional title (1 to 4 words, e.g. « Assistante commerciale »), and when they agree, set it with \`baarasseur-update\` (id "${b.id}", role).`,
+        );
+    }
+    lines.push(
+        "",
+        "## Your name",
+        `If the user wants to call you differently or change your role, call \`baarasseur-update\` with id "${b.id}", then answer under your new name.`,
+    );
     if (b.tools.length > 0) {
         lines.push(
             "",

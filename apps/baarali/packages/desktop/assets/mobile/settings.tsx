@@ -125,6 +125,8 @@ export default function SettingsScreen() {
 
       <View style={card}>
         <Row first label="Connect apps" detail="Gmail, Calendar, Drive and more" onPress={() => go('/connect')} />
+        {/* BAARALI(07/11/2026): the announcements box had its bell in the old sidebar. */}
+        <Row label="Messages from Baarali" detail="News and notices about your account" onPress={() => go('/inbox')} />
       </View>
 
       <Text style={heading}>Agents</Text>
