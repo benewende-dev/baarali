@@ -20,7 +20,7 @@ const path = require('node:path');
 /** Props a person reads or hears. */
 const VISIBLE_ATTRS = new Set(['placeholder', 'title', 'accessibilityLabel', 'accessibilityHint', 'aria-label', 'label', 'description', 'alt', 'headerTitle', 'subtitle', 'detail', 'text', 'sub', 'hint', 'body', 'message', 'question', 'emptyText']);
 /** Keys of an object written inside a JSX prop (`options={{ title: 'Chats' }}`) or a list of rows. */
-const VISIBLE_KEYS = new Set(['title', 'headerTitle', 'label', 'sub', 'subtitle', 'detail', 'description', 'placeholder', 'message', 'hint']);
+const VISIBLE_KEYS = new Set(['title', 'buttonTitle', 'headerTitle', 'label', 'sub', 'subtitle', 'detail', 'description', 'placeholder', 'message', 'hint']);
 
 /** Words, as a person writes them. */
 const isProse = (s) => /[A-Za-z]{2}/.test(s.replace(/\$\d+/g, '')) && !/^[a-z0-9]+([-_:./][a-z0-9]+)+$/.test(s) && !/^(https?:|mailto:|\/|#|\.\/)/.test(s);

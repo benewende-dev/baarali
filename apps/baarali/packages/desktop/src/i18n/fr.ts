@@ -27,6 +27,10 @@ export const FR: Dictionary = {
     "Until": "À",
     "Could not reach your agent. Check your connection.": "Impossible de joindre votre agent. Vérifiez votre connexion.",
     "Could not save this. Please try again.": "L’enregistrement a échoué. Veuillez réessayer.",
+    // BAARALI(07/11/2026): the buttons of an approval notification, and a lost answer (mobile baarali-approvals.ts).
+    "Approve": "Approuver",
+    "Your answer was not sent": "Votre réponse n’est pas partie",
+    "The action may have been settled already. Open the chat to check.": "L’action a peut-être déjà été tranchée. Ouvrez la conversation pour vérifier.",
     "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",
     "Project (optional)": "Projet (facultatif)",
     "Without a project": "Sans projet",
