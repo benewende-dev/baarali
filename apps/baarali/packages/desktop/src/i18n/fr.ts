@@ -4091,6 +4091,7 @@ export const FR: Dictionary = {
     "Name your agent": "Nommez votre agent",
     "Search apps": "Rechercher des applications",
     "Waits for you": "Vous attend",
+    "Paid plan": "Forfait payant",
     "Agents that work for you. You stay in control.": "Des agents qui travaillent pour vous. Vous gardez la main.",
     "Hello, I'm Baarali. Before we start, what should I call you?": "Bonjour, je suis Baarali. Avant de commencer, comment souhaitez-vous que je vous appelle ?",
     "Stay in the loop": "Restez au courant",

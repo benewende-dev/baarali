@@ -151,6 +151,7 @@ export default function HomeScreen() {
           {waits(latest.mine) && <Dot />}
         </View>
         <Text style={{ fontSize: 16, color: colors.label }}>Baarali</Text>
+        {waits(latest.mine) ? <Text style={{ marginTop: -6, fontSize: 14, color: colors.secondaryLabel }}>Waiting for your approval</Text> : null}
       </Pressable>
     </View>
   );
@@ -187,7 +188,8 @@ export default function HomeScreen() {
             renderItem={({ item }) => {
               const entry = latest.byAgent.get(item.id);
               return <Line avatar={<BaarasseurAvatar b={item} size={56} />} title={item.name}
-                subtitle={entry?.title || item.role || translate('New chat')} date={entry ? when(entry.updatedAt) : ''} waiting={waits(entry)}
+                subtitle={waits(entry) ? translate('Waiting for your approval') : entry?.title || item.role || translate('New chat')}
+                date={entry ? when(entry.updatedAt) : ''} waiting={waits(entry)} locked={access === 'free'}
                 onPress={() => openAgent(item)} />;
             }} />
         )}
@@ -218,8 +220,8 @@ function Dot() {
   return <View accessibilityLabel={translate('Waits for you')} style={{ position: 'absolute', right: 0, top: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: colors.label, borderWidth: 2, borderColor: colors.background }} />;
 }
 
-function Line({ avatar, title, subtitle, date, waiting, onPress }: {
-  avatar: ReactNode; title: string; subtitle: string; date: string; waiting?: boolean; onPress: () => void;
+function Line({ avatar, title, subtitle, date, waiting, locked, onPress }: {
+  avatar: ReactNode; title: string; subtitle: string; date: string; waiting?: boolean; locked?: boolean; onPress: () => void;
 }) {
   const colors = useColors();
   return <Pressable accessibilityRole="button" onPress={onPress}
@@ -229,6 +231,8 @@ function Line({ avatar, title, subtitle, date, waiting, onPress }: {
       <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '500', color: colors.label }}>{title}</Text>
       <Text numberOfLines={1} style={{ fontSize: 15, color: colors.secondaryLabel }}>{subtitle}</Text>
     </View>
-    {!!date && <Text style={{ alignSelf: 'flex-start', marginTop: 4, fontSize: 14, color: colors.tertiaryLabel }}>{date}</Text>}
+    {/* BAARALI(07/11/2026): on the free plan an agent's conversation is Work's, said before the tap. */}
+    {locked ? <Image source="sf:lock.fill" style={{ width: 15, height: 15 }} tintColor={colors.tertiaryLabel} accessibilityLabel={translate('Paid plan')} />
+      : !!date && <Text style={{ alignSelf: 'flex-start', marginTop: 4, fontSize: 14, color: colors.tertiaryLabel }}>{date}</Text>}
   </Pressable>;
 }
