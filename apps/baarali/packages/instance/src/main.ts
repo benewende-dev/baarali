@@ -75,6 +75,7 @@ gate.listen(port, '0.0.0.0', () => console.log(`[instance] gate on :${port} → 
 // Scheduled wakes (07/11/2026): the control plane learns when to wake this
 // machine for its next routine, and that it is at work while one runs.
 startSchedulePublisher({
+  workDir,
   serverUrl: `http://127.0.0.1:${serverPort}`,
   serverKey,
   controlUrl: required('API_URL'),

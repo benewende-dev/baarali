@@ -123,3 +123,33 @@ describe('SchedulePublisher', () => {
     expect(sent).toEqual([]);
   });
 });
+
+describe('ensureMorningBrief', () => {
+  it('seeds the brief once, and never again once deleted', async () => {
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { ensureMorningBrief, BRIEF_NAME, BRIEF_WINDOW } = await import('../src/morning-brief.js');
+    const dir = mkdtempSync(join(tmpdir(), 'brief-'));
+    const calls: Array<{ channel: string; args: unknown }> = [];
+    const rpc = async (channel: string, args: unknown) => {
+      calls.push({ channel, args });
+      return { success: true, slug: 'point-du-matin' };
+    };
+    expect(await ensureMorningBrief(dir, rpc)).toBe(true);
+    expect(await ensureMorningBrief(dir, rpc)).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ channel: 'bg-task:create', args: { name: BRIEF_NAME, triggers: { windows: [BRIEF_WINDOW] } } });
+    expect((calls[0].args as { instructions: string }).instructions).toContain('notify-user');
+  });
+
+  it('tries again later when the server refuses', async () => {
+    const { mkdtempSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { ensureMorningBrief } = await import('../src/morning-brief.js');
+    const dir = mkdtempSync(join(tmpdir(), 'brief-'));
+    await expect(ensureMorningBrief(dir, async () => ({ success: false, error: 'busy' }))).rejects.toThrow(/busy/);
+    expect(await ensureMorningBrief(dir, async () => ({ success: true }))).toBe(true);
+  });
+});

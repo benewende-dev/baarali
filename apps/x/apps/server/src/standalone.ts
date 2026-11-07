@@ -15,6 +15,7 @@ import { startWorkspaceWatcher, subscribeWorkspaceEvents, subscribeKnowledgeEven
 import { prepareCoreData, initCoreServices } from '@x/core/dist/boot/services.js';
 import { createRowboatServer } from './server.js';
 import { capabilityBroker } from './capabilities.js';
+import { createPhonePush } from './baarali-phone-push.js';
 import { registerUrlOpener } from '@x/core/dist/auth/url-opener.js';
 import { installLoopbackRelay } from './loopback-relay.js';
 import { createFileCipher } from './file-cipher.js';
@@ -50,9 +51,14 @@ async function main(): Promise<void> {
   // Client capabilities route over the WS as reverse calls (RFC Q14): the
   // connected client that advertises each capability performs it.
   const broker = capabilityBroker();
+  // BAARALI(07/11/2026): the paired phones get it too, by push (baarali-phone-push.ts).
+  const phones = createPhonePush({ workDir: WorkDir, fetch: globalThis.fetch, clientConnected: () => broker.hasCapableClient('notifications') });
   registerNotificationService({
-    isSupported: () => broker.hasCapableClient('notifications'),
-    notify: (input) => broker.broadcast('notifications', input),
+    isSupported: () => broker.hasCapableClient('notifications') || phones.hasPhones(),
+    notify: (input) => {
+      broker.broadcast('notifications', input);
+      void phones.send(input);
+    },
   });
   registerBrowserControlService({
     execute: async (input, ctx) => {

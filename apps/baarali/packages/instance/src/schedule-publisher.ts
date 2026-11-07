@@ -1,3 +1,4 @@
+import { ensureMorningBrief } from './morning-brief.js';
 import { nextWork, type AgentSchedules, type NextWork, type TaskSummary } from './schedule.js';
 
 // The instance's side of scheduled wakes (07/11/2026, schedule.ts): every
@@ -54,20 +55,21 @@ export class SchedulePublisher {
 }
 
 /** The real wiring: rowboat-server on the loopback with its key, the control plane with the instance token. */
-export function startSchedulePublisher(opts: { serverUrl: string; serverKey: () => string | null; controlUrl: string; instanceToken: string }) {
+export function startSchedulePublisher(opts: { workDir: string; serverUrl: string; serverKey: () => string | null; controlUrl: string; instanceToken: string }) {
+  const rpc = async (channel: string, args: unknown): Promise<unknown> => {
+    const key = opts.serverKey();
+    if (!key) throw new Error('no server key yet');
+    const res = await fetch(`${opts.serverUrl}/rpc/${channel}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`rpc ${channel}: ${res.status}`);
+    return res.json();
+  };
   const publisher = new SchedulePublisher({
-    rpc: async (channel, args) => {
-      const key = opts.serverKey();
-      if (!key) throw new Error('no server key yet');
-      const res = await fetch(`${opts.serverUrl}/rpc/${channel}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify(args),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) throw new Error(`rpc ${channel}: ${res.status}`);
-      return res.json();
-    },
+    rpc,
     publish: async (body) => {
       const res = await fetch(`${opts.controlUrl.replace(/\/+$/, '')}/v1/instance/schedule`, {
         method: 'PUT',
@@ -79,7 +81,13 @@ export function startSchedulePublisher(opts: { serverUrl: string; serverKey: () 
     },
     now: () => new Date(),
   });
-  const timer = setInterval(() => void publisher.tick(), PUBLISH_EVERY_MS);
+  // The morning brief is seeded once the server answers (morning-brief.ts).
+  let briefed = false;
+  const tick = async () => {
+    const work = await publisher.tick();
+    if (work && !briefed) briefed = await ensureMorningBrief(opts.workDir, rpc).catch((err) => (console.error('[schedule] morning brief', err), false));
+  };
+  const timer = setInterval(() => void tick(), PUBLISH_EVERY_MS);
   timer.unref();
   return () => clearInterval(timer);
 }
