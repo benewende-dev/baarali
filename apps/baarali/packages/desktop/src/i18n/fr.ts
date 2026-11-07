@@ -35,6 +35,7 @@ export const FR: Dictionary = {
     "Done for you": "Fait pour vous",
     "In progress": "En cours",
     "Nothing is waiting for you.": "Rien ne vous attend.",
+    "Your morning brief": "Votre point du matin",
     "Your answer was not sent": "Votre réponse n’est pas partie",
     "The action may have been settled already. Open the chat to check.": "L’action a peut-être déjà été tranchée. Ouvrez la conversation pour vérifier.",
     "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",

@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { sessions as sessionsShared } from '@x/shared';
 
 import { useConnection } from '@/lib/connection';
+import { speak, stopSpeaking } from '@/lib/voice';
 import { useColors } from '@/theme/colors';
 
 // BAARALI(07/11/2026): « Today » at the top of the home tab
@@ -56,6 +57,22 @@ export function waitingIn(events: TurnEvent[]): Array<{ toolCallId: string; tool
 
 const time = (iso?: string) => (iso ? Date.parse(iso) : NaN);
 
+/** Where the « Point du matin » routine writes today's brief (instance morning-brief.ts). */
+export function briefPath(day: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `knowledge/Point du matin/${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}.md`;
+}
+
+/** The brief's lines as a person reads them: no front matter, headings or list marks. */
+export function briefLines(markdown: string): string[] {
+  const body = markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
+  return body
+    .split('\n')
+    .map((l) => l.replace(/^#+\s*/, '').replace(/^\s*[-*•]\s+/, '').replace(/\*\*/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
 const tap = () => {
   if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
 };
@@ -67,6 +84,8 @@ export function Today() {
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [brief, setBrief] = useState<string[]>([]);
+  const [listening, setListening] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!sessions || !rpc) return;
@@ -83,6 +102,8 @@ export function Today() {
       }
       setWaiting(found);
       setRoutines(((await rpc.call('bg-task:list', { limit: 200 })) as { items: Routine[] }).items);
+      const file = await rpc.call('workspace:readFile', { path: briefPath(new Date()), encoding: 'utf8' }).catch(() => null);
+      setBrief(file ? briefLines(file.data) : []);
     } catch {
       // Keep what was shown; the next event refreshes it.
     }
@@ -129,7 +150,19 @@ export function Today() {
     backgroundColor: primary ? colors.label : 'transparent', borderWidth: primary ? 0 : 1, borderColor: colors.separator,
   });
 
-  const nothing = !waiting.length && !running.length && !done.length;
+  const nothing = !brief.length && !waiting.length && !running.length && !done.length;
+
+  const listen = async () => {
+    tap();
+    if (listening) {
+      stopSpeaking();
+      setListening(false);
+      return;
+    }
+    setListening(true);
+    await speak(rpc!, brief.join('. ')).catch(() => setFailed(true));
+    setListening(false);
+  };
 
   return (
     <View style={{ gap: 10 }}>
@@ -139,6 +172,21 @@ export function Today() {
 
       {nothing ? (
         <Text style={{ paddingHorizontal: 16, fontSize: 15, color: colors.tertiaryLabel }}>Nothing is waiting for you.</Text>
+      ) : null}
+
+      {brief.length ? (
+        <View style={card}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Image source="sf:sun.horizon" style={{ width: 18, height: 18 }} tintColor={colors.label} />
+            <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: colors.label }}>Your morning brief</Text>
+            <Pressable accessibilityRole="button" onPress={() => void listen()} hitSlop={6} style={button(false)}>
+              <Text style={{ fontSize: 15, color: colors.label }}>{listening ? 'Stop' : 'Listen'}</Text>
+            </Pressable>
+          </View>
+          {brief.map((line, i) => (
+            <Text key={i} style={{ fontSize: 15, lineHeight: 21, color: colors.label }}>{line}</Text>
+          ))}
+        </View>
       ) : null}
 
       {waiting.length ? (
