@@ -29,6 +29,12 @@ export const FR: Dictionary = {
     "Could not save this. Please try again.": "L’enregistrement a échoué. Veuillez réessayer.",
     // BAARALI(07/11/2026): the buttons of an approval notification, and a lost answer (mobile baarali-approvals.ts).
     "Approve": "Approuver",
+    // BAARALI(07/11/2026): « Today » on the phone's home (mobile baarali-today.tsx).
+    "An action waits for your approval": "Une action attend votre accord",
+    "Approve all": "Tout approuver",
+    "Done for you": "Fait pour vous",
+    "In progress": "En cours",
+    "Nothing is waiting for you.": "Rien ne vous attend.",
     "Your answer was not sent": "Votre réponse n’est pas partie",
     "The action may have been settled already. Open the chat to check.": "L’action a peut-être déjà été tranchée. Ouvrez la conversation pour vérifier.",
     "Could not start this task. Please try again.": "La tâche n’a pas pu démarrer. Veuillez réessayer.",
@@ -4065,6 +4071,8 @@ export const FR: Dictionary = {
     "$1 was removed": "$1 ne fait plus partie de l’espace",
   },
   templates: {
+    // BAARALI(07/11/2026): mobile baarali-today.tsx.
+    "$1 actions wait for your approval": "$1 actions attendent votre accord",
     "New thread in $1": "Nouvelle session dans $1",
     "$1% used this week": "$1 % utilisés cette semaine",
     // The Baarasseurs page brought back to its mockup (08/10/2026).
