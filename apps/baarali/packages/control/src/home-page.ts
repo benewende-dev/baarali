@@ -24,8 +24,8 @@ type Lang = 'fr' | 'en';
 
 /** Each example agent's face, of the B's family (b-mark.ts SHAPES), as in the app. */
 const AGENT_LOOK: Record<string, { shape: ShapeId; color: string }> = {
-  mariama: { shape: 'cloud', color: 'violet' }, ibrahim: { shape: 'square', color: 'teal' }, adjoua: { shape: 'pebble', color: 'rose' },
-  aminata: { shape: 'dome', color: 'orange' }, fatou: { shape: 'bean', color: 'amber' }, moussa: { shape: 'kite', color: 'green' },
+  mariama: { shape: 'pebble', color: 'orange' }, ibrahim: { shape: 'square', color: 'teal' }, adjoua: { shape: 'cloud', color: 'rose' },
+  aminata: { shape: 'dome', color: 'violet' }, fatou: { shape: 'bean', color: 'amber' }, moussa: { shape: 'kite', color: 'green' },
   zara: { shape: 'drop', color: 'blue' }, kofi: { shape: 'pill', color: 'red' }, kouadio: { shape: 'arch', color: 'brown' }, youssoupha: { shape: 'leaf', color: 'gray' },
 };
 const lookOf = (id: string) => AGENT_LOOK[id.toLowerCase()] ?? { shape: 'b' as ShapeId, color: 'white' };
@@ -773,7 +773,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .sim [data-step] { transition:opacity .45s ease, transform .45s ease; }
 .sim.play [data-step] { opacity:0; transform:translateY(8px); }
 .sim.play [data-step].show { opacity:1; transform:none; }
-.peek { position:absolute; right:-14px; bottom:-38px; width:104px; filter:drop-shadow(0 18px 24px rgb(255 255 255 / .35)); }
+.peek { position:absolute; right:-14px; bottom:-38px; width:104px; filter:drop-shadow(0 18px 24px var(--shadow)); }
 .peek .tile { display:block; width:100%; height:auto; }
 
 /* The character */
@@ -1060,7 +1060,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .final h2 { color:var(--ink); font-size:clamp(36px, 5.4vw, 64px); }
 .final h2 em { color:var(--blue); }
 .final p { color:var(--muted); font-size:18px; margin:16px 0 30px; max-width:46ch; }
-.final .mascot { width:min(190px, 34vw); height:auto; filter:drop-shadow(0 24px 30px rgb(255 255 255 / .3)); }
+.final .mascot { width:min(190px, 34vw); height:auto; filter:drop-shadow(0 24px 30px var(--shadow)); }
 
 /* Footer */
 
@@ -1142,7 +1142,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <ul class="trust">${t.trust.map((x) => `<li>${icon('check')}${escape(x)}</li>`).join('')}</ul>
     </div>
     <div class="stage">${simulator}
-      <div class="peek">${logoTileLive(104).replace('class="logo-live"', 'class="logo-live tile"')}</div>
+      <div class="peek">${living('b', 'white', 104, ' tile')}</div>
     </div>
   </div>
 </section>${download}
@@ -1331,7 +1331,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <p>${escape(t.finalLead)}</p>
       ${data.downloadBase ? `<a class="btn btn-white" href="#telecharger">${escape(t.download)}${icon('arrow')}</a>` : `<a class="btn btn-white" href="/auth/v1/sign-in">${escape(t.start)}${icon('arrow')}</a>`}
     </div>
-    ${logoTileLive(190).replace('class="logo-live"', 'class="logo-live mascot"')}
+    ${living('b', 'white', 190, ' mascot')}
   </div>
 </section>
 </main>

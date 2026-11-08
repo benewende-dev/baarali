@@ -629,10 +629,19 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: [fromExpo.resolve('babel-preset-expo')],
-    plugins: [[require.resolve('./baarali-i18n/babel-plugin.cjs'), { runtime: path.join(__dirname, 'src/baarali-i18n/mobile/runtime.ts') }]],
+    plugins: [
+      [require.resolve('./baarali-i18n/babel-plugin.cjs'), { runtime: path.join(__dirname, 'src/baarali-i18n/mobile/runtime.ts') }],
+      [require.resolve('./baarali-i18n/fonts-babel.cjs'), { root: path.join(__dirname, 'src'), wrapper: path.join(__dirname, 'src/components/baarali-text.tsx') }],
+    ],
   };
 };
 `;
+
+/** The phone's fonts: static weights cut from the site's variable fonts (assets/fonts/*.woff2, OFL). */
+const MOBILE_FONTS = [
+  ['Inter-Regular.ttf', 'Inter', 400], ['Inter-Medium.ttf', 'Inter', 500], ['Inter-SemiBold.ttf', 'Inter', 600], ['Inter-Bold.ttf', 'Inter', 700],
+  ['SourceSerif4-Regular.ttf', 'Source Serif 4', 400], ['SourceSerif4-Medium.ttf', 'Source Serif 4', 500], ['SourceSerif4-SemiBold.ttf', 'Source Serif 4', 600],
+];
 
 const MOBILE_PERMISSIONS = {
   en: {
@@ -866,7 +875,7 @@ export function mobilePlan() {
       edit(`${mobile}/src/components/turn-view.tsx`, "        <Text style={styles.userText}>{userText(state.definition.input)}</Text>", "        {!!userText(state.definition.input) && <Text style={styles.userText}>{userText(state.definition.input)}</Text>}\n        {Array.isArray(state.definition.input.content) && state.definition.input.content.map((part, index) => part.type === 'attachment' ? <Text key={index} style={styles.meta}>📎 {part.filename}</Text> : null)}"),
       // BAARALI(07/11/2026): Grok Bot's conversation header (chat-header.tsx).
       edit(`${mobile}/src/app/chat.tsx`, "import { Redirect, router, useLocalSearchParams, useFocusEffect } from 'expo-router';", "import { Redirect, Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';\nimport { ChatMenu, ChatTitle } from '@/components/chat-header';"),
-      edit(`${mobile}/src/app/chat.tsx`, "        {/* Whom you are talking to, in a baarasseur's chat (below the floating header). */}\n        {baarasseur && id && !embedded ? (\n          <View style={{ position: 'absolute', top: insets.top + 56, left: 20, right: 16, zIndex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>\n            <BaarasseurAvatar b={baarasseur} size={30} />\n            <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>\n          </View>\n        ) : null}", "        {/* BAARALI(07/11/2026): Grok Bot's header, whom you talk to in the middle and « … » (chat-header.tsx). */}\n        {!embedded && <Stack.Screen options={{ headerTitle: () => <ChatTitle baarasseur={baarasseur} />, headerTitleAlign: 'center', headerRight: () => <ChatMenu baarasseur={baarasseur} /> }} />}"),
+      edit(`${mobile}/src/app/chat.tsx`, "        {/* Whom you are talking to, in a baarasseur's chat (below the floating header). */}\n        {baarasseur && id && !embedded ? (\n          <View style={{ position: 'absolute', top: insets.top + 56, left: 20, right: 16, zIndex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>\n            <BaarasseurAvatar b={baarasseur} size={30} />\n            <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>\n          </View>\n        ) : null}", "        {/* BAARALI(07/11/2026): Grok Bot's header, whom you talk to in the middle and « … » (chat-header.tsx). */}\n        {!embedded && <Stack.Screen options={{ headerTitle: () => <ChatTitle baarasseur={baarasseur} />, headerTitleAlign: 'center', headerRight: () => <ChatMenu baarasseur={baarasseur} />, headerBackground: () => <View style={{ flex: 1, backgroundColor: colors.background }} /> }} />}"),
       edit(`${mobile}/src/app/chat.tsx`, "placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}", "placeholder={baarasseur ? `Ask ${baarasseur.name}` : 'Ask Baarali'}"),
       // BAARALI(07/11/2026): « Recruit » opens the home's sheet (new-agent.tsx), black as the rest.
       edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "            <Pressable onPress={() => router.push('/baarasseurs/recruit')} hitSlop={8}\n              style={{ backgroundColor: colors.accent, borderRadius: 17, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>\n              <Text style={{ color: colors.onAccent, fontWeight: '600', fontSize: 15 }}>Recruit</Text>", "            <Pressable onPress={() => router.push('/new-agent')} hitSlop={8}\n              style={{ backgroundColor: colors.label, borderRadius: 17, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>\n              <Text style={{ color: colors.background, fontWeight: '600', fontSize: 15 }}>Recruit</Text>"),
@@ -902,6 +911,11 @@ export function mobilePlan() {
       edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, "          <View style={s.guide}>\n            <View style={[s.bubble, { backgroundColor: colors.secondaryBackground, borderColor: colors.separator }]}>\n              <Text accessibilityLiveRegion=\"polite\" style={[s.hint, { color: error ? colors.destructive : colors.label }]}>{translate(hint)}</Text>\n            </View>\n            <BaaraliMark size={168} motion=\"loading\" />\n          </View>", "          {/* BAARALI(07/11/2026): lighter, as Grok Bot's: the B, and a line only when something happens. */}\n          <View style={s.guide}>\n            <BaaraliMark size={88} motion=\"loading\" />\n            {(error || busy) ? <Text accessibilityLiveRegion=\"polite\" style={[s.hint, { color: error ? colors.destructive : colors.secondaryLabel }]}>{translate(hint)}</Text> : null}\n          </View>"),
       edit(`${mobile}/src/app/chat.tsx`, "import { ChatMenu, ChatTitle } from '@/components/chat-header';", "import { BaaraliGreeting, ChatMenu, ChatTitle } from '@/components/chat-header';"),
       edit(`${mobile}/src/app/chat.tsx`, "            <BaaraliLogo />\n            <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>", "            <BaaraliLogo />\n            <BaaraliGreeting />"),
+      // BAARALI(08/11/2026): a file card's buttons at their own size (the founder found « Share » huge), the main one filled, the other outlined.
+      edit(`${mobile}/src/components/file-cards.tsx`, "        flex: 1, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1,\n        backgroundColor: main ? colors.accent : colors.background,", "        height: 32, minWidth: 64, paddingHorizontal: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1,\n        backgroundColor: main ? colors.accent : 'transparent', borderWidth: main ? 0 : 1, borderColor: colors.separator,"),
+      edit(`${mobile}/src/components/file-cards.tsx`, "<Text style={{ fontSize: 14, fontWeight: '600', color: main ? colors.onAccent : colors.label }}>{label}</Text>", "<Text style={{ fontSize: 13.5, fontWeight: '600', color: main ? colors.onAccent : colors.label }}>{label}</Text>"),
+      // BAARALI(08/11/2026): the screens' titles in Inter too (baarali-text.tsx), the large ones in Source Serif 4.
+      edit(`${mobile}/src/app/_layout.tsx`, "              headerBackButtonDisplayMode: 'minimal',", "              headerBackButtonDisplayMode: 'minimal',\n              headerTitleStyle: { fontFamily: 'Inter', fontWeight: '600' },\n              headerLargeTitleStyle: { fontFamily: 'Source Serif 4', fontWeight: '500' },"),
       // BAARALI(07/11/2026): changing one's Baarali's face from the settings (look.tsx).
       edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"new-agent\"", "<Stack.Screen name=\"look\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"new-agent\""),
     ],
@@ -952,6 +966,10 @@ export function mobilePlan() {
       ['assets/mobile/space-composer.tsx', `${mobile}/src/components/space-composer.tsx`],
       ...['icon.png', 'splash-icon.png', 'android-icon-foreground.png', 'android-icon-monochrome.png', 'baarali-mark.png', 'baarali-tile.png'].map((f) => [`assets/mobile/${f}`, `${mobile}/assets/images/${f}`]),
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
+      // BAARALI(08/11/2026): Inter and Source Serif 4 on the phone, as on the download page (baarali-text.tsx).
+      ['assets/mobile/fonts-babel.cjs', `${mobile}/baarali-i18n/fonts-babel.cjs`],
+      ['assets/mobile/baarali-text.tsx', `${mobile}/src/components/baarali-text.tsx`],
+      ...MOBILE_FONTS.map(([file]) => [`assets/fonts/mobile/${file}`, `${mobile}/assets/fonts/${file}`]),
     ],
     writes: [
       [`${mobile}/src/lib/cad-editor-client.ts`, fs.readFileSync(path.join(PKG, 'assets/motion/cad-editor-client.ts'), 'utf8').replace("'./cad-scene.js'", "'./cad-scene'")],
@@ -978,7 +996,14 @@ export function mobilePlan() {
         const android = { ...expo.android, package: MOBILE_ID, adaptiveIcon: { ...expo.android.adaptiveIcon, backgroundColor: '#0A0A0A' } };
         delete android.adaptiveIcon.backgroundImage;
         expo.android = android;
-        expo.plugins = expo.plugins.map((p) => (Array.isArray(p) && p[0] === 'expo-splash-screen' ? ['expo-splash-screen', { ...p[1], backgroundColor: '#0A0A0A', imageWidth: 140 }] : p));
+        expo.plugins = expo.plugins.map((p) => (Array.isArray(p) && p[0] === 'expo-splash-screen' ? ['expo-splash-screen', { ...p[1], backgroundColor: '#0A0A0A', imageWidth: 88 }] : p));
+        // The family name comes from the files (Inter, Source Serif 4): fontWeight picks the file.
+        const fonts = MOBILE_FONTS.map(([file]) => `./assets/fonts/${file}`);
+        const families = [...new Set(MOBILE_FONTS.map(([, family]) => family))].map((fontFamily) => ({
+          fontFamily,
+          fontDefinitions: MOBILE_FONTS.filter(([, fam]) => fam === fontFamily).map(([file, , weight]) => ({ path: `./assets/fonts/${file}`, weight })),
+        }));
+        expo.plugins = expo.plugins.map((p) => (p === 'expo-font' || (Array.isArray(p) && p[0] === 'expo-font') ? ['expo-font', { ios: { fonts }, android: { fonts: families } }] : p));
         return { ...doc, expo };
       },
     },

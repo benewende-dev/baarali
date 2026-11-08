@@ -125,8 +125,9 @@ export function lockedNote(lang: Lang): string {
 type Copy = { for: string; points: string[] };
 export function planAccessCopy<T extends Copy>(copy: T, free: boolean, lang: Lang, opens = true): T {
   const w = WORDS[lang];
-  // Older catalogs still send the former Chat / Work lines: they make way.
-  const stale = (p: string) => /\b(Chat|Work)\b/.test(p);
+  // Older catalogs still send the former Chat / Work lines, and the former
+  // list of the workspace (« E-mail, réunions… et Studio »): they make way.
+  const stale = (p: string) => /\b(Chat|Work)\b/.test(p) || (/\bStudio\b/.test(p) && /réunions|meetings/i.test(p));
   return free
     ? { ...copy, for: w.freeFor, points: [...w.free] }
     : { ...copy, points: [...(opens ? w.paid : []), ...copy.points.filter((p) => !stale(p) && !w.paid.some((x) => x === p))] };

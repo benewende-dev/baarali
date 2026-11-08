@@ -1,13 +1,44 @@
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import type { billing } from '@x/shared';
 import { useConnection } from '@/lib/connection';
-import { withPlanAccess } from '@/lib/plan-access-copy';
+import { lockedNote, planAccess, withPlanAccess, type Cell, type Tier } from '@/lib/plan-access-copy';
+import { Image } from 'expo-image';
 import { phoneLang } from '@/lib/baarasseurs';
 import { useColors } from '@/theme/colors';
 // BAARALI(13/10/2026): offers are the desktop's live, localized catalog;
 // unavailable payment is never replaced by a simulated purchase.
+// BAARALI(08/11/2026): what each plan opens, the same table as baarali.com/tarifs
+// and the desktop's plans window (plan-access-copy.ts); the account's plan is shaded.
+const tierOf = (plan: billing.PlanOffer): Tier => (plan.free ? 'free' : plan.id.startsWith('pro') ? 'pro' : 'starter');
+const COL = 50;
+
+function Mark({ cell }: { cell: Cell }) {
+  const colors = useColors();
+  if (cell === true) return <Image source="sf:checkmark" style={{ width: 13, height: 13 }} tintColor={colors.label} accessibilityLabel="Included" />;
+  if (cell === false) return <Text accessibilityLabel="Not included" style={{ color: colors.tertiaryLabel, fontSize: 14 }}>–</Text>;
+  return <Text style={{ color: colors.secondaryLabel, fontSize: 10.5, textAlign: 'center' }}>{cell}</Text>;
+}
+
+function AccessTable({ plans, lang, mine }: { plans: billing.PlanOffer[]; lang: 'fr' | 'en'; mine: (plan: billing.PlanOffer) => boolean }) {
+  const colors = useColors();
+  const cells = (row: (plan: billing.PlanOffer) => React.ReactNode) => plans.map(plan => <View key={plan.id} style={{ width: COL, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', backgroundColor: mine(plan) ? colors.secondaryBackground : undefined }}>{row(plan)}</View>);
+  return <View accessibilityLabel="What each plan includes" style={{ borderRadius: 18, backgroundColor: colors.background, paddingVertical: 8, overflow: 'hidden' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingLeft: 16, paddingRight: 8, paddingBottom: 6 }}>
+      <Text style={{ flex: 1, fontSize: 17, fontWeight: '600', color: colors.label }}>What each plan includes</Text>
+      {cells(plan => <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 11, fontWeight: '600', color: colors.label, paddingVertical: 4 }}>{plan.name}</Text>)}
+    </View>
+    {planAccess(lang).map(group => <View key={group.name}>
+      <Text style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, fontSize: 11.5, fontWeight: '600', letterSpacing: 0.6, textTransform: 'uppercase', color: colors.secondaryLabel }}>{group.name}</Text>
+      {group.rows.map(row => <View key={row.text} style={{ flexDirection: 'row', paddingLeft: 16, paddingRight: 8, borderTopWidth: 0.5, borderTopColor: colors.separator }}>
+        <Text style={{ flex: 1, paddingVertical: 10, paddingRight: 6, fontSize: 13.5, lineHeight: 18, color: colors.label }}>{row.text}</Text>
+        {cells(plan => <Mark cell={row.cells[tierOf(plan)]} />)}
+      </View>)}
+    </View>)}
+  </View>;
+}
+
 export default function PlansScreen() {
   const colors = useColors(); const { rpc } = useConnection();
   const [offers, setOffers] = useState<billing.PlanOffers | null>(null);
@@ -36,8 +67,13 @@ export default function PlansScreen() {
         </View>)}
         {(expanded.includes(plan.id) ? plan.points : plan.points.slice(0, 3)).map(point => <Text key={point} style={{ color: colors.label, fontSize: 14, lineHeight: 21 }}>{point}</Text>)}
         {plan.points.length > 3 && <Pressable accessibilityRole="button" accessibilityState={{ expanded: expanded.includes(plan.id) }} onPress={() => setExpanded(value => value.includes(plan.id) ? value.filter(id => id !== plan.id) : [...value, plan.id])} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.accent, fontSize: 14 }}>{expanded.includes(plan.id) ? 'Show less' : 'View details'}</Text></Pressable>}
+        {plan.free && <View style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.separator }}>
+          <Image source="sf:lock" style={{ width: 13, height: 13, marginTop: 2 }} tintColor={colors.secondaryLabel} />
+          <Text style={{ flex: 1, fontSize: 13, lineHeight: 19, color: colors.secondaryLabel }}>{lockedNote(offers.lang)}</Text>
+        </View>}
         {!plan.free && <Pressable disabled accessibilityRole="button" accessibilityState={{ disabled: true }} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: colors.secondaryBackground }}><Text style={{ color: colors.secondaryLabel }}>{offers.soon}</Text></Pressable>}
       </View>)}
+      <AccessTable plans={offers.plans} lang={offers.lang} mine={plan => plan.levels.some(level => level.id === planId)} />
       <Text style={{ color: colors.secondaryLabel, fontSize: 13, lineHeight: 20 }}>{offers.foot}</Text>
     </>}
   </ScrollView>;

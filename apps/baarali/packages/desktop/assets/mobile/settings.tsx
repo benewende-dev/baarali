@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, RefreshControl, ScrollView, Switch, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, RefreshControl, ScrollView, Switch, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { billing } from '@x/shared';
@@ -17,6 +17,7 @@ import { useWorkAccess } from '@/lib/work-access-provider';
 import { UsagePanel } from '@/components/usage-panel';
 import { ModelPill } from '@/components/model-picker';
 import { BaaraliMark } from '@/components/baarali-mark';
+import { AgentShape, adaptive, useLook } from '@/components/agent-shape';
 import { initials } from '@/app/(tabs)/home';
 import { say } from '@/lib/say';
 import { useColors } from '@/theme/colors';
@@ -31,6 +32,8 @@ type Path = Parameters<typeof router.push>[0];
 // computer it is linked to; the B and the version at the foot.
 export default function SettingsScreen() {
   const colors = useColors();
+  const look = useLook();
+  const dark = useColorScheme() === 'dark';
   const { rpc, pairing, unpair, status } = useConnection();
   const { access } = useWorkAccess();
   const [info, setInfo] = useState<billing.BillingInfo | null>(null);
@@ -161,7 +164,7 @@ export default function SettingsScreen() {
       {pairing && <View style={card}><Row first label="Unpair this phone" danger onPress={disconnect} /></View>}
 
       <View style={{ alignItems: 'center', gap: 8, paddingTop: 24 }}>
-        <BaaraliMark size={64} />
+        {look ? <AgentShape shape={look.shape} color={adaptive(look.color, dark)} size={64} /> : <BaaraliMark size={64} />}
         <Text style={{ fontSize: 22, fontWeight: '600', color: colors.label }}>Baarali</Text>
         {!!version && <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{version}</Text>}
       </View>

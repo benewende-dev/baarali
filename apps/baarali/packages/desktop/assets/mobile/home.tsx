@@ -10,7 +10,7 @@ import { baarasseurs as team, sessions as sessionsShared } from '@x/shared';
 
 import { AnnouncementBanner } from '@/components/announcement-banner';
 import { BaaraliMark } from '@/components/baarali-mark';
-import { LivingShape, adaptive, useLook } from '@/components/agent-shape';
+import { AgentShape, LivingShape, adaptive, useLook } from '@/components/agent-shape';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
 import { NOTIFY_INTRO_KEY } from '@/lib/push';
@@ -178,7 +178,7 @@ export default function HomeScreen() {
             ListEmptyComponent={<Text style={{ padding: 24, textAlign: 'center', fontSize: 15, color: colors.secondaryLabel }}>No conversation found</Text>}
             renderItem={({ item }) => {
               const b = byId.get(team.baarasseurIdOf(item.lastAgentId) ?? '');
-              return <Line avatar={b ? <BaarasseurAvatar b={b} size={44} /> : <BaaraliMark size={40} />}
+              return <Line avatar={b ? <BaarasseurAvatar b={b} size={44} /> : look ? <AgentShape shape={look.shape} color={adaptive(look.color, dark)} size={44} /> : <BaaraliMark size={40} />}
                 title={item.title || translate('New chat')} subtitle={b?.name ?? 'Baarali'} date={when(item.updatedAt)} waiting={waits(item)}
                 onPress={() => openChat({ id: item.sessionId, agent: b ? team.baarasseurAgentId(b.id) : undefined })} />;
             }} />
