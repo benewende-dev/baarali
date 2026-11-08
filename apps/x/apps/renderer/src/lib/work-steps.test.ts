@@ -56,11 +56,13 @@ describe('segmentTurns', () => {
     expect(hasActiveWork(items, false)).toBe(false)
   })
 
-  it('lets the answer stream in the open, after the work', () => {
+  // BAARALI(08/11/2026): words streaming mid-work no longer fold it (it flickered at each sentence).
+  it('lets the answer stream in the open, the work live until the turn ends', () => {
     const items = [user('Vas-y'), tool('executeMcpTool'), say('Voici', true)]
     const segs = segmentTurns(items, true)
     expect(segs.map((s) => s.kind)).toEqual(['item', 'work', 'item'])
-    expect(segs[1]).toMatchObject({ active: false })
+    expect(segs[1]).toMatchObject({ active: true })
+    expect(segmentTurns(items, false)[1]).toMatchObject({ active: false })
   })
 
   it('leaves a plain exchange as it is', () => {

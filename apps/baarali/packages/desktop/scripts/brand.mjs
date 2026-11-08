@@ -561,8 +561,11 @@ export function desktopPlan() {
       // throughout page and chat waits, as requested by the founder. (The work
       // block draws its B itself since 07/11/2026: components/work-steps.tsx.)
       edit(`${renderer}/components/reasoning-row.tsx`, "import { ChevronDownIcon, LoaderIcon } from 'lucide-react'", "import { ChevronDownIcon } from 'lucide-react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
-      edit(`${renderer}/components/reasoning-row.tsx`, '<span className={quietRowGlyphSlotClass}>', '<span className={cn(quietRowGlyphSlotClass, isStreaming && "!h-8 !w-8")}>'),
-      edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={32} className="text-foreground" />'),
+      // BAARALI(08/11/2026): a small B in the row (the status line under the work has the large one),
+      // and the thought folded while it streams, as Claude Code (it filled the screen, in English).
+      edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={14} className="text-foreground" />'),
+      edit(`${renderer}/components/reasoning-row.tsx`, '  const [open, setOpen] = React.useState(isStreaming)\n', '  const [open, setOpen] = React.useState(false)\n'),
+      edit(`${renderer}/components/reasoning-row.tsx`, '      startedAt.current = Date.now()\n      setOpen(true)\n', '      startedAt.current = Date.now()\n'),
     ],
     copies: [
       ['assets/desktop/workspace.tsx', `${renderer}/components/desktop-workspace.tsx`],

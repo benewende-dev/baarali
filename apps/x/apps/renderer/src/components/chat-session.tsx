@@ -119,6 +119,17 @@ export function ChatSessionPane({
   //   it receives (`activeIsProcessing`) is active-tab-gated, so background
   //   tabs report `undefined` and App's `isChatTabProcessing` fallback keeps
   //   driving their busy state.
+  // BAARALI(08/11/2026): a message just sent, before the run says it started:
+  // the status line shows at once (there was a blank second), for 20 s at most.
+  const lastItem = tabState.conversation[tabState.conversation.length - 1]
+  const sentAt = lastItem && 'role' in lastItem && lastItem.role === 'user' ? lastItem.timestamp : 0
+  const [, rerender] = React.useReducer((n: number) => n + 1, 0)
+  const justSent = isActive && !activeIsProcessing && sentAt > 0 && Date.now() - sentAt < 20_000 && !tabState.currentAssistantMessage
+  React.useEffect(() => {
+    if (!justSent) return
+    const timer = setTimeout(rerender, Math.max(0, 20_000 - (Date.now() - sentAt)) + 50)
+    return () => clearTimeout(timer)
+  }, [justSent, sentAt])
   const sessionTitle = useSessionTitle(tab.runId)
   useReportTabMeta(tab.id, {
     title: sessionTitle,
@@ -193,7 +204,8 @@ export function ChatSessionPane({
               <div className="text-2xl font-semibold tracking-tight"><span>Write to</span> <span data-no-translate>{baarasseur.name}</span></div>
               {baarasseur.mission && <p className="line-clamp-3 max-w-2xl text-[15px] text-muted-foreground" data-no-translate>{baarasseur.mission}</p>}
             </div>
-          ) : !tabHasConversation ? (
+          ) : !tabHasConversation && !(isActive && activeIsProcessing) ? (
+            // BAARALI(08/11/2026): not while the first message's run starts (« How can I help? » flashed back).
             <ChatEmptyState
               wide
               variant={emptyStateVariant}
@@ -254,7 +266,7 @@ export function ChatSessionPane({
                   the bare indicator when there is nothing to show (working, or
                   reasoning with no visible text, e.g. encrypted-only). */}
               {/* BAARALI(09/10/2026): the work block shows its own spinner (lib/work-steps.ts). */}
-              {isActive && activeIsProcessing && !(activeIsReasoning && tabState.currentReasoning) && !hasActiveWork(shownSteps(tabState.conversation), true) && (
+              {((isActive && activeIsProcessing) || justSent) && !(activeIsReasoning && tabState.currentReasoning) && !hasActiveWork(shownSteps(tabState.conversation), true) && (
                 <Message from="assistant">
                   <MessageContent>
                     <TurnActivityIndicator isReasoning={activeIsReasoning} />

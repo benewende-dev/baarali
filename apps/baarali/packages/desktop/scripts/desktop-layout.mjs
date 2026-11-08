@@ -45,7 +45,7 @@ export function desktopLayoutEdits() {
     edit('App.tsx', 'isLiveNotesOpen || isBgTasksOpen || isAppsOpen', 'isLiveNotesOpen || isBgTasksOpen || isStudioOpen || isAppsOpen'),
     edit('App.tsx', "\n    : isAppsOpen ? 'apps'", "\n    : isStudioOpen ? 'studio'\n    : isAppsOpen ? 'apps'"),
     edit('App.tsx', "\n      : isAppsOpen ? 'apps'", "\n      : isStudioOpen ? 'studio'\n      : isAppsOpen ? 'apps'"),
-    edit('App.tsx', "    onOpenMeetings: openMeetingsView,", "    onSearch: () => setIsSearchOpen(true),\n    onOpenStudio: () => void navigateToView({ type: 'studio' }),\n    onNewWork: () => { openCodeView(); window.dispatchEvent(new Event('baarali:new-work')) },\n    onOpenMeetings: openMeetingsView,"),
+    edit('App.tsx', "    onOpenMeetings: openMeetingsView,", "    onSearch: () => setIsSearchOpen(true),\n    onOpenStudio: () => void navigateToView({ type: 'studio' }),\n    onNewWork: () => { try { window.localStorage.removeItem('x:code-selected-session') } catch { /* storage refused */ } openCodeView(); window.dispatchEvent(new Event('baarali:new-work')) },\n    onOpenMeetings: openMeetingsView,"),
     // Main navigation stays visible above every pane, including a maximized chat.
     edit('App.tsx', '                    onSessionSelected={handleCodeSessionSelected}', `                    workVoice={{
                       isRecording: isRecording && voiceOwner === WORK_VOICE_HOLDER,
@@ -82,7 +82,7 @@ export function desktopLayoutEdits() {
     edit('components/sidebar-content.tsx', 'import { SidebarChatContextMenu }', "import { useDesktopWorkspace } from './desktop-workspace'\nimport { Search, Clapperboard, Users } from 'lucide-react'\nimport { SidebarChatContextMenu }"),
     edit('components/sidebar-content.tsx', '  onOpenMeetings?: () => void', '  onSearch?: () => void\n  onOpenStudio?: () => void\n  onNewWork?: () => void\n  onOpenMeetings?: () => void'),
     edit('components/sidebar-content.tsx', "| 'spaces' | 'workspaces' | null", "| 'studio' | 'spaces' | 'workspaces' | null"),
-    edit('components/sidebar-content.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onSearch, onOpenStudio, onOpenSpaces,\n  onOpenMeetings,\n  onOpenBgTasks,'),
+    edit('components/sidebar-content.tsx', '  onOpenMeetings,\n  onOpenBgTasks,', '  onSearch, onOpenStudio, onOpenSpaces, onNewWork,\n  onOpenMeetings,\n  onOpenBgTasks,'),
     edit('components/sidebar-content.tsx', '  onOpenSpace,\n  activeSpace,\n', ''),
     edit('components/sidebar-content.tsx', '  const { sessions: projectSessions,', '  const workspace = useDesktopWorkspace()\n  const onCode = activeNav === \'code\' || activeNav === \'workspaces\'\n  const { sessions: projectSessions,'),
     // BAARALI(07/11/2026): one sidebar, as in Claude Code (the founder's
@@ -99,10 +99,10 @@ export function desktopLayoutEdits() {
   menuRun.push(<SidebarMenuItem key="search"><SidebarMenuButton onClick={onSearch}><Search className="size-4" /><span>Search</span></SidebarMenuButton></SidebarMenuItem>)
   for (const id of ['coworkers', 'routines', 'code', 'todo', 'library'] as SidebarPage[]) { const node = page(id); if (node) menuRun.push(node) }
   flushMenu()
-  const more: React.ReactNode[] = (['email', 'meetings', 'apps', 'prompts'] as SidebarPage[]).map(page).filter(Boolean)
+  const more: React.ReactNode[] = (['email', 'meetings', 'prompts'] as SidebarPage[]).map(page).filter(Boolean)
   if (SPACES_ENABLED && sidebarRows.some(row => row.id === 'spaces')) more.push(lock('spaces', <SidebarMenuItem key="spaces"><SidebarMenuButton isActive={activeNav === 'spaces'} onClick={onOpenSpaces}><Users className="size-4" /><span>Team spaces</span></SidebarMenuButton></SidebarMenuItem>))
   more.push(lock('studio', <SidebarMenuItem key="studio"><SidebarMenuButton isActive={activeNav === 'studio'} onClick={onOpenStudio}><Clapperboard className="size-4" /><span>Studio</span></SidebarMenuButton></SidebarMenuItem>))
-  const moreActive = ['email', 'meetings', 'apps', 'prompts', 'spaces', 'studio'].includes(activeNav ?? '')
+  const moreActive = ['email', 'meetings', 'prompts', 'spaces', 'studio'].includes(activeNav ?? '')
   sidebarBlocks.push(<details key="more" className="baarali-more" open={moreActive || undefined}><summary>More</summary><SidebarGroup className="flex flex-col py-0"><SidebarGroupContent><SidebarMenu>{more}</SidebarMenu></SidebarGroupContent></SidebarGroup></details>)`),
     // Keep the entire profile/usage/status footer unchanged; only the body differs.
     edit('components/sidebar-content.tsx', '        {/* Chats */}\n        <SidebarGroup', '        {onCode && workspace.access === \'allowed\' && <div ref={workspace.setProjectHost} className="baarali-project-host min-h-0 flex-1" />}\n        {/* Chats */}\n        <SidebarGroup hidden={onCode && workspace.access === \'allowed\'}'),
@@ -180,5 +180,25 @@ const invoke = vi.fn(async (channel: string) => {`),
     edit('lib/session-chat/store.ts', '      this.sessionFeedDisconnect = null\n      this.syncDeltas()\n', "      this.sessionFeedDisconnect = null\n      if (this.watchdog) clearInterval(this.watchdog)\n      this.watchdog = null\n      if (typeof window !== 'undefined') window.removeEventListener('focus', this.resync)\n      this.syncDeltas()\n"),
     edit('lib/session-chat/store.ts', '  private async load(sessionId: string, generation: number): Promise<void> {\n', "  /** A running turn with nothing heard for 15 s: read it again. */\n  private checkQuiet = (): void => {\n    if (this.sessionId === null || !this.latestEvents) return\n    if (Date.now() - this.lastFeedAt < 15_000) return\n    let running = false\n    try { running = !reduceTurn(this.latestEvents).terminal } catch { running = false }\n    if (!running) return\n    this.lastFeedAt = Date.now()\n    void this.load(this.sessionId, this.generation)\n  }\n\n  private async load(sessionId: string, generation: number): Promise<void> {\n"),
     edit('lib/session-chat/store.ts', '    await this.client.respondToPermission(turnId, toolCallId, decision, metadata)\n', "    try {\n      await this.client.respondToPermission(turnId, toolCallId, decision, metadata)\n    } catch (error) {\n      // Settled already, or the turn ended: the screen was behind, catch up.\n      if (/no pending permission|is terminal/.test(error instanceof Error ? error.message : String(error))) { this.resync(); return }\n      throw error\n    }\n"),
+    // BAARALI(08/11/2026): the Library counts what its table lists (agent notes and the workspace too):
+    // the header said « 6 notes in 2 folders » over 11 notes in 3, and the sidebar « updated 1 month ago » the day after a note.
+    edit("components/knowledge-view.tsx", "    () => topLevel.reduce((sum, n) => sum + collectNotes(n).length, 0),\n    [topLevel],\n", "    () => tree.filter((n) => n.path !== 'knowledge/Meetings').reduce((sum, n) => sum + collectNotes(n).length, 0),\n    [tree],\n"),
+    edit("components/knowledge-view.tsx", "across {folders.length}{' '}\n            {folders.length === 1 ? 'folder' : 'folders'}", "across {libraryFolders}{' '}\n            {libraryFolders === 1 ? 'folder' : 'folders'}"),
+    edit("components/knowledge-view.tsx", "  const openFolder = useCallback(", "  const libraryFolders = tree.filter((n) => n.kind === 'dir' && n.path !== 'knowledge/Meetings').length\n\n  const openFolder = useCallback("),
+    edit("components/dock-sidebar.tsx", "        if (n.path === 'knowledge/Meetings' || n.path === 'knowledge/Workspace' || n.path === 'knowledge/Agent Notes') continue\n", "        if (n.path === 'knowledge/Meetings') continue\n"),
+    edit("components/sidebar-content.tsx", "        if (n.path === 'knowledge/Meetings' || n.path === 'knowledge/Workspace' || n.path === 'knowledge/Agent Notes') continue\n", "        if (n.path === 'knowledge/Meetings') continue\n"),
+    // BAARALI(08/11/2026): the project's name survives a narrow rail, its parent folder gives way
+    // (right-to-left cut « Work » to « …rk » beside « /data/Projects »).
+    edit('components/code/session-rail.tsx', "<span className=\"min-w-0 flex-1 truncate text-[13px] font-medium\" dir=\"rtl\">", "<span className=\"min-w-0 flex-1 truncate text-[13px] font-medium\">"),
+    // BAARALI(08/11/2026): « Code » opens the Code home (projects, sessions to resume, a new task),
+    // not the last session it happened to show.
+    edit('components/sidebar-content.tsx', "onClick={() => knowledgeActions.openWorkspaceAt()}", "onClick={() => (onNewWork ? onNewWork() : knowledgeActions.openWorkspaceAt())}"),
+    // BAARALI(08/11/2026): in a Code session the folder chip reads as a folder, not a lock; its copy
+    // button shows on hover; the field says what to ask there.
+    edit('components/chat-input-with-mentions.tsx', "                    ? <Lock className=\"h-3 w-3 shrink-0\" />\n", "                    ? <FolderCog className=\"h-3.5 w-3.5 shrink-0\" />\n"),
+    edit('components/chat-input-with-mentions.tsx', "                  className=\"ml-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-accent hover:text-foreground\"\n", "                  className=\"ml-1 flex h-5 w-0 shrink-0 items-center justify-center overflow-hidden rounded opacity-0 transition-all hover:bg-accent hover:text-foreground group-hover:w-5 group-hover:opacity-100 focus-visible:w-5 focus-visible:opacity-100\"\n"),
+    edit('components/chat-input-with-mentions.tsx', "placeholder={placeholder ?? 'Write to Baarali, @ to cite a note or a file'}", "placeholder={placeholder ?? (codeSessionLock ? 'Describe a change, a fix or a review in this folder' : 'Write to Baarali, @ to cite a note or a file')}"),
+    // BAARALI(08/11/2026): the whole routine card opens its detail and run history (only its title did).
+    edit('components/bg-task-card.tsx', "    <div className={`grid grid-cols-[40px_1fr_auto] items-start gap-3 rounded-2xl border bg-card px-4 py-3.5 transition-colors ${", "    <div onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role=\"switch\"], [role=\"menuitem\"]')) onOpen() }} className={`grid cursor-pointer grid-cols-[40px_1fr_auto] items-start gap-3 rounded-2xl border bg-card px-4 py-3.5 transition-colors ${"),
   ];
 }

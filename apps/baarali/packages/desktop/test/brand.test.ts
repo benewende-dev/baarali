@@ -106,7 +106,7 @@ describe('apply on this checkout', () => {
     expect(branded.slice(branded.indexOf(footer))).toBe(original.slice(original.indexOf(footer)));
     // BAARALI(07/11/2026): no Chat/Work switch; the everyday pages, then « More ».
     expect(branded).toContain("['coworkers', 'routines', 'code', 'todo', 'library']");
-    expect(branded).toContain("['email', 'meetings', 'apps', 'prompts']");
+    expect(branded).toContain("['email', 'meetings', 'prompts']");
     expect(branded).not.toContain("workspace.mode === 'work'");
     expect(branded).not.toContain('<SpacesSidebarSection');
     expect(branded).toContain('onClick={onOpenSpaces}');

@@ -132,7 +132,10 @@ export function segmentTurns(items: ConversationItem[], working: boolean): TurnS
     const work = answer === -1 ? items.filter((it) => !trailing(it)) : items.slice(0, answer).filter((it) => !trailing(it))
     if (work.length) {
       const steps = stepsOf(work)
-      const active = !finished && answer === -1
+      // BAARALI(08/11/2026): words streaming in the middle of the work are not
+      // the end of it: the work stays live until the turn says it is over (it
+      // folded and opened again at each sentence).
+      const active = !finished
       const endedAt = answer === -1 ? Math.max(...work.map((w) => w.timestamp)) : items[answer].timestamp
       expanded.push({ kind: 'work', id: seg.id, steps, active, startedAt: work[0].timestamp, endedAt })
     }
