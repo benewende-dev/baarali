@@ -3601,6 +3601,10 @@ export const FR: Dictionary = {
     "Voice input is unavailable right now. Try again in a few minutes.": "La dictée est indisponible pour le moment. Réessayez dans quelques minutes.",
     // The composer's speaker (07/10/2026): replies of a typed chat read aloud.
     "Read replies aloud": "Lire les réponses à voix haute",
+    "Write to Baarali, @ to cite a note or a file": "Écrivez à Baarali, @ pour citer une note ou un fichier",
+    "Send (Enter) · New line: Shift+Enter": "Envoyer (Entrée) · Nouvelle ligne : Maj+Entrée",
+    "End the conversation": "Terminer la conversation",
+    "Turn off web search": "Couper la recherche web",
     // The phone as a voice agent (mobile chat.tsx, 07/10/2026).
     "Talk": "Parler",
     "Send what I said": "Envoyer ce que j'ai dit",
@@ -4649,8 +4653,8 @@ export const FR: Dictionary = {
     "Your session starts with your next message. $1% of your week is left.": "Votre session commence avec votre prochain message. Il vous reste $1 % de votre semaine.",
     "$1% used": "$1 % utilisés",
     "Last updated: $1 min ago": "Dernière mise à jour : il y a $1 min",
-    "$1 active": "$1 actives",
-    "$1 active · Last run $2": "$1 actives · dernière $2",
+    "$1 active": "Actives : $1",
+    "$1 active · Last run $2": "Actives : $1 · dernière $2",
     "No active agents · Last run $1": "Aucune routine active · dernière $1",
     "$1 failed · Needs review": "$1 en échec · à vérifier",
     "Started at $1": "Commencée à $1",
