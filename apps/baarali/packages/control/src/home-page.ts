@@ -1,9 +1,13 @@
+import { SITE_FOOTER_CSS, siteFooter } from './site-footer.js';
 import type { SoldPack } from './admin.js';
 import type { Money, Offer } from './pricing.js';
 import { CONTACT, legalLinks } from './legal-page.js';
 import { MODEL_BRANDS, MODEL_MAKER, TOOL_BRANDS, type Brand } from './brands.js';
 import { FAVICON, logoTile, logoWord, mascot, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
 import { pickLang } from './sign-in-page.js';
+import { LIVING_JS, PARADE, PICK_JS, living } from './living-shapes.js';
+import type { ShapeId } from './b-mark.js';
+import { lockedNote, planAccessCopy } from './plan-access-copy.js';
 
 // The home page at baarali.com, with the prices (decided 01/10/2026). Prices
 // and credits come from the catalog the quota is computed from (catalog.ts),
@@ -17,6 +21,14 @@ import { pickLang } from './sign-in-page.js';
 // CSP admits nothing from elsewhere.
 
 type Lang = 'fr' | 'en';
+
+/** Each example agent's face, of the B's family (b-mark.ts SHAPES), as in the app. */
+const AGENT_LOOK: Record<string, { shape: ShapeId; color: string }> = {
+  mariama: { shape: 'pebble', color: 'orange' }, ibrahim: { shape: 'square', color: 'teal' }, adjoua: { shape: 'cloud', color: 'rose' },
+  aminata: { shape: 'dome', color: 'violet' }, fatou: { shape: 'bean', color: 'amber' }, moussa: { shape: 'kite', color: 'green' },
+  zara: { shape: 'drop', color: 'blue' }, kofi: { shape: 'pill', color: 'red' }, kouadio: { shape: 'arch', color: 'brown' }, youssoupha: { shape: 'leaf', color: 'gray' },
+};
+const lookOf = (id: string) => AGENT_LOOK[id.toLowerCase()] ?? { shape: 'b' as ShapeId, color: 'white' };
 
 const STRINGS = {
   fr: {
@@ -62,7 +74,7 @@ const STRINGS = {
     ],
     appKicker: 'Dans l’app',
     appTitle: ['Plus qu’un chat, ', 'un poste de travail', '.'],
-    appLead: 'Baarali ne se contente pas de répondre. Il suit vos réunions, tient vos notes à jour, prépare vos présentations et travaille quand vous n’êtes pas là.',
+    appLead: 'Baarali ne se contente pas de répondre. Sur l’ordinateur, une barre latérale comme un vrai poste de travail : vos conversations, vos agents, vos projets. Il suit vos réunions, tient vos notes à jour, prépare vos présentations et travaille quand vous n’êtes pas là.',
     meet: {
       tag: 'Réunions',
       title: 'Il suit vos réunions et les résume',
@@ -80,7 +92,7 @@ const STRINGS = {
       { icon: 'slides', title: 'Présentations', text: 'Il crée et modifie vos présentations, prêtes à projeter ou à envoyer.', soon: false },
       { icon: 'apps', title: 'Mini-apps', text: 'Demandez un petit outil, un suivi de caisse ou un formulaire : il le construit pour vous.', soon: false },
       { icon: 'mail', title: 'Vos emails', text: 'Il lit votre boîte, prépare les réponses et vous laisse valider.', soon: false },
-      { icon: 'call', title: 'Appels', text: 'Parlez-lui à voix haute ; il voit votre écran pour vous aider en direct.', soon: true },
+      { icon: 'call', title: 'Appels', text: 'Parlez-lui à voix haute ; il voit votre écran pour vous aider en direct.', soon: false },
       { icon: 'team', title: 'Espaces d’équipe', text: 'Des espaces partagés avec vos collègues, et un tableau blanc pour réfléchir ensemble.', soon: false },
     ],
     modelsKicker: 'Les modèles',
@@ -97,12 +109,12 @@ const STRINGS = {
       { task: 'Lire un appel d’offres de 120 pages', profile: 'Lecture longue', why: 'Tout le dossier d’un coup, sans rien couper.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 exigences, 3 risques, date limite le 28 octobre' },
     ],
     makersTitle: 'Les modèles de ces entreprises, dans Baarali',
-    agentsKicker: 'Vos baarasseurs',
-    agentsTitle: ['Recrutez vos baarasseurs, ', 'à votre nom', '.'],
-    agentsLead: 'Des bosseurs qui travaillent pour vous : un nom, un visage, une mission, ses outils et son modèle. Chacun a sa conversation : vous le retrouvez comme un contact, sur l’ordinateur comme sur le téléphone.',
+    agentsKicker: 'Vos agents',
+    agentsTitle: ['Créez vos agents, ', 'à votre nom', '.'],
+    agentsLead: 'Des agents qui travaillent pour vous : un nom, une forme, une mission, ses outils et son modèle. Au premier échange, il vous salue, vous demande comment vous appeler et ce que vous attendez de lui. Chacun a sa conversation : vous le retrouvez comme un contact, sur l’ordinateur comme sur le téléphone.',
     agentsSoon: 'Dans l’app',
-    agentsPrev: 'Baarasseurs précédents',
-    agentsNext: 'Baarasseurs suivants',
+    agentsPrev: 'Agents précédents',
+    agentsNext: 'Agents suivants',
     agents: [
       { id: 'mariama', name: 'Mariama', role: 'Commerciale', mission: 'Relance vos prospects chaque lundi et prépare vos devis.', tools: ['Gmail', 'WhatsApp', 'HubSpot'], model: 'Claude' },
       { id: 'ibrahim', name: 'Ibrahim', role: 'Comptable SYSCOHADA', mission: 'Tient vos comptes et prépare la TVA du mois.', tools: ['Google Sheets', 'Gmail'], model: 'OpenAI' },
@@ -115,7 +127,7 @@ const STRINGS = {
       { id: 'kouadio', name: 'Kouadio', role: 'Tuteur scolaire', mission: 'Aide vos enfants à réviser, matière par matière.', tools: ['Google Docs'], model: 'Claude' },
       { id: 'youssoupha', name: 'Youssoupha', role: 'Producteur musical', mission: 'Compose des maquettes et écrit vos textes.', tools: ['Google Drive'], model: 'Gemini' },
     ],
-    builder: { title: 'Recruter un baarasseur', name: 'Nom', mission: 'Mission', tools: 'Outils', model: 'Modèle', create: 'Recruter', nameValue: 'Mariama', missionValue: 'Relancer mes clients chaque lundi', modelValue: 'Claude · rédaction' },
+    builder: { title: 'Créer un agent', name: 'Nom', mission: 'Mission', tools: 'Outils', model: 'Modèle', create: 'Créer', nameValue: 'Mariama', missionValue: 'Relancer mes clients chaque lundi', modelValue: 'Claude · rédaction' },
     chats: { title: 'Discussions', items: [['Mariama', '3 relances prêtes, je les envoie ?', '09:12', '2'], ['Ibrahim', 'La TVA de septembre est prête.', '08:40', ''], ['Adjoua', 'Rendez-vous déplacé à 15 h.', 'Hier', ''], ['Aminata', '12 commandes reçues ce matin.', 'Hier', '5']] as Array<[string, string, string, string]> },
     toolsTitle: 'Il travaille avec vos outils',
     toolsNote: 'Gmail et Google Agenda directement ; les autres par des connecteurs à brancher depuis l’app.',
@@ -168,10 +180,10 @@ const STRINGS = {
     popular: 'Le plus choisi',
     usage: (x: string) => `Utilisation ×${x} par rapport à Essentiel`,
     plans: {
-      decouverte: { tag: 'Pour essayer', points: ['Chat, recherche web et analyse de fichiers', 'Voix et modèles rapides dans vos quotas', 'Work réservé aux forfaits payants ; médias avec des crédits séparés'] },
-      semaine: { tag: 'Sans engagement', points: ['Chat et Work, tous les modèles', 'L’utilisation d’Essentiel, payée à la semaine', 'Pratique en Mobile Money'] },
-      essentiel: { tag: 'Le quotidien', points: ['Chat et Work, tous les modèles', 'Une utilisation pour tous les jours', 'Les médias avec des crédits'] },
-      pro: { tag: 'Pour les gros besoins', points: ['Chat et Work, tous les modèles', 'Cinq ou dix fois l’utilisation d’Essentiel', 'Pour travailler toute la journée avec lui'] },
+      decouverte: { tag: 'Pour essayer', points: ['Conversations avec Baarali, recherche web et analyse de fichiers', 'Voix et modèles rapides dans vos quotas', 'Médias avec des crédits séparés'] },
+      semaine: { tag: 'Sans engagement', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel, payée à la semaine', 'Pratique en Mobile Money'] },
+      essentiel: { tag: 'Le quotidien', points: ['Tous les modèles, dont les plus puissants', 'Une utilisation pour tous les jours', 'Les médias avec des crédits'] },
+      pro: { tag: 'Pour les gros besoins', points: ['Tous les modèles, dont les plus puissants', 'Cinq ou dix fois l’utilisation d’Essentiel', 'Pour travailler toute la journée avec lui'] },
     } as Record<string, { tag: string; points: string[] }>,
     proChoice: 'Choisissez votre niveau',
     payment: 'Paiement en ligne bientôt : Mobile Money et carte.',
@@ -187,6 +199,9 @@ const STRINGS = {
     macArm: 'Mac · Apple M1 et plus récent',
     macIntel: 'Mac · Intel',
     windows: 'Windows 10 et 11',
+    forMac: 'Télécharger pour Mac',
+    forWindows: 'Télécharger pour Windows',
+    other: 'Autres versions',
     macNote: 'Au premier lancement sur Mac, si macOS refuse d’ouvrir l’app : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.',
     phoneNote: 'Sur téléphone : bientôt.',
     faqKicker: 'Questions',
@@ -250,7 +265,7 @@ const STRINGS = {
     ],
     appKicker: 'In the app',
     appTitle: ['More than a chat, ', 'a workstation', '.'],
-    appLead: 'Baarali does more than answer. It follows your meetings, keeps your notes up to date, prepares your decks and works while you are away.',
+    appLead: 'Baarali does more than answer. On the computer, a sidebar like a real workstation: your conversations, your agents, your projects. It follows your meetings, keeps your notes up to date, prepares your decks and works while you are away.',
     meet: {
       tag: 'Meetings',
       title: 'It follows your meetings and sums them up',
@@ -268,7 +283,7 @@ const STRINGS = {
       { icon: 'slides', title: 'Presentations', text: 'It creates and edits your decks, ready to present or send.', soon: false },
       { icon: 'apps', title: 'Mini apps', text: 'Ask for a small tool, a till tracker or a form: it builds it for you.', soon: false },
       { icon: 'mail', title: 'Your emails', text: 'It reads your inbox, prepares replies and lets you approve.', soon: false },
-      { icon: 'call', title: 'Calls', text: 'Talk to it out loud; it sees your screen to help you live.', soon: true },
+      { icon: 'call', title: 'Calls', text: 'Talk to it out loud; it sees your screen to help you live.', soon: false },
       { icon: 'team', title: 'Team spaces', text: 'Spaces shared with your colleagues, and a whiteboard to think together.', soon: false },
     ],
     modelsKicker: 'Models',
@@ -285,12 +300,12 @@ const STRINGS = {
       { task: 'Read a 120-page tender', profile: 'Long reading', why: 'The whole file at once, nothing cut.', meters: [55, 75, 45], makers: ['Google', 'Anthropic'], out: '14 requirements, 3 risks, deadline 28 October' },
     ],
     makersTitle: 'Models from these companies, in Baarali',
-    agentsKicker: 'Your baarasseurs',
-    agentsTitle: ['Recruit your baarasseurs, ', 'in your name', '.'],
-    agentsLead: 'Workers who work for you: a name, a face, a mission, its tools and its model. Each one has its conversation: you find it like a contact, on your computer and your phone.',
+    agentsKicker: 'Your agents',
+    agentsTitle: ['Make your agents, ', 'in your name', '.'],
+    agentsLead: 'Agents who work for you: a name, a shape, a mission, its tools and its model. At the first exchange it greets you, asks how to address you and what you expect from it. Each one has its conversation: you find it like a contact, on your computer and your phone.',
     agentsSoon: 'In the app',
-    agentsPrev: 'Previous baarasseurs',
-    agentsNext: 'Next baarasseurs',
+    agentsPrev: 'Previous agents',
+    agentsNext: 'Next agents',
     agents: [
       { id: 'mariama', name: 'Mariama', role: 'Sales', mission: 'Follows up your leads every Monday and drafts your quotes.', tools: ['Gmail', 'WhatsApp', 'HubSpot'], model: 'Claude' },
       { id: 'ibrahim', name: 'Ibrahim', role: 'SYSCOHADA accountant', mission: 'Keeps your books and prepares the month’s VAT.', tools: ['Google Sheets', 'Gmail'], model: 'OpenAI' },
@@ -303,7 +318,7 @@ const STRINGS = {
       { id: 'kouadio', name: 'Kouadio', role: 'School tutor', mission: 'Helps your children revise, subject by subject.', tools: ['Google Docs'], model: 'Claude' },
       { id: 'youssoupha', name: 'Youssoupha', role: 'Music producer', mission: 'Composes demos and writes your lyrics.', tools: ['Google Drive'], model: 'Gemini' },
     ],
-    builder: { title: 'Recruit a baarasseur', name: 'Name', mission: 'Mission', tools: 'Tools', model: 'Model', create: 'Recruit', nameValue: 'Mariama', missionValue: 'Follow up my customers every Monday', modelValue: 'Claude · writing' },
+    builder: { title: 'Make an agent', name: 'Name', mission: 'Mission', tools: 'Tools', model: 'Model', create: 'Create', nameValue: 'Mariama', missionValue: 'Follow up my customers every Monday', modelValue: 'Claude · writing' },
     chats: { title: 'Chats', items: [['Mariama', '3 follow-ups ready, shall I send them?', '09:12', '2'], ['Ibrahim', 'September’s VAT is ready.', '08:40', ''], ['Adjoua', 'Meeting moved to 3 pm.', 'Yesterday', ''], ['Aminata', '12 orders came in this morning.', 'Yesterday', '5']] as Array<[string, string, string, string]> },
     toolsTitle: 'It works with your tools',
     toolsNote: 'Gmail and Google Calendar directly; the others through connectors you plug in from the app.',
@@ -356,10 +371,10 @@ const STRINGS = {
     popular: 'Most chosen',
     usage: (x: string) => `×${x} the usage of Essentiel`,
     plans: {
-      decouverte: { tag: 'To try it', points: ['Chat, web research and file analysis', 'Voice and fast models within your quotas', 'Work for paid plans; media with separate credits'] },
-      semaine: { tag: 'No commitment', points: ['Chat and Work, every model', 'The usage of Essentiel, paid by the week', 'Handy with mobile money'] },
-      essentiel: { tag: 'Everyday', points: ['Chat and Work, every model', 'Usage for every day', 'Media with credits'] },
-      pro: { tag: 'For heavy use', points: ['Chat and Work, every model', 'Five or ten times the usage of Essentiel', 'To work with it all day'] },
+      decouverte: { tag: 'To try it', points: ['Conversations with Baarali, web research and file analysis', 'Voice and fast models within your quotas', 'Media with separate credits'] },
+      semaine: { tag: 'No commitment', points: ['Every model, the most powerful included', 'The usage of Essentiel, paid by the week', 'Handy with mobile money'] },
+      essentiel: { tag: 'Everyday', points: ['Every model, the most powerful included', 'Usage for every day', 'Media with credits'] },
+      pro: { tag: 'For heavy use', points: ['Every model, the most powerful included', 'Five or ten times the usage of Essentiel', 'To work with it all day'] },
     } as Record<string, { tag: string; points: string[] }>,
     proChoice: 'Choose your level',
     payment: 'Online payment soon: mobile money and card.',
@@ -375,6 +390,9 @@ const STRINGS = {
     macArm: 'Mac · Apple M1 or newer',
     macIntel: 'Mac · Intel',
     windows: 'Windows 10 and 11',
+    forMac: 'Download for Mac',
+    forWindows: 'Download for Windows',
+    other: 'Other versions',
     macNote: 'On a Mac, if macOS refuses to open the app the first time: System Settings › Privacy & Security › Open Anyway.',
     phoneNote: 'On your phone: soon.',
     faqKicker: 'Questions',
@@ -544,12 +562,13 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
         <p class="kicker kicker-light">${escape(t.downloadKicker)}</p>
         <h2 id="download">${titled(t.downloadTitle)}</h2>
         <p class="sub">${escape(t.downloadLead)}</p>
-        <div class="dl-buttons">${(['macArm', 'macIntel', 'windows'] as const)
-          .map((k) => `<a class="btn ${k === 'macArm' ? 'btn-blue' : 'btn-glass'}" href="${escape(`${data.downloadBase}/${DOWNLOADS[k]}`)}">${icon(k === 'windows' ? 'windows' : 'apple', 'fill')}${escape(t[k])}</a>`)
-          .join('')}</div>
+        <div class="dl-buttons"><a class="btn btn-blue" data-primary href="${escape(`${data.downloadBase}/${DOWNLOADS.macArm}`)}" data-windows="${escape(`${data.downloadBase}/${DOWNLOADS.windows}`)}" data-windows-label="${escape(t.forWindows)}">${icon('apple', 'fill')}<span>${escape(t.forMac)}</span></a></div>
+        <details class="others"><summary>${escape(t.other)}</summary><ul>${(['macArm', 'macIntel', 'windows'] as const)
+          .map((k) => `<li><a href="${escape(`${data.downloadBase}/${DOWNLOADS[k]}`)}">${icon(k === 'windows' ? 'windows' : 'apple', 'fill')}${escape(t[k])}</a></li>`)
+          .join('')}</ul></details>
         <p class="fine">${escape(t.macNote)} ${escape(t.phoneNote)}</p>
       </div>
-      <div class="dl-art">${logoTile(220)}</div>
+      <div class="dl-art">${living('b', 'white', 150)}<div class="parade" aria-hidden="true">${PARADE.map((p) => living(p.shape, p.color, Math.round(p.size * 0.8))).join('')}</div></div>
     </div>
   </div>
 </section>`
@@ -565,7 +584,10 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
   };
 
   const card = (offer: Offer, extra = '') => {
-    const copy = t.plans[offer.id] ?? t.plans.pro;
+    // BAARALI(07/11/2026): what a paid plan opens leads, from plan-access-copy.ts.
+    const free = offer.billing.kind === 'free';
+    const copy = { ...(t.plans[offer.id] ?? t.plans.pro), ...planAccessCopy({ for: '', points: [...(t.plans[offer.id] ?? t.plans.pro).points] }, false, lang, !free && offer.category !== 'pro') };
+    if (free) copy.points = [...(t.plans[offer.id] ?? t.plans.pro).points];
     const featured = offer.id === 'essentiel';
     return `<article class="plan${featured ? ' featured' : ''}">
       ${featured ? `<p class="badge">${escape(t.popular)}</p>` : ''}
@@ -573,6 +595,7 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
       <h3>${escape(offer.displayName)}</h3>
       ${extra || priceBlock(offer)}
       <ul>${copy.points.map((p) => `<li>${icon('check')}${escape(p)}</li>`).join('')}</ul>
+      ${free ? `<p class="locked">${icon('lock')}${escape(lockedNote(lang))}</p>` : ''}
       ${offer.billing.kind === 'free' ? (data.downloadBase ? `<a class="btn btn-blue" href="#telecharger">${escape(t.download)}</a>` : `<a class="btn btn-blue" href="/auth/v1/sign-in">${escape(t.start)}</a>`) : `<p class="note">${escape(t.payment)}</p>`}
     </article>`;
   };
@@ -605,7 +628,7 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
 <meta property="og:title" content="${escape(t.title)}">
 <meta property="og:description" content="${escape(t.description)}">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FFFFFF">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0B0C0F">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A0A0A">
 <link rel="icon" href="${FAVICON}">
 <script nonce="${opts.nonce}">
 // The theme the viewer picked, before the first paint (no flash of the other).
@@ -616,33 +639,40 @@ try { const v = localStorage.getItem("baarali-theme"); if (v === "light" || v ==
 <style nonce="${opts.nonce}">
 @font-face { font-family:"Inter"; src:url(/assets/inter.woff2) format("woff2"); font-weight:400 800; font-display:swap; }
 @font-face { font-family:"Source Serif 4"; src:url(/assets/source-serif-4.woff2) format("woff2"); font-weight:400 700; font-style:normal; font-display:swap; }
-/* The brand's three colours (decided 01/10/2026): white, blue, black. The
-   page is deliberately one look, light with black bands, in either theme. */
+/* BAARALI(07/11/2026): black and white, as the app and the B (the founder's
+   call): one dark page, white for what matters, no theme switch. */
 :root {
-  --paper:#ffffff; --mist:#f5f5f5; --line:#e7e7e7; --ink:#0d0d0d; --text:#2b2b2b; --muted:#5d5d5d;
-  --blue:#1a6dff; --blue-deep:#155eef; --blue-soft:#eef3ff; --blue-line:#d3e0ff;
+  --paper:#ffffff; --mist:#f5f5f5; --line:#e7e7e7; --ink:#0a0a0a; --text:#2b2b2b; --muted:#5d5d5d;
+  --blue:#0a0a0a; --blue-deep:#0a0a0a; --blue-soft:#f2f2f2; --blue-line:#d4d4d4;
   --night:#f5f5f5; --night-2:#ffffff; --night-line:#e7e7e7; --night-muted:#5d5d5d;
-  --surface:#ffffff; --surface-2:#fafafa; --dot:#e3e3e3; --skeleton:#e0e0e0; --on-ink:#ffffff; --hover-line:#cfcfcf; --top-bg:rgb(255 255 255 / .85); --glass:rgb(255 255 255 / .7); --shadow:rgb(10 10 10 / .35); --ring:rgb(255 255 255 / .6); --featured-line:#155eef;
+  --surface:#ffffff; --surface-2:#fafafa; --dot:#e3e3e3; --skeleton:#e0e0e0; --on-ink:#ffffff; --hover-line:#cfcfcf; --top-bg:rgb(255 255 255 / .85); --glass:rgb(255 255 255 / .7); --shadow:rgb(10 10 10 / .3); --ring:rgb(0 0 0 / .04); --featured-line:#0a0a0a;
   --sans:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
   --track:#e5e5e5; --featured:#ffffff; color-scheme: light;
 }
-/* Dark (01/10/2026): the viewer's system choice, unless they picked one with
-   the switch, which stamps data-theme on <html> before the first paint. */
+/* Dark: the viewer's system choice, unless they picked one with the switch. */
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --paper:#212121; --mist:#1a1a1a; --line:#333333; --ink:#ececec; --text:#d4d4d4; --muted:#a6a6a6;
-  --blue:#4d8dff; --blue-deep:#1a6dff; --blue-soft:#1d2738; --blue-line:#2f4670;
-  --night:#1a1a1a; --night-2:#2a2a2a; --night-line:#333333;
-  --surface:#2a2a2a; --surface-2:#262626; --dot:#3a3a3a; --skeleton:#3a3a3a; --on-ink:#0d0d0d; --hover-line:#474747; --top-bg:rgb(33 33 33 / .85); --glass:rgb(42 42 42 / .7); --shadow:rgb(0 0 0 / .7); --ring:rgb(255 255 255 / .04); --featured-line:#4d8dff;
-  --night-muted:#a6a6a6; --track:#3a3a3a; --featured:#2a2a2a; color-scheme: dark;
+  --paper:#0a0a0a; --mist:#0f0f0f; --line:#262626; --ink:#ffffff; --text:#d6d6d6; --muted:#9b9b9b;
+  --blue:#ffffff; --blue-deep:#ffffff; --blue-soft:#1b1b1b; --blue-line:#3a3a3a;
+  --night:#111111; --night-2:#161616; --night-line:#262626; --night-muted:#9b9b9b;
+  --surface:#141414; --surface-2:#121212; --dot:#2a2a2a; --skeleton:#222222; --on-ink:#0a0a0a; --hover-line:#3a3a3a; --top-bg:rgb(10 10 10 / .82); --glass:rgb(20 20 20 / .7); --shadow:rgb(0 0 0 / .7); --ring:rgb(255 255 255 / .04); --featured-line:#ffffff;
+  --track:#262626; --featured:#161616; color-scheme: dark;
 } }
 :root[data-theme="dark"] {
-  --paper:#212121; --mist:#1a1a1a; --line:#333333; --ink:#ececec; --text:#d4d4d4; --muted:#a6a6a6;
-  --blue:#4d8dff; --blue-deep:#1a6dff; --blue-soft:#1d2738; --blue-line:#2f4670;
-  --night:#1a1a1a; --night-2:#2a2a2a; --night-line:#333333;
-  --surface:#2a2a2a; --surface-2:#262626; --dot:#3a3a3a; --skeleton:#3a3a3a; --on-ink:#0d0d0d; --hover-line:#474747; --top-bg:rgb(33 33 33 / .85); --glass:rgb(42 42 42 / .7); --shadow:rgb(0 0 0 / .7); --ring:rgb(255 255 255 / .04); --featured-line:#4d8dff;
-  --night-muted:#a6a6a6; --track:#3a3a3a; --featured:#2a2a2a; color-scheme: dark;
+  --paper:#0a0a0a; --mist:#0f0f0f; --line:#262626; --ink:#ffffff; --text:#d6d6d6; --muted:#9b9b9b;
+  --blue:#ffffff; --blue-deep:#ffffff; --blue-soft:#1b1b1b; --blue-line:#3a3a3a;
+  --night:#111111; --night-2:#161616; --night-line:#262626; --night-muted:#9b9b9b;
+  --surface:#141414; --surface-2:#121212; --dot:#2a2a2a; --skeleton:#222222; --on-ink:#0a0a0a; --hover-line:#3a3a3a; --top-bg:rgb(10 10 10 / .82); --glass:rgb(20 20 20 / .7); --shadow:rgb(0 0 0 / .7); --ring:rgb(255 255 255 / .04); --featured-line:#ffffff;
+  --track:#262626; --featured:#161616; color-scheme: dark;
 }
+.theme { display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; padding:0; }
+.theme:hover { border-color:var(--hover-line); }
+.theme .i { width:18px; height:18px; }
+.theme .moon, :root[data-theme="dark"] .theme .sun { display:none; }
+:root[data-theme="dark"] .theme .moon { display:block; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme .sun { display:none; } :root:not([data-theme="light"]) .theme .moon { display:block; } }
+/* A white shape follows the theme (ink on a light page), as the B does in the app. */
+svg.is-white path { fill:var(--ink); } svg.is-white circle { fill:var(--paper); }
 * { box-sizing:border-box; }
 [hidden] { display:none !important; }
 html { scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
@@ -656,8 +686,8 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .i.fill { fill:currentColor; stroke:none; }
 .btn { display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:48px; padding:12px 20px; border-radius:999px; font-weight:650; font-size:15.5px; text-decoration:none; border:1px solid transparent; transition:transform .15s ease, background .15s ease, box-shadow .15s ease; }
 .btn:hover { transform:translateY(-1px); }
-.btn-blue { background:var(--blue-deep); color:#fff; box-shadow:0 8px 24px -10px rgb(21 94 239 / .7); }
-.btn-blue:hover { background:#0f52d6; }
+.btn-blue { background:var(--ink); color:var(--on-ink); box-shadow:0 8px 24px -10px rgb(255 255 255 / .7); }
+.btn-blue:hover { opacity:.9; }
 .btn-ink { background:var(--ink); color:var(--on-ink); }
 .btn-line { background:var(--surface); color:var(--ink); border-color:var(--line); }
 .btn-line:hover { border-color:var(--hover-line); }
@@ -689,18 +719,12 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .top-cta { display:flex; align-items:center; gap:10px; }
 .top-cta .btn { min-height:40px; padding:8px 16px; font-size:14.5px; }
 .top-cta .btn .i { display:none; }
-.theme { display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; padding:0; }
-.theme:hover { border-color:var(--hover-line); }
-.theme .i { width:18px; height:18px; }
-.theme .moon, :root[data-theme="dark"] .theme .sun { display:none; }
-:root[data-theme="dark"] .theme .moon { display:block; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .theme .sun { display:none; } :root:not([data-theme="light"]) .theme .moon { display:block; } }
 
 /* Hero */
 .hero { position:relative; overflow:hidden; padding-block:72px 96px; }
 .hero .wrap { position:relative; z-index:1; display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.08fr); gap:56px; align-items:center; }
 .pill { display:inline-flex; align-items:center; gap:10px; padding:6px 14px 6px 6px; border:1px solid var(--blue-line); background:var(--glass); border-radius:999px; font-size:13.5px; font-weight:600; color:var(--ink); }
-.pill b { background:var(--blue-deep); color:#fff; font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
+.pill b { background:var(--ink); color:var(--on-ink); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
 .hero h1 { font-size:clamp(44px, 6.6vw, 84px); line-height:.98; margin:26px 0 22px; }
 .lead { font-size:19px; line-height:1.6; color:var(--muted); max-width:52ch; margin:0 0 32px; }
 .ctas { display:flex; flex-wrap:wrap; gap:12px; }
@@ -728,7 +752,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .msg-it > svg { flex:none; border-radius:7px; margin-top:2px; }
 .msg-it > div { display:flex; flex-direction:column; gap:6px; }
 .did { display:flex; gap:8px; align-items:flex-start; margin:0; color:var(--text); }
-.did .i { width:16px; height:16px; color:#fff; background:var(--blue); border-radius:50%; padding:2.5px; margin-top:2px; stroke-width:2.6; }
+.did .i { width:16px; height:16px; color:var(--on-ink); background:var(--ink); border-radius:50%; padding:2.5px; margin-top:2px; stroke-width:2.6; }
 .file { display:flex; gap:10px; align-items:center; margin:4px 0 0; padding:10px 12px; border:1px solid var(--line); border-radius:12px; max-width:290px; }
 .file .i { width:30px; height:30px; padding:6px; border-radius:8px; background:var(--blue-soft); color:var(--blue-deep); }
 .file span, .ask-q span { display:flex; flex-direction:column; }
@@ -740,8 +764,8 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .ask-q b { font-size:13.5px; color:var(--ink); font-weight:650; }
 .ask-a { display:flex; gap:8px; justify-content:flex-end; margin:0; }
 .chip { display:inline-flex; align-items:center; padding:6px 13px; border-radius:999px; border:1px solid var(--line); background:var(--surface); font-size:13px; font-weight:600; color:var(--ink); }
-.chip-blue { background:var(--blue-deep); border-color:var(--blue-deep); color:#fff; }
-.chip-blue.press { transform:scale(.94); box-shadow:0 0 0 5px rgb(26 109 255 / .2); }
+.chip-blue { background:var(--ink); border-color:var(--ink); color:var(--on-ink); }
+.chip-blue.press { transform:scale(.94); box-shadow:0 0 0 5px rgb(255 255 255 / .2); }
 .sent { display:flex; gap:8px; align-items:center; margin:0 0 0 36px; color:var(--blue-deep); font-weight:600; font-size:13.5px; }
 .sent .i { width:16px; height:16px; stroke-width:2.6; }
 .sim-input { margin:auto 0 0; display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid var(--line); border-radius:999px; padding:8px 8px 8px 16px; color:#9a9fac; font-size:13.5px; }
@@ -749,7 +773,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .sim [data-step] { transition:opacity .45s ease, transform .45s ease; }
 .sim.play [data-step] { opacity:0; transform:translateY(8px); }
 .sim.play [data-step].show { opacity:1; transform:none; }
-.peek { position:absolute; right:-14px; bottom:-38px; width:104px; filter:drop-shadow(0 18px 24px rgb(21 94 239 / .35)); }
+.peek { position:absolute; right:-14px; bottom:-38px; width:104px; filter:drop-shadow(0 18px 24px var(--shadow)); }
 .peek .tile { display:block; width:100%; height:auto; }
 
 /* The character */
@@ -823,8 +847,8 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .slider::-webkit-scrollbar { display:none; }
 .track { list-style:none; margin:0; padding:0; display:flex; gap:16px; width:max-content; }
 .agent { scroll-snap-align:start; width:264px; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:24px; padding:22px; transition:transform .25s, border-color .25s, box-shadow .25s; }
-.agent:hover { transform:translateY(-4px); border-color:var(--blue-line); box-shadow:0 24px 40px -28px rgb(21 94 239 / .45); }
-.face { width:88px; height:88px; border-radius:24px; object-fit:cover; background:var(--mist); }
+.agent:hover { transform:translateY(-4px); border-color:var(--blue-line); box-shadow:0 24px 40px -28px rgb(255 255 255 / .45); }
+.face { width:88px; height:88px; }
 .agent h3 { margin-top:16px; font-size:24px; }
 .role { margin:2px 0 0; font-size:13.5px; font-weight:650; color:var(--blue-deep); }
 .mission { margin:10px 0 0; font-size:14.5px; color:var(--muted); line-height:1.5; flex:1; }
@@ -836,7 +860,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .builder, .chats { background:var(--night); border:1px solid var(--night-line); border-radius:24px; padding:24px; }
 .b-title { display:flex; align-items:center; gap:8px; margin:0 0 16px; font-weight:650; color:var(--ink); }
 .b-row { display:flex; align-items:center; gap:14px; }
-.b-face { width:56px; height:56px; border-radius:16px; object-fit:cover; }
+.b-face { width:56px; height:56px; flex:none; }
 .b-row .b-field { flex:1; margin:0; }
 .b-field { display:flex; flex-direction:column; gap:6px; margin-top:12px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:11px 14px; }
 .b-field small { font-size:12px; font-weight:650; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
@@ -846,18 +870,18 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .b-tools { display:flex; flex-wrap:wrap; gap:6px; }
 .b-tool, .b-model { display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:550; color:var(--ink); }
 .b-tool { border:1px solid var(--line); border-radius:999px; padding:4px 10px 4px 5px; }
-.b-create { display:flex; justify-content:center; margin-top:16px; background:var(--blue-deep); color:#fff; font-weight:650; border-radius:999px; padding:12px; transition:transform .2s; }
+.b-create { display:flex; justify-content:center; margin-top:16px; background:var(--ink); color:var(--on-ink); font-weight:650; border-radius:999px; padding:12px; transition:transform .2s; }
 .b-create.press { transform:scale(.96); }
 .chats ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
 .chats li { display:grid; grid-template-columns:44px minmax(0, 1fr) auto; gap:12px; align-items:center; padding:10px; border-radius:14px; }
 .chats li.on { background:var(--surface); box-shadow:0 0 0 1px var(--line); }
 .chats li.new { animation:rise .5s ease both; }
-.chats img { width:44px; height:44px; border-radius:50%; object-fit:cover; }
+.chats svg.living { width:44px; height:44px; flex:none; }
 .chats b { display:block; color:var(--ink); font-size:15px; }
 .chats li span { display:block; font-size:13.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .chats .meta { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
 .chats .meta small { font-size:12px; color:var(--muted); }
-.chats .meta i { font-style:normal; font-size:11.5px; font-weight:700; color:#fff; background:var(--blue-deep); border-radius:999px; min-width:20px; text-align:center; padding:2px 6px; }
+.chats .meta i { font-style:normal; font-size:11.5px; font-weight:700; color:var(--on-ink); background:var(--ink); border-radius:999px; min-width:20px; text-align:center; padding:2px 6px; }
 @keyframes rise { from { opacity:0; transform:translateY(6px); } }
 .toolwall { margin-top:28px; padding:22px 24px; border:1px solid var(--line); border-radius:18px; background:var(--surface); display:flex; flex-direction:column; gap:14px; }
 .toolwall > p:first-child, .makers > p { margin:0; font-size:14px; color:var(--muted); }
@@ -896,7 +920,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .appgrid article > p:last-child { margin:6px 0 0; font-size:14.5px; color:var(--muted); }
 .bento { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; }
 .feat { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:24px; display:flex; flex-direction:column; gap:18px; transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease; }
-.feat:hover { border-color:var(--blue-line); box-shadow:0 18px 40px -26px rgb(21 94 239 / .45); transform:translateY(-2px); }
+.feat:hover { border-color:var(--blue-line); box-shadow:0 18px 40px -26px rgb(255 255 255 / .45); transform:translateY(-2px); }
 .feat-head { display:flex; flex-direction:column; gap:8px; }
 .feat-head .i { width:40px; height:40px; padding:9px; border-radius:12px; background:var(--blue-soft); color:var(--blue-deep); margin-bottom:6px; }
 .feat h3 { font-size:19px; letter-spacing:-.02em; }
@@ -940,15 +964,15 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .points .i { width:42px; height:42px; padding:10px; border-radius:12px; background:var(--night-2); border:1px solid var(--night-line); color:var(--blue); }
 .points h3 { font-size:17px; margin-bottom:4px; letter-spacing:-.015em; }
 .points p { margin:0; font-size:15px; }
-.queue { background:var(--night-2); border:1px solid var(--night-line); border-radius:22px; padding:22px; display:flex; flex-direction:column; gap:12px; box-shadow:0 40px 80px -40px rgb(26 109 255 / .4); }
+.queue { background:var(--night-2); border:1px solid var(--night-line); border-radius:22px; padding:22px; display:flex; flex-direction:column; gap:12px; box-shadow:0 40px 80px -40px rgb(255 255 255 / .4); }
 .req { display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center; background:var(--surface); border:1px solid var(--night-line); border-radius:14px; padding:16px; }
 .req b { display:block; color:var(--ink); font-weight:600; font-size:15px; }
 .req small { color:var(--night-muted); font-size:13px; }
 .state { font-size:12.5px; font-weight:650; padding:5px 11px; border-radius:999px; white-space:nowrap; }
-.state-approved { background:rgb(26 109 255 / .16); color:var(--blue); }
+.state-approved { background:rgb(255 255 255 / .16); color:var(--blue); }
 .state-waiting { background:var(--ink); color:var(--on-ink); }
 .state-refused { background:var(--mist); color:var(--night-muted); text-decoration:line-through; }
-.req-waiting { border-color:#3a5fb0; box-shadow:0 0 0 4px rgb(26 109 255 / .12); }
+.req-waiting { border-color:#5a5a5a; box-shadow:0 0 0 4px rgb(255 255 255 / .12); }
 
 /* Steps */
 .steps { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; counter-reset:step; list-style:none; padding:0; margin:0; }
@@ -971,12 +995,14 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 /* Pricing */
 .plans { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; align-items:stretch; }
 .plan { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:26px 22px; display:flex; flex-direction:column; gap:14px; }
-.plan.featured { background:var(--featured); border:2px solid var(--featured-line); color:var(--text); box-shadow:0 30px 60px -34px rgb(21 94 239 / .45); }
+.plan.featured { background:var(--featured); border:2px solid var(--featured-line); color:var(--text); box-shadow:0 30px 60px -34px rgb(255 255 255 / .45); }
 .plan.featured h3 { color:var(--ink); }
 .plan.featured .price span, .plan.featured .cfa, .plan.featured .note, .plan.featured li { color:var(--night-muted); }
 .plan.featured .price strong { color:var(--ink); }
 .plan.featured .tag { color:var(--blue); }
-.badge { position:absolute; top:-12px; left:22px; margin:0; background:var(--blue-deep); color:#fff; font-size:12px; font-weight:650; padding:4px 11px; border-radius:999px; }
+.locked { display:flex; gap:8px; margin:14px 0 0; padding:10px 12px; border-radius:12px; border:1px dashed var(--line); background:var(--mist); font-size:13.5px; color:var(--muted); }
+.locked .i { width:15px; height:15px; margin-top:3px; }
+.badge { position:absolute; top:-12px; left:22px; margin:0; background:var(--ink); color:var(--on-ink); font-size:12px; font-weight:650; padding:4px 11px; border-radius:999px; }
 .plan h3 { font-size:28px; letter-spacing:-.015em; }
 .tag { margin:0; font-size:13px; font-weight:650; color:var(--blue-deep); }
 .price { margin:0; font-variant-numeric:tabular-nums; }
@@ -1005,7 +1031,18 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .dl .sub, .dl .fine { color:var(--night-muted); }
 .dl-buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; }
 .dl-art { position:relative; display:flex; justify-content:center; }
-.dl-art svg { width:min(220px, 100%); height:auto; border-radius:22%; transform:rotate(-6deg); box-shadow:0 30px 60px -24px var(--shadow); }
+.dl-art { flex-direction:column; align-items:center; gap:18px; }
+.parade { display:flex; align-items:flex-end; justify-content:center; gap:12px; }
+.parade svg { animation:bob 2.8s ease-in-out infinite; }
+.parade svg:nth-child(2) { animation-delay:.4s; } .parade svg:nth-child(3) { animation-delay:.8s; }
+.parade svg:nth-child(4) { animation-delay:1.2s; } .parade svg:nth-child(5) { animation-delay:1.6s; }
+@keyframes bob { 0%, 100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .parade svg { animation:none; } }
+.others { margin-top:14px; color:var(--night-muted); font-size:14.5px; }
+.others summary { cursor:pointer; width:max-content; }
+.others ul { list-style:none; margin:10px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
+.others a { display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border:1px solid var(--night-line); border-radius:999px; text-decoration:none; color:var(--ink); }
+.others a:hover { border-color:var(--hover-line); }
 
 /* FAQ */
 .faq { display:grid; grid-template-columns:minmax(0, .8fr) minmax(0, 1.2fr); gap:64px; }
@@ -1023,18 +1060,9 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .final h2 { color:var(--ink); font-size:clamp(36px, 5.4vw, 64px); }
 .final h2 em { color:var(--blue); }
 .final p { color:var(--muted); font-size:18px; margin:16px 0 30px; max-width:46ch; }
-.final .mascot { width:min(190px, 34vw); height:auto; filter:drop-shadow(0 24px 30px rgb(21 94 239 / .3)); }
+.final .mascot { width:min(190px, 34vw); height:auto; filter:drop-shadow(0 24px 30px var(--shadow)); }
 
 /* Footer */
-footer { background:var(--night); border-top:1px solid var(--night-line); color:var(--night-muted); padding-block:64px 40px; margin-top:104px; font-size:14.5px; }
-.foot { display:grid; grid-template-columns:minmax(0, 1.4fr) repeat(3, minmax(0, .6fr)); gap:40px; }
-.foot .brand { color:var(--ink); }
-.foot p { margin:16px 0 0; max-width:36ch; }
-.foot h4 { margin:0 0 14px; color:var(--ink); font-size:14px; font-weight:650; }
-.foot ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
-.foot a { text-decoration:none; }
-.foot a:hover { color:var(--ink); }
-.legal { margin-top:48px; padding-top:24px; border-top:1px solid var(--night-line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-size:13.5px; }
 
 :focus-visible { outline:2px solid var(--blue); outline-offset:3px; border-radius:6px; }
 
@@ -1070,8 +1098,6 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
   .dl-art { display:none; }
   .final .mascot { width:120px; }
   .media { padding:24px; }
-  .foot { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
-  .foot > div:first-child { grid-column:1 / -1; }
 }
 @media (max-width: 440px) {
   .top-cta .btn-ink { display:none; }
@@ -1082,8 +1108,9 @@ footer { background:var(--night); border-top:1px solid var(--night-line); color:
 }
 .refbar { background:var(--blue-soft); border-bottom:1px solid var(--blue-line); color:var(--ink); font-size:14.5px; }
 .refbar .wrap { display:flex; align-items:center; gap:10px; min-height:48px; flex-wrap:wrap; padding-block:8px; }
-.refbar a { margin-left:auto; background:var(--blue-deep); color:#fff; text-decoration:none; font-weight:650; border-radius:999px; padding:7px 14px; font-size:14px; }
+.refbar a { margin-left:auto; background:var(--ink); color:var(--on-ink); text-decoration:none; font-weight:650; border-radius:999px; padding:7px 14px; font-size:14px; }
 ${LOGO_ALIVE_CSS}
+${SITE_FOOTER_CSS}
 </style>
 </head>
 <body>
@@ -1115,7 +1142,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <ul class="trust">${t.trust.map((x) => `<li>${icon('check')}${escape(x)}</li>`).join('')}</ul>
     </div>
     <div class="stage">${simulator}
-      <div class="peek">${logoTileLive(104).replace('class="logo-live"', 'class="logo-live tile"')}</div>
+      <div class="peek">${living('b', 'white', 104, ' tile')}</div>
     </div>
   </div>
 </section>${download}
@@ -1140,7 +1167,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
     </div>
     <div class="meet">
       <div class="meet-copy">
-        <p class="meet-tag">${icon('mic')}${escape(t.meet.tag)}<span class="soon">${escape(t.soon)}</span></p>
+        <p class="meet-tag">${icon('mic')}${escape(t.meet.tag)}</p>
         <h3>${escape(t.meet.title)}</h3>
         <p>${escape(t.meet.lead)}</p>
       </div>
@@ -1209,7 +1236,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
     <ul class="track">${t.agents
       .map(
         (a) => `<li class="agent">
-        <img class="face" src="/assets/agent-${a.id}.jpg" alt="" width="88" height="88" loading="lazy">
+        ${living(lookOf(a.id).shape, lookOf(a.id).color, 88, ' face')}
         <h3>${escape(a.name)}</h3>
         <p class="role">${escape(a.role)}</p>
         <p class="mission">${escape(a.mission)}</p>
@@ -1222,7 +1249,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
     <div class="agent-demo">
       <div class="builder" aria-hidden="true">
         <p class="b-title">${icon('plus')}${escape(t.builder.title)}</p>
-        <div class="b-row"><img class="b-face" src="/assets/agent-mariama.jpg" alt="" width="56" height="56" loading="lazy"><div class="b-field"><small>${escape(t.builder.name)}</small><span class="typed" data-text="${escape(t.builder.nameValue)}">${escape(t.builder.nameValue)}</span></div></div>
+        <div class="b-row">${living(lookOf('mariama').shape, lookOf('mariama').color, 56, ' b-face')}<div class="b-field"><small>${escape(t.builder.name)}</small><span class="typed" data-text="${escape(t.builder.nameValue)}">${escape(t.builder.nameValue)}</span></div></div>
         <div class="b-field"><small>${escape(t.builder.mission)}</small><span class="typed" data-text="${escape(t.builder.missionValue)}">${escape(t.builder.missionValue)}</span></div>
         <div class="b-field"><small>${escape(t.builder.tools)}</small><span class="b-tools">${['Gmail', 'WhatsApp', 'HubSpot'].map((x) => `<span class="b-tool">${brandImg(TOOL_BRANDS, x, 16)}${escape(x)}</span>`).join('')}</span></div>
         <div class="b-field"><small>${escape(t.builder.model)}</small><span class="b-model">${brandImg(MODEL_BRANDS, 'Claude', 16)}${escape(t.builder.modelValue)}</span></div>
@@ -1231,7 +1258,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <div class="chats" aria-hidden="true">
         <p class="b-title">${escape(t.chats.title)}</p>
         <ul>${t.chats.items
-          .map(([n, m, h, u], i) => `<li${i === 0 ? ' class="on"' : ''}><img src="/assets/agent-${n.toLowerCase()}.jpg" alt="" width="44" height="44" loading="lazy"><div><b>${escape(n)}</b><span>${escape(m)}</span></div><div class="meta"><small>${escape(h)}</small>${u ? `<i>${u}</i>` : ''}</div></li>`)
+          .map(([n, m, h, u], i) => `<li${i === 0 ? ' class="on"' : ''}>${living(lookOf(n).shape, lookOf(n).color, 44)}<div><b>${escape(n)}</b><span>${escape(m)}</span></div><div class="meta"><small>${escape(h)}</small>${u ? `<i>${u}</i>` : ''}</div></li>`)
           .join('')}</ul>
       </div>
     </div>
@@ -1242,7 +1269,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
     </div>
   </div>
 </section>
-<section class="section night" aria-labelledby="control">
+<section id="controle" class="section night" aria-labelledby="control">
   <div class="wrap split">
     <div>
       <p class="kicker kicker-light"><span class="num">05</span>${escape(t.controlKicker)}</p>
@@ -1304,44 +1331,11 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <p>${escape(t.finalLead)}</p>
       ${data.downloadBase ? `<a class="btn btn-white" href="#telecharger">${escape(t.download)}${icon('arrow')}</a>` : `<a class="btn btn-white" href="/auth/v1/sign-in">${escape(t.start)}${icon('arrow')}</a>`}
     </div>
-    ${logoTileLive(190).replace('class="logo-live"', 'class="logo-live mascot"')}
+    ${living('b', 'white', 190, ' mascot')}
   </div>
 </section>
 </main>
-<footer>
-  <div class="wrap">
-    <div class="foot">
-      <div>
-        <a class="brand" href="/">${logoTile(30)}${logoWord(24)}</a>
-        <p>${escape(t.description)}</p>
-      </div>
-      <div>
-        <h4>${escape(t.footerProduct)}</h4>
-        <ul>
-          <li><a href="#fonctions">${escape(t.nav.features)}</a></li>
-          <li><a href="/tarifs">${escape(t.nav.prices)}</a></li>
-          ${data.downloadBase ? `<li><a href="#telecharger">${escape(t.downloadKicker)}</a></li>` : ''}
-          <li><a href="#questions">${escape(t.nav.faq)}</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>${escape(t.footerAccount)}</h4>
-        <ul>
-          ${data.downloadBase
-            ? `<li><a href="#telecharger">${escape(t.download)}</a></li>`
-            : `<li><a href="/auth/v1/sign-in">${escape(t.navSignIn)}</a></li>
-          <li><a href="/auth/v1/sign-in">${escape(t.footerCreate)}</a></li>`}
-          <li><a href="mailto:${CONTACT}">${CONTACT}</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>${escape(t.footerLegal)}</h4>
-        <ul>${legalLinks(opts.lang).map((l) => `<li><a href="${l.href}">${escape(l.label)}</a></li>`).join('')}</ul>
-      </div>
-    </div>
-    <div class="legal"><span>© ${new Date().getFullYear()} OpenBaara SAS · Burkina Faso</span><span>${escape(t.footer)}</span></div>
-  </div>
-</footer>
+${siteFooter(lang, opts.lang, data.downloadBase ? '#telecharger' : null)}
 <script nonce="${opts.nonce}">
 "use strict";
 for (const b of document.querySelectorAll(".levels button")) {
@@ -1446,7 +1440,7 @@ if (sim && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
   replay.addEventListener("click", () => { runs = 0; run(); });
   run();
 }
-${LOGO_ALIVE_JS}
+${LOGO_ALIVE_JS}${LIVING_JS}${PICK_JS}
 </script>
 </body>
 </html>`;

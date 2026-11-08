@@ -95,7 +95,7 @@ export async function loadAgent(id: string): Promise<z.infer<typeof Agent>> {
             name: id,
             description: `${b.name}, a baarasseur`,
             instructions: `${copilot.instructions}\n\n${personaInstructions(b)}`,
-            tools: { ...copilot.tools, "baarasseur-remember": { type: "builtin", name: "baarasseur-remember" } },
+            tools: { ...copilot.tools, "baarasseur-remember": { type: "builtin", name: "baarasseur-remember" }, "baarasseur-update": { type: "builtin", name: "baarasseur-update" } },
             ...(b.model ? { model: b.model } : {}),
             ...(b.provider ? { provider: b.provider } : {}),
         };

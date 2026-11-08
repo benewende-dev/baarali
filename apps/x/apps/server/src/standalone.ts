@@ -15,6 +15,10 @@ import { startWorkspaceWatcher, subscribeWorkspaceEvents, subscribeKnowledgeEven
 import { prepareCoreData, initCoreServices } from '@x/core/dist/boot/services.js';
 import { createRowboatServer } from './server.js';
 import { capabilityBroker } from './capabilities.js';
+import { createPhonePush } from './baarali-phone-push.js';
+import { watchApprovals } from './baarali-approvals.js';
+import type { ITurnEventBus } from '@x/core/dist/runtime/turns/event-hub.js';
+import { isNotificationCategoryEnabled } from '@x/core/dist/config/notification_config.js';
 import { registerUrlOpener } from '@x/core/dist/auth/url-opener.js';
 import { installLoopbackRelay } from './loopback-relay.js';
 import { createFileCipher } from './file-cipher.js';
@@ -50,10 +54,17 @@ async function main(): Promise<void> {
   // Client capabilities route over the WS as reverse calls (RFC Q14): the
   // connected client that advertises each capability performs it.
   const broker = capabilityBroker();
+  // BAARALI(07/11/2026): the paired phones get it too, by push (baarali-phone-push.ts).
+  const phones = createPhonePush({ workDir: WorkDir, fetch: globalThis.fetch, clientConnected: () => broker.hasCapableClient('notifications') });
   registerNotificationService({
-    isSupported: () => broker.hasCapableClient('notifications'),
-    notify: (input) => broker.broadcast('notifications', input),
+    isSupported: () => broker.hasCapableClient('notifications') || phones.hasPhones(),
+    notify: (input) => {
+      broker.broadcast('notifications', input);
+      void phones.send(input);
+    },
   });
+  // BAARALI(07/11/2026): a turn waiting for a yes reaches the phone, with its buttons (baarali-approvals.ts).
+  watchApprovals({ subscribeAll: (l) => container.resolve<ITurnEventBus>('turnEventBus').subscribeAll(l), send: phones.send, enabled: () => isNotificationCategoryEnabled('agent_permission') });
   registerBrowserControlService({
     execute: async (input, ctx) => {
       void ctx;

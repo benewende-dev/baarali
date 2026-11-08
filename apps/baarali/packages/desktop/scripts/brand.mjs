@@ -401,6 +401,11 @@ export function corePlan() {
       edit(`${core}/runtime/assembly/copilot/instructions.ts`, CODE_SELF_FROM, CODE_SELF_TO),
       // The agent's name is Baarali, never « Baarali Copilot » (09/10/2026).
       edit(`${core}/runtime/assembly/copilot/instructions.ts`, 'You are Rowboat Copilot - an AI assistant', 'You are Baarali - an AI assistant'),
+      // BAARALI(07/11/2026): Baarali gets to know the user, the essentials only.
+      edit(`${core}/runtime/assembly/copilot/instructions.ts`, "## Learning About the User (save-to-memory)", "## Getting to Know the User\nThe app may already have greeted the user in your name and asked how to address them, so their first message may be that answer. If your notes about the user do not say how to address them, ask it in your first reply, in one short question, and save the answer with \\`save-to-memory\\`. Later, only when it helps, learn at most two other essentials: their activity and what they expect from Baarali. Never a questionnaire: when they come with a task, do the task first and ask afterwards.\n\n## Learning About the User (save-to-memory)"),
+      // BAARALI(07/11/2026): clean, professional replies in the user's register, no long dashes (the founder's call).
+      edit(`${core}/runtime/assembly/copilot/instructions.ts`, "You're an insightful, encouraging assistant who combines meticulous clarity with genuine enthusiasm and gentle humor.\n\n## Core Personality\n- **Supportive thoroughness:** Patiently explain complex topics clearly and comprehensively.\n- **Lighthearted interactions:** Maintain a friendly tone with subtle humor and warmth.\n- **Adaptive teaching:** Flexibly adjust explanations based on perceived user proficiency.\n- **Confidence-building:** Foster intellectual curiosity and self-assurance.", "You're a sharp, reliable professional assistant: clear, precise and calm.\n\n## Core Personality\n- **Clarity first:** Explain what matters, in as few words as the task allows.\n- **Professional warmth:** Courteous and human, never gushing, never jokey unless the user is.\n- **Adaptive:** Adjust depth and vocabulary to the user's level and to what they asked."),
+      edit(`${core}/runtime/assembly/copilot/instructions.ts`, "## Tool Priority", "## Writing Style\nWrite like a skilled human professional, never like a chatbot.\n- Never use the long dash (— or –) to join or interrupt sentences, in any language. Use a period, a comma, a colon or parentheses instead.\n- Match the user: their language, their register (formal or relaxed, « vous » or « tu » as they do) and their length. A short message gets a short answer.\n- No filler: no \"Great question\", \"Absolutely!\", \"I hope this helps\", \"Feel free to…\", « N'hésitez pas », no restating the request, no closing recap of what you just said.\n- No emoji unless the user uses them first.\n- Avoid stock AI phrasing: \"delve\", \"seamless\", \"robust\", \"leverage\", \"it's worth noting\", \"not just X but Y\", rhetorical triplets, exclamation marks for enthusiasm.\n- Prefer concrete facts, figures, names and next actions to adjectives.\n\n## Tool Priority"),
       edit(`${core}/runtime/assembly/skills/builtin-tools/skill.ts`, 'The Rowboat copilot has access', 'Baarali, the assistant, has access'),
       edit(
         `${core}/runtime/assembly/connections.ts`,
@@ -455,6 +460,11 @@ export function desktopPlan() {
 
       edit(`${renderer}/components/plans-dialog.tsx`, "import type { BillingInfo, PlanOffer, PlanOffers } from '@x/shared/src/billing.js'", "import type { BillingInfo, PlanOffer, PlanOffers } from '@x/shared/src/billing.js'\nimport { withPlanAccess } from '@/lib/plan-access-copy'"),
       edit(`${renderer}/components/plans-dialog.tsx`, "                setOffers(result)", "                setOffers(result ? withPlanAccess(result) : null)"),
+      // BAARALI(07/11/2026): what each plan opens, under the cards (assets/desktop/plan-access-table.tsx).
+      edit(`${renderer}/components/plans-dialog.tsx`, "import { withPlanAccess } from '@/lib/plan-access-copy'", "import { withPlanAccess } from '@/lib/plan-access-copy'\nimport { LockedNote, PlanAccessTable } from '@/components/baarali-plan-access'"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "                            <PlanCard key={plan.id} plan={plan} currency={currency} currentId={currentId} soon={offers.soon} />\n                        ))}\n                    </div>", "                            <PlanCard key={plan.id} plan={plan} currency={currency} currentId={currentId} soon={offers.soon} lang={offers.lang} />\n                        ))}\n                    </div>\n                ) : null}\n                {offers ? (\n                    <PlanAccessTable plans={offers.plans} lang={offers.lang} currentId={currentId} />"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "function PlanCard({ plan, currency, currentId, soon }: {\n    plan: PlanOffer", "function PlanCard({ plan, currency, currentId, soon, lang }: {\n    lang: 'fr' | 'en'\n    plan: PlanOffer"),
+      edit(`${renderer}/components/plans-dialog.tsx`, "                ))}\n            </ul>\n        </article>", "                ))}\n            </ul>\n            {plan.free && <LockedNote lang={lang} />}\n        </article>"),
       edit(`${renderer}/components/settings/account-settings.tsx`, "import { openPlans } from '@/lib/plans-window'", "import { openPlans } from '@/lib/plans-window'\nimport { withPlanAccess } from '@/lib/plan-access-copy'"),
       edit(`${renderer}/components/settings/account-settings.tsx`, "setOffers(result?.plans ?? null)", "setOffers(result ? withPlanAccess(result).plans : null)"),
 
@@ -548,12 +558,14 @@ export function desktopPlan() {
       edit(`${renderer}/components/todo-view.tsx`, '<Bot className="size-3" />\n              rowboat\n', '<Bot className="size-3" />\n              baarali\n'),
       edit(`${renderer}/components/spaces/composer-editor.ts`, "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'rowboat' })", "getAttrs: () => ({ kind: 'rowboat', id: null, label: 'baarali' })"),
       // BAARALI(11/10/2026): Chargement keeps the B compact and readable
-      // throughout page and chat waits, as requested by the founder.
-      edit(`${renderer}/components/work-steps.tsx`, "import * as React from 'react'", "import * as React from 'react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
-      edit(`${renderer}/components/work-steps.tsx`, '<span className="text-foreground">Baarali is working…</span>', '<BaaraliMark motion="loading" size={32} className="text-foreground" />\n            <span className="text-foreground">Baarali is working…</span>'),
+      // throughout page and chat waits, as requested by the founder. (The work
+      // block draws its B itself since 07/11/2026: components/work-steps.tsx.)
       edit(`${renderer}/components/reasoning-row.tsx`, "import { ChevronDownIcon, LoaderIcon } from 'lucide-react'", "import { ChevronDownIcon } from 'lucide-react'\nimport { BaaraliMark } from '@/components/baarali-mark'"),
-      edit(`${renderer}/components/reasoning-row.tsx`, '<span className={quietRowGlyphSlotClass}>', '<span className={cn(quietRowGlyphSlotClass, isStreaming && "!h-8 !w-8")}>'),
-      edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={32} className="text-foreground" />'),
+      // BAARALI(08/11/2026): a small B in the row (the status line under the work has the large one),
+      // and the thought folded while it streams, as Claude Code (it filled the screen, in English).
+      edit(`${renderer}/components/reasoning-row.tsx`, '<LoaderIcon className="size-3 animate-spin text-muted-foreground" />', '<BaaraliMark motion="loading" size={14} className="text-foreground" />'),
+      edit(`${renderer}/components/reasoning-row.tsx`, '  const [open, setOpen] = React.useState(isStreaming)\n', '  const [open, setOpen] = React.useState(false)\n'),
+      edit(`${renderer}/components/reasoning-row.tsx`, '      startedAt.current = Date.now()\n      setOpen(true)\n', '      startedAt.current = Date.now()\n'),
     ],
     copies: [
       ['assets/desktop/workspace.tsx', `${renderer}/components/desktop-workspace.tsx`],
@@ -565,7 +577,10 @@ export function desktopPlan() {
       ['assets/desktop/studio-library.tsx', `${renderer}/components/desktop-studio-library.tsx`],
       ['assets/mobile/work-access.ts', `${renderer}/lib/work-access.ts`],
       ['../control/src/plan-access-copy.ts', `${renderer}/lib/plan-access-copy.ts`],
+      ['assets/desktop/plan-access-table.tsx', `${renderer}/components/baarali-plan-access.tsx`],
+      ['assets/desktop/agent-shape.tsx', `${renderer}/components/baarali-agent-shape.tsx`],
       ['../control/src/oval-b.ts', `${renderer}/lib/baarali-oval-motion.ts`],
+      ['../control/src/b-mark.ts', `${renderer}/lib/baarali-b-mark.ts`],
       ['assets/motion/baarali-mark.tsx', `${renderer}/components/baarali-mark.tsx`],
       ['assets/motion/motion-export-image.ts', `${renderer}/components/motion-export-image.ts`],
       ['assets/motion/cad-editor.tsx', `${renderer}/components/cad-editor.tsx`],
@@ -617,10 +632,19 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: [fromExpo.resolve('babel-preset-expo')],
-    plugins: [[require.resolve('./baarali-i18n/babel-plugin.cjs'), { runtime: path.join(__dirname, 'src/baarali-i18n/mobile/runtime.ts') }]],
+    plugins: [
+      [require.resolve('./baarali-i18n/babel-plugin.cjs'), { runtime: path.join(__dirname, 'src/baarali-i18n/mobile/runtime.ts') }],
+      [require.resolve('./baarali-i18n/fonts-babel.cjs'), { root: path.join(__dirname, 'src'), wrapper: path.join(__dirname, 'src/components/baarali-text.tsx') }],
+    ],
   };
 };
 `;
+
+/** The phone's fonts: static weights cut from the site's variable fonts (assets/fonts/*.woff2, OFL). */
+const MOBILE_FONTS = [
+  ['Inter-Regular.ttf', 'Inter', 400], ['Inter-Medium.ttf', 'Inter', 500], ['Inter-SemiBold.ttf', 'Inter', 600], ['Inter-Bold.ttf', 'Inter', 700],
+  ['SourceSerif4-Regular.ttf', 'Source Serif 4', 400], ['SourceSerif4-Medium.ttf', 'Source Serif 4', 500], ['SourceSerif4-SemiBold.ttf', 'Source Serif 4', 600],
+];
 
 const MOBILE_PERMISSIONS = {
   en: {
@@ -647,17 +671,14 @@ export function mobilePlan() {
   return {
     edits: [
       edit(`${mobile}/src/app/_layout.tsx`, "    </GestureHandlerRootView>", "      </AppThemeProvider>\n    </GestureHandlerRootView>"),
-      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />", "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />\n            <Stack.Screen name=\"plans\" options={{ title: 'Plans' }} />"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"settings\" options={{ title: 'Settings' }} />", "<Stack.Screen name=\"settings\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"plans\" options={{ title: 'Plans' }} />\n            {/* BAARALI(07/11/2026): Grok Bot's sheets, from the home (connect.tsx, new-agent.tsx). */}\n            <Stack.Screen name=\"connect\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"new-agent\" options={{ headerShown: false, presentation: 'formSheet', sheetCornerRadius: 32 }} />"),
       edit(`${mobile}/src/lib/voice.ts`, "import { useCallback, useEffect, useRef, useState } from 'react';", "import { useCallback, useEffect, useRef, useState } from 'react';\nimport { DeviceEventEmitter } from 'react-native';"),
       edit(`${mobile}/src/lib/voice.ts`, "  const set = useCallback((next: boolean) => {", "  useEffect(() => { const sub = DeviceEventEmitter.addListener('baarali:readAloud', setOn); return () => sub.remove(); }, []);\n  const set = useCallback((next: boolean) => {"),
       edit(`${mobile}/src/lib/voice.ts`, "    setOn(next);\n    if (!next)", "    setOn(next);\n    DeviceEventEmitter.emit('baarali:readAloud', next);\n    if (!next)"),
       edit(`${mobile}/src/app/inbox.tsx`, "  // The plan and the week's use live in Settings on the phone.\n  else if (n.target === 'plans' || n.target === 'usage') router.push('/settings');", "  // BAARALI(13/10/2026): mobile notifications open the same quota or offer shown on desktop.\n  else if (n.target === 'plans') router.push('/plans');\n  else if (n.target === 'usage') router.push({ pathname: '/settings', params: { section: 'usage' } });"),
       edit(`${mobile}/src/components/announcement-banner.tsx`, "  // The plan and the week's use live in Settings on the phone.\n  else if (a.target === 'plans' || a.target === 'usage') router.push('/settings');", "  // BAARALI(13/10/2026): mobile notifications open the same quota or offer shown on desktop.\n  else if (a.target === 'plans') router.push('/plans');\n  else if (a.target === 'usage') router.push({ pathname: '/settings', params: { section: 'usage' } });"),
-      // The accent: the brand's blue on the system's neutrals, as on the desktop.
-      // BAARALI(12/10/2026): normal-size action labels need 4.5:1 contrast;
-      // dark mode keeps a brighter blue with dark text, including chat bubbles.
-      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#000000',\n  onAccent: '#ffffff',", "  accent: '#196bff',\n  onAccent: '#ffffff',"),
-      edit(`${mobile}/src/theme/colors.ts`, "  accent: '#ffffff',\n  onAccent: '#000000',", "  accent: '#4d8dff',\n  onAccent: '#000000',"),
+      // BAARALI(07/11/2026): no blue any more (the founder's sign C, black and
+      // white as OpenBaara): the accent stays the system's black / white.
       // BAARALI(12/10/2026): Expo config uses a global status bar, so its
       // declarative component follows appearance changes across all routes.
       edit(`${mobile}/src/app/_layout.tsx`, "import * as SplashScreen from 'expo-splash-screen';", "import * as SplashScreen from 'expo-splash-screen';\nimport { StatusBar } from 'expo-status-bar';\nimport { AppThemeProvider } from '@/lib/app-theme';"),
@@ -736,11 +757,10 @@ export function mobilePlan() {
       edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, 'onPress={() => { setFocused(false); onChange(); }}', 'onPress={onChange}'),
       // BAARALI(13/10/2026): Chat / Work and the sidebar replace
       // bottom navigation. Deeper team and email routes keep native back.
-      edit(`${mobile}/src/app/_layout.tsx`, "import { BackButton } from '@/components/back-button';", "import { TopNavigation } from '@/components/top-navigation';"),
-      edit(`${mobile}/src/app/_layout.tsx`, '                headerLeft: () => <BackButton />,', "                header: ({ route }) => <TopNavigation mode={(route.params as { mode?: string } | undefined)?.mode === 'work' ? 'work' : 'chat'} />,"),
+      // 07/11/2026: not the conversation any more, Grok Bot's header there (chat-header.tsx).
       edit(`${mobile}/src/app/(tabs)/email/_layout.tsx`, "import { Stack } from 'expo-router';", "import { Stack } from 'expo-router';\nimport { TopNavigation } from '@/components/top-navigation';"),
       edit(`${mobile}/src/app/(tabs)/email/_layout.tsx`, "options={{ title: 'Email', headerLargeTitle: true }}", "options={{ title: 'Email', header: () => <TopNavigation mode=\"work\" /> }}"),
-      edit(`${mobile}/src/app/chat.tsx`, "  const top = embedded ? 8 : insets.top + 52;", "  const top = embedded ? 8 : insets.top + (baarasseur && id ? 100 : 60);"),
+      edit(`${mobile}/src/app/chat.tsx`, "  const top = embedded ? 8 : insets.top + 52;", "  const top = embedded ? 8 : insets.top + 60;"),
       edit(`${mobile}/src/app/chat.tsx`, "top: insets.top + 6, left: 64, right: 16", "top: insets.top + 56, left: 20, right: 16"),
       edit(`${mobile}/src/app/studio.tsx`, "import { phoneLang } from '@/lib/baarasseurs';", "import { phoneLang } from '@/lib/baarasseurs';\nimport { StudioLibrary } from '@/components/studio-library';"),
       edit(`${mobile}/src/app/studio.tsx`, "import { StudioLibrary } from '@/components/studio-library';", "import { StudioLibrary } from '@/components/studio-library';\nimport { StudioCadFiles } from '@/components/studio-cad-files';"),
@@ -856,6 +876,51 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "    } finally {\n      setSending(false);\n    }", "    } finally {\n      setSending(false);\n      sendingRef.current = false;\n    }"),
       edit(`${mobile}/src/app/(tabs)/spaces/thread.tsx`, "      {/* Composer — Slack's single rounded field; send arrow appears with a draft */}\n      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <View\n          style={{\n            flexDirection: 'row', alignItems: 'flex-end',\n            backgroundColor: colors.secondaryBackground, borderRadius: 24, borderCurve: 'continuous',\n            paddingLeft: 16, paddingRight: 6, minHeight: 46,\n          }}\n        >\n          <TextInput\n            ref={inputRef}\n            style={{ flex: 1, maxHeight: 120, fontSize: 16, color: colors.label, paddingVertical: 12 }}\n            placeholder=\"Add a reply\"\n            placeholderTextColor={colors.tertiaryLabel}\n            value={draft}\n            onChangeText={setDraft}\n            multiline\n          />\n          {draft.trim() ? (\n            <Pressable onPress={() => void send()} disabled={sending} style={{ padding: 6, opacity: sending ? 0.4 : 1 }}>\n              <Image source=\"sf:arrow.up.circle.fill\" style={{ width: 30, height: 30 }} tintColor={colors.label} />\n            </Pressable>\n          ) : null}\n        </View>\n      </View>", "      <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: (keyboardVisible ? 0 : insets.bottom) + 8 }}>\n        <SpaceComposer draft={draft} onChange={setDraft} placeholder={\"Add a reply\"} attachments={attachments} sending={sending} onSend={() => void send()} inputRef={inputRef} />\n      </View>"),
       edit(`${mobile}/src/components/turn-view.tsx`, "        <Text style={styles.userText}>{userText(state.definition.input)}</Text>", "        {!!userText(state.definition.input) && <Text style={styles.userText}>{userText(state.definition.input)}</Text>}\n        {Array.isArray(state.definition.input.content) && state.definition.input.content.map((part, index) => part.type === 'attachment' ? <Text key={index} style={styles.meta}>📎 {part.filename}</Text> : null)}"),
+      // BAARALI(07/11/2026): Grok Bot's conversation header (chat-header.tsx).
+      edit(`${mobile}/src/app/chat.tsx`, "import { Redirect, router, useLocalSearchParams, useFocusEffect } from 'expo-router';", "import { Redirect, Stack, router, useLocalSearchParams, useFocusEffect } from 'expo-router';\nimport { ChatMenu, ChatTitle } from '@/components/chat-header';"),
+      edit(`${mobile}/src/app/chat.tsx`, "        {/* Whom you are talking to, in a baarasseur's chat (below the floating header). */}\n        {baarasseur && id && !embedded ? (\n          <View style={{ position: 'absolute', top: insets.top + 56, left: 20, right: 16, zIndex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, height: 40 }}>\n            <BaarasseurAvatar b={baarasseur} size={30} />\n            <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{baarasseur.name}</Text>\n          </View>\n        ) : null}", "        {/* BAARALI(07/11/2026): Grok Bot's header, whom you talk to in the middle and « … » (chat-header.tsx). */}\n        {!embedded && <Stack.Screen options={{ headerTitle: () => <ChatTitle baarasseur={baarasseur} />, headerTitleAlign: 'center', headerRight: () => <ChatMenu baarasseur={baarasseur} />, headerBackground: () => <View style={{ flex: 1, backgroundColor: colors.background }} /> }} />}"),
+      edit(`${mobile}/src/app/chat.tsx`, "placeholder={baarasseur ? `Write to ${baarasseur.name}…` : 'Message Rowboat'}", "placeholder={baarasseur ? `Ask ${baarasseur.name}` : 'Ask Baarali'}"),
+      // BAARALI(07/11/2026): « Recruit » opens the home's sheet (new-agent.tsx), black as the rest.
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "            <Pressable onPress={() => router.push('/baarasseurs/recruit')} hitSlop={8}\n              style={{ backgroundColor: colors.accent, borderRadius: 17, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>\n              <Text style={{ color: colors.onAccent, fontWeight: '600', fontSize: 15 }}>Recruit</Text>", "            <Pressable onPress={() => router.push('/new-agent')} hitSlop={8}\n              style={{ backgroundColor: colors.label, borderRadius: 17, paddingHorizontal: 14, height: 34, justifyContent: 'center' }}>\n              <Text style={{ color: colors.background, fontWeight: '600', fontSize: 15 }}>Recruit</Text>"),
+      // BAARALI(07/11/2026): the introduction in black and white, with the B's shapes.
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "import { AgentAvatarImage, useReducedMotion } from '@/components/agent-avatar';", "import { useReducedMotion } from '@/components/agent-avatar';\nimport { AgentShape } from '@/components/agent-shape';"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "const PICKS = ['original', 'moki', 'tiko', 'nimbo', 'pixel', 'zest'] as const;", "// BAARALI(07/11/2026): black and white, and the agents are the B's shapes (agent-shape.tsx).\nconst PICKS = ['b', 'round', 'pebble', 'cloud', 'drop', 'kite'] as const;\nconst SHAPE_NAME: Record<string, string> = { b: 'B', round: 'Round', pebble: 'Pebble', cloud: 'Cloud', drop: 'Drop', kite: 'Kite' };"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "  const name = shared.AGENT_AVATARS.find((a) => a.id === avatar)?.label ?? 'Original';", "  const name = SHAPE_NAME[avatar] ?? 'B';"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<Stop offset=\"0\" stopColor=\"#243F8B\" /><Stop offset=\"0.7\" stopColor=\"#1A6DFF\" /><Stop offset=\"1\" stopColor=\"#5393FF\" />", "<Stop offset=\"0\" stopColor=\"#0A0A0A\" /><Stop offset=\"0.7\" stopColor=\"#151515\" /><Stop offset=\"1\" stopColor=\"#262626\" />"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "accessibilityLabel={shared.AGENT_AVATARS.find((a) => a.id === id)!.label}", "accessibilityLabel={SHAPE_NAME[id]}"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<AgentAvatarImage avatar={id} size={compact ? 62 : 70} />", "<AgentShape shape={id} color=\"white\" size={compact ? 58 : 64} />"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<Text style={s.pickLabel}>{shared.AGENT_AVATARS.find((a) => a.id === id)!.label}</Text>", "<Text style={s.pickLabel}>{SHAPE_NAME[id]}</Text>"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "<AgentAvatarImage avatar={avatar} size={mascotSize} />", "<AgentShape shape={(PICKS as readonly string[]).includes(avatar) ? avatar as typeof PICKS[number] : 'b'} color=\"white\" size={mascotSize} />"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "hero: { backgroundColor: '#1A6DFF',", "hero: { backgroundColor: '#0A0A0A',"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "backgroundColor: '#173966B0'", "backgroundColor: '#FFFFFF20'"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "picked: { borderColor: '#DCF6A3',", "picked: { borderColor: '#FFFFFF',"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "  const [avatar, setAvatar] = useState<shared.AgentAvatarId>('original');", "  const [avatar, setAvatar] = useState<string>('b');"),
+      edit(`${mobile}/src/components/baarali-onboarding.tsx`, "backgroundColor: step === i ? '#1A6DFF' : colors.separator", "backgroundColor: step === i ? colors.label : colors.separator"),
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "          title: 'Baarasseurs',", "          title: 'Your agents',"),
+      // BAARALI(07/11/2026): a template hires in one tap (baarasseurs/index.tsx).
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';", "import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "  const { team, reload } = useBaarasseurs();", "  const { team, reload, upsert } = useBaarasseurs();"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "  const lang = phoneLang();\n", "  const lang = phoneLang();\n  // BAARALI(07/11/2026): a template hires in one tap, as Grok Bot makes a bot,\n  // and its conversation opens; its look is a shape from its name.\n  const hire = async (t: (typeof shared.TEMPLATES)[number]) => {\n    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();\n    try {\n      const b = { ...shared.templateToBaarasseur(t, (team ?? []).map((x) => x.id), lang), avatar: undefined };\n      await upsert(b);\n      router.push({ pathname: '/chat', params: { id: '', agent: shared.baarasseurAgentId(b.id) } });\n    } catch {\n      Alert.alert('The agent could not be created', 'Please try again.');\n    }\n  };\n"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "                  onPress={() => router.push({ pathname: '/baarasseurs/recruit', params: { template: t.id } })}", "                  onPress={() => void hire(t)}"),
+      // BAARALI(07/11/2026): an agent's first meeting, it greets first (chat.tsx).
+      edit(`${mobile}/src/app/chat.tsx`, "            {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}\n          </View>", "            {baarasseur.role ? <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>{baarasseur.role}</Text> : null}\n            {/* BAARALI(07/11/2026): the first meeting, it speaks first (personaInstructions). */}\n            {baarasseur.memory.length === 0 ? <View style={{ alignSelf: 'stretch', marginTop: 18, padding: 14, borderRadius: 18, backgroundColor: colors.secondaryBackground }}>\n              <Text style={{ fontSize: 16, lineHeight: 22, color: colors.label }}>{`Hello, I'm ${baarasseur.name}. Before we start, what should I call you?`}</Text>\n            </View> : null}\n          </View>"),
+      // BAARALI(07/11/2026): « Talk » in the conversation's composer, as Grok Bot; the home has no composer any more.
+      edit(`${mobile}/src/app/chat.tsx`, "onVoice={rpc ? () => void dictate() : undefined} voiceActive={voice.state === 'recording'}", "onVoice={rpc ? () => void dictate() : undefined} onTalk={rpc ? () => void startConversation() : undefined} voiceActive={voice.state === 'recording'}"),
+      // BAARALI(07/11/2026): the onboarding as Grok Bot's: welcome, sign-in, notifications, then Baarali greets.
+      edit(`${mobile}/src/app/onboarding.tsx`, "export { default, ONBOARDED_KEY } from '@/components/baarali-onboarding';", "// BAARALI(07/11/2026): the first launch is one welcome screen now (welcome.tsx).\nexport { default, ONBOARDED_KEY } from '@/components/baarali-welcome';"),
+      edit(`${mobile}/src/lib/push.ts`, "const LEVEL_KEY = 'rowboat.push.level.v1';", "const LEVEL_KEY = 'rowboat.push.level.v1';\n// BAARALI(07/11/2026): iPhone's question comes after Baarali's own screen (notify-intro.tsx).\nexport const NOTIFY_INTRO_KEY = 'baarali.notify.intro.v1';"),
+      edit(`${mobile}/src/lib/push.ts`, "  if (!granted && existing.canAskAgain) {", "  if (!granted && existing.canAskAgain && (await AsyncStorage.getItem(NOTIFY_INTRO_KEY).catch(() => null)) === 'yes') {"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"new-agent\"", "<Stack.Screen name=\"notify-intro\" options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }} />\n            <Stack.Screen name=\"new-agent\""),
+      edit(`${mobile}/src/components/baarali-sign-in-view.tsx`, "          <View style={s.guide}>\n            <View style={[s.bubble, { backgroundColor: colors.secondaryBackground, borderColor: colors.separator }]}>\n              <Text accessibilityLiveRegion=\"polite\" style={[s.hint, { color: error ? colors.destructive : colors.label }]}>{translate(hint)}</Text>\n            </View>\n            <BaaraliMark size={168} motion=\"loading\" />\n          </View>", "          {/* BAARALI(07/11/2026): lighter, as Grok Bot's: the B, and a line only when something happens. */}\n          <View style={s.guide}>\n            <BaaraliMark size={88} motion=\"loading\" />\n            {(error || busy) ? <Text accessibilityLiveRegion=\"polite\" style={[s.hint, { color: error ? colors.destructive : colors.secondaryLabel }]}>{translate(hint)}</Text> : null}\n          </View>"),
+      edit(`${mobile}/src/app/chat.tsx`, "import { ChatMenu, ChatTitle } from '@/components/chat-header';", "import { BaaraliGreeting, ChatMenu, ChatTitle } from '@/components/chat-header';"),
+      edit(`${mobile}/src/app/chat.tsx`, "            <BaaraliLogo />\n            <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>", "            <BaaraliLogo />\n            <BaaraliGreeting />"),
+      // BAARALI(08/11/2026): a file card's buttons at their own size (the founder found « Share » huge), the main one filled, the other outlined.
+      edit(`${mobile}/src/components/file-cards.tsx`, "        flex: 1, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1,\n        backgroundColor: main ? colors.accent : colors.background,", "        height: 32, minWidth: 64, paddingHorizontal: 14, borderRadius: 16, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1,\n        backgroundColor: main ? colors.accent : 'transparent', borderWidth: main ? 0 : 1, borderColor: colors.separator,"),
+      edit(`${mobile}/src/components/file-cards.tsx`, "<Text style={{ fontSize: 14, fontWeight: '600', color: main ? colors.onAccent : colors.label }}>{label}</Text>", "<Text style={{ fontSize: 13.5, fontWeight: '600', color: main ? colors.onAccent : colors.label }}>{label}</Text>"),
+      // BAARALI(08/11/2026): the screens' titles in Inter too (baarali-text.tsx), the large ones in Source Serif 4.
+      edit(`${mobile}/src/app/_layout.tsx`, "              headerBackButtonDisplayMode: 'minimal',", "              headerBackButtonDisplayMode: 'minimal',\n              headerTitleStyle: { fontFamily: 'Inter', fontWeight: '600' },\n              headerLargeTitleStyle: { fontFamily: 'Source Serif 4', fontWeight: '500' },"),
+      // BAARALI(07/11/2026): changing one's Baarali's face from the settings (look.tsx).
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"new-agent\"", "<Stack.Screen name=\"look\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"new-agent\""),
     ],
     copies: [
       ['assets/mobile/settings.tsx', `${mobile}/src/app/settings.tsx`],
@@ -868,6 +933,7 @@ export function mobilePlan() {
       [path.relative(PKG, path.join(ROOT, 'apps/x/apps/renderer/src/lib/usage-reset.ts')), `${mobile}/src/lib/usage-reset.ts`],
       [path.relative(PKG, path.join(ROOT, 'apps/x/apps/renderer/src/lib/media-credits.ts')), `${mobile}/src/lib/media-credits.ts`],
       ['../control/src/oval-b.ts', `${mobile}/src/lib/baarali-oval-motion.ts`],
+      ['../control/src/b-mark.ts', `${mobile}/src/lib/baarali-b-mark.ts`],
       ['assets/motion/baarali-mark.native.tsx', `${mobile}/src/components/baarali-mark.tsx`],
       ['assets/motion/baarali-logo.native.tsx', `${mobile}/src/components/baarali-logo.tsx`],
       ['assets/mobile/home.tsx', `${mobile}/src/app/(tabs)/home.tsx`],
@@ -893,9 +959,20 @@ export function mobilePlan() {
       ['assets/mobile/attachment-content.ts', `${mobile}/src/lib/attachment-content.ts`],
       ['assets/mobile/composer-attachments.ts', `${mobile}/src/lib/composer-attachments.ts`],
       ['assets/mobile/chat-composer.tsx', `${mobile}/src/components/chat-composer.tsx`],
+      ['assets/mobile/agent-shape.tsx', `${mobile}/src/components/agent-shape.tsx`],
+      ['assets/mobile/chat-header.tsx', `${mobile}/src/components/chat-header.tsx`],
+      ['assets/mobile/connect.tsx', `${mobile}/src/app/connect.tsx`],
+      ['assets/mobile/new-agent.tsx', `${mobile}/src/app/new-agent.tsx`],
+      ['assets/mobile/welcome.tsx', `${mobile}/src/components/baarali-welcome.tsx`],
+      ['assets/mobile/notify-intro.tsx', `${mobile}/src/app/notify-intro.tsx`],
+      ['assets/mobile/look.tsx', `${mobile}/src/app/look.tsx`],
       ['assets/mobile/space-composer.tsx', `${mobile}/src/components/space-composer.tsx`],
       ...['icon.png', 'splash-icon.png', 'android-icon-foreground.png', 'android-icon-monochrome.png', 'baarali-mark.png', 'baarali-tile.png'].map((f) => [`assets/mobile/${f}`, `${mobile}/assets/images/${f}`]),
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
+      // BAARALI(08/11/2026): Inter and Source Serif 4 on the phone, as on the download page (baarali-text.tsx).
+      ['assets/mobile/fonts-babel.cjs', `${mobile}/baarali-i18n/fonts-babel.cjs`],
+      ['assets/mobile/baarali-text.tsx', `${mobile}/src/components/baarali-text.tsx`],
+      ...MOBILE_FONTS.map(([file]) => [`assets/fonts/mobile/${file}`, `${mobile}/assets/fonts/${file}`]),
     ],
     writes: [
       [`${mobile}/src/lib/cad-editor-client.ts`, fs.readFileSync(path.join(PKG, 'assets/motion/cad-editor-client.ts'), 'utf8').replace("'./cad-scene.js'", "'./cad-scene'")],
@@ -919,10 +996,17 @@ export function mobilePlan() {
         expo.scheme = ['baarali', MOBILE_ID];
         expo.ios = { ...expo.ios, bundleIdentifier: MOBILE_ID, infoPlist: { ...expo.ios.infoPlist, ...MOBILE_PERMISSIONS.en } };
         expo.locales = { fr: './baarali-locales/fr.json' };
-        const android = { ...expo.android, package: MOBILE_ID, adaptiveIcon: { ...expo.android.adaptiveIcon, backgroundColor: '#1A6DFF' } };
+        const android = { ...expo.android, package: MOBILE_ID, adaptiveIcon: { ...expo.android.adaptiveIcon, backgroundColor: '#0A0A0A' } };
         delete android.adaptiveIcon.backgroundImage;
         expo.android = android;
-        expo.plugins = expo.plugins.map((p) => (Array.isArray(p) && p[0] === 'expo-splash-screen' ? ['expo-splash-screen', { ...p[1], backgroundColor: '#0A0A0A', imageWidth: 140 }] : p));
+        expo.plugins = expo.plugins.map((p) => (Array.isArray(p) && p[0] === 'expo-splash-screen' ? ['expo-splash-screen', { ...p[1], backgroundColor: '#0A0A0A', imageWidth: 88 }] : p));
+        // The family name comes from the files (Inter, Source Serif 4): fontWeight picks the file.
+        const fonts = MOBILE_FONTS.map(([file]) => `./assets/fonts/${file}`);
+        const families = [...new Set(MOBILE_FONTS.map(([, family]) => family))].map((fontFamily) => ({
+          fontFamily,
+          fontDefinitions: MOBILE_FONTS.filter(([, fam]) => fam === fontFamily).map(([file, , weight]) => ({ path: `./assets/fonts/${file}`, weight })),
+        }));
+        expo.plugins = expo.plugins.map((p) => (p === 'expo-font' || (Array.isArray(p) && p[0] === 'expo-font') ? ['expo-font', { ios: { fonts }, android: { fonts: families } }] : p));
         return { ...doc, expo };
       },
     },

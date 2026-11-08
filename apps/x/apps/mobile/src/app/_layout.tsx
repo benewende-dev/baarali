@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { BackButton } from '@/components/back-button';
 import { registerWithMac } from '@/lib/push';
+import { AgentResponder } from '@/components/baarali-agent-responder';
 import { useConnection } from '@/lib/connection';
 import { ConnectionProvider } from '@/lib/connection';
 import { SpacesAccountProvider } from '@/lib/spaces/account';
@@ -30,6 +31,8 @@ export default function RootLayout() {
         <ConnectionProvider>
           <SpacesAccountProvider>
           <PushRegistrar />
+          {/* BAARALI(07/11/2026): taps on the agent's notifications, its approvals (baarali-agent-responder.tsx). */}
+          <AgentResponder />
           <Stack
             screenOptions={{
               headerShadowVisible: false,

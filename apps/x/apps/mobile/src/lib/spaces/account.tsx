@@ -52,6 +52,8 @@ interface SpacesAccount {
   refreshOrgs: () => Promise<void>;
   /** Fresh bearer for Harbor calls (auto-refreshes near expiry). */
   getAccessToken: (opts?: { forceRefresh?: boolean }) => Promise<string>;
+  /** BAARALI(07/11/2026): the app's own sign-in session, for the continuous voice (lib/baarali-conversation.ts); null otherwise. */
+  voiceSession: () => string | null;
 }
 
 const Ctx = createContext<SpacesAccount | null>(null);
@@ -167,9 +169,10 @@ export function SpacesAccountProvider({ children }: { children: ReactNode }) {
     setStatus('signedOut');
   }, [persist]);
 
+  const voiceSession = useCallback(() => accountRef.current?.session ?? null, []);
   const value = useMemo(
-    () => ({ status, orgs, orgsError, signIn, signInWithSession, signOut, refreshOrgs, getAccessToken }),
-    [status, orgs, orgsError, signIn, signInWithSession, signOut, refreshOrgs, getAccessToken],
+    () => ({ status, orgs, orgsError, signIn, signInWithSession, signOut, refreshOrgs, getAccessToken, voiceSession }),
+    [status, orgs, orgsError, signIn, signInWithSession, signOut, refreshOrgs, getAccessToken, voiceSession],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

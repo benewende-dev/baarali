@@ -118,7 +118,10 @@ export function segmentTurns(items: ConversationItem[], working: boolean): TurnS
     const index = r++
     const items = runs[index]
     const last = index === runs.length - 1
-    const finished = items.some(isTurnUsageMessage) || !working || !last
+    // BAARALI(07/11/2026): the usage line comes after the first model call,
+    // not at the end: only the turn itself says it is over (it made a
+    // turn waiting for an approval look « Worked 0 s »).
+    const finished = !working || !last
     let answer = -1
     for (let i = items.length - 1; i >= 0; i--) {
       const it = items[i]
@@ -129,7 +132,10 @@ export function segmentTurns(items: ConversationItem[], working: boolean): TurnS
     const work = answer === -1 ? items.filter((it) => !trailing(it)) : items.slice(0, answer).filter((it) => !trailing(it))
     if (work.length) {
       const steps = stepsOf(work)
-      const active = !finished && answer === -1
+      // BAARALI(08/11/2026): words streaming in the middle of the work are not
+      // the end of it: the work stays live until the turn says it is over (it
+      // folded and opened again at each sentence).
+      const active = !finished
       const endedAt = answer === -1 ? Math.max(...work.map((w) => w.timestamp)) : items[answer].timestamp
       expanded.push({ kind: 'work', id: seg.id, steps, active, startedAt: work[0].timestamp, endedAt })
     }

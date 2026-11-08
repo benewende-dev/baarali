@@ -7,6 +7,8 @@ import { useConnection } from '@/lib/connection';
 import { useSpacesAccount } from '@/lib/spaces/account';
 import { PUSH_LEVELS, getPushLevel, registerWithHarbor, registerWithMac, setPushLevel, type PushLevel } from '@/lib/push';
 import { useColors } from '@/theme/colors';
+// BAARALI(07/11/2026): the agent's pace and quiet hours (baarali-agent-notifications.tsx).
+import { AgentNotifications } from '@/components/baarali-agent-notifications';
 
 // Notification preferences: one global level, enforced by the Mac's watcher.
 export default function NotificationsScreen() {
@@ -71,6 +73,7 @@ export default function NotificationsScreen() {
           {state}
         </Text>
       ) : null}
+      <AgentNotifications rpc={rpc} />
     </ScrollView>
   );
 }

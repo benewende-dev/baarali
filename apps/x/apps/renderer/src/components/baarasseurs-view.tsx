@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUp, ChevronLeft, FileText, Loader2, Plus, SquarePen, Trash2, X } from 'lucide-react'
-import { AGENT_AVATARS, baarasseurAgentId, DOCUMENTS_DIR, DOCUMENTS_LIMIT, nextRunAt } from '@x/shared/dist/baarasseur.js'
+import { SHAPE_COLORS, SHAPE_IDS, baarasseurAgentId, DOCUMENTS_DIR, DOCUMENTS_LIMIT, nextRunAt } from '@x/shared/dist/baarasseur.js'
 import { AgentAvatarImage } from '@/components/agent-avatar'
+import { AgentShape, shapeFor } from '@/components/baarali-agent-shape'
+import { SHAPE_FILL } from '@/lib/baarali-b-mark'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +12,7 @@ import { useModels } from '@/hooks/use-models'
 import { appLang } from '@/lib/prompt-library'
 import { cn } from '@/lib/utils'
 import {
-  HOURS, TEMPLATES, TINTS, TOOLS, WEEKDAYS, describeSystem, tryoutRequest, idFor, parseDescribed, templateToBaarasseur, tint,
+  HOURS, TEMPLATES, TOOLS, WEEKDAYS, describeSystem, tryoutRequest, idFor, parseDescribed, templateToBaarasseur, tint,
   markBaarasseurSeen, scheduleLabel, useBaarasseurs, useBaarasseurUnread, type Baarasseur, type BaarasseurSchedule,
 } from '@/lib/baarasseurs'
 
@@ -24,7 +26,21 @@ import {
 
 export interface BaarasseurRun { id: string; title?: string; modifiedAt: string; agentId: string }
 
-export function Avatar({ b, size = 'md', working }: { b: Pick<Baarasseur, 'name' | 'color' | 'avatar'>; size?: 'sm' | 'md' | 'lg'; working?: boolean }) {
+// BAARALI(07/11/2026): as on the phone (lib/baarasseurs.tsx BaarasseurAvatar):
+// an agent made with a shape is that shape, no disc; one from before the
+// shapes, with no avatar either, gets one from its name; the old blue B with
+// feet ('original') is the B now. The other drawn avatars stay as they were.
+export function Avatar({ b, size = 'md', working }: { b: Pick<Baarasseur, 'name' | 'color' | 'avatar' | 'shape'>; size?: 'sm' | 'md' | 'lg'; working?: boolean }) {
+  const px = size === 'sm' ? 28 : size === 'md' ? 44 : 80
+  const dot = working && <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-background bg-emerald-500" />
+  if (b.shape || !b.avatar || b.avatar === 'original') {
+    return (
+      <span aria-hidden className="relative flex shrink-0 items-center justify-center" style={{ width: px, height: px }} data-no-translate>
+        <AgentShape shape={b.shape ?? (b.avatar ? 'b' : shapeFor(b.name, SHAPE_IDS))} color={b.color} size={px} />
+        {dot}
+      </span>
+    )
+  }
   return (
     <span
       aria-hidden
@@ -32,12 +48,11 @@ export function Avatar({ b, size = 'md', working }: { b: Pick<Baarasseur, 'name'
         'relative flex shrink-0 items-center justify-center rounded-full font-bold',
         size === 'sm' && 'size-7 text-xs', size === 'md' && 'size-11 text-base', size === 'lg' && 'size-20 text-3xl',
         tint(b.color),
-        b.avatar === 'original' && '!bg-[#1A6DFF]',
       )}
       data-no-translate
     >
-      {b.avatar ? <AgentAvatarImage avatar={b.avatar} /> : (b.name.trim()[0] ?? '?').toUpperCase()}
-      {working && <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-2 border-background bg-emerald-500" />}
+      <AgentAvatarImage avatar={b.avatar} />
+      {dot}
     </span>
   )
 }
@@ -61,7 +76,7 @@ function when(iso: string) {
 }
 
 function blank(taken: string[]): Baarasseur {
-  return { id: idFor('baarasseur', taken), name: '', role: '', mission: '', color: 'clay', avatar: 'original', tools: [], schedule: null, memory: [], documents: [], createdAt: new Date().toISOString() }
+  return { id: idFor('baarasseur', taken), name: '', role: '', mission: '', color: 'violet', shape: 'cloud', tools: [], schedule: null, memory: [], documents: [], createdAt: new Date().toISOString() }
 }
 
 /** The newest conversation of each baarasseur, by agent id. */
@@ -403,7 +418,6 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
   const [error, setError] = useState<string | null>(null)
   const [trial, setTrial] = useState<Turn[]>([])
   const [ask, setAsk] = useState('')
-  const [picking, setPicking] = useState(false)
   const [custom, setCustom] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -550,19 +564,7 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
             <div className="flex max-w-3xl flex-col gap-6">
               <div className="flex items-start gap-5">
                 <div className="relative flex flex-col items-center gap-1.5">
-                  <Avatar b={{ name: b.name || '?', color: b.color, avatar: b.avatar }} size="lg" />
-                  <button type="button" onClick={() => setPicking((v) => !v)} aria-expanded={picking}
-                    className="text-[13px] font-medium text-primary hover:underline">Change</button>
-                  {picking && (
-                    <div role="radiogroup" aria-label="Colour"
-                      className="absolute top-full z-10 mt-1 flex gap-1.5 rounded-lg border border-border bg-popover p-2 shadow-md">
-                      {Object.keys(TINTS).map((c) => (
-                        <button key={c} type="button" role="radio" aria-checked={b.color === c} aria-label={c}
-                          onClick={() => { set({ color: c }); setPicking(false) }}
-                          className={cn('size-6 rounded-full', tint(c), b.color === c && 'ring-2 ring-primary ring-offset-1 ring-offset-background')} />
-                      ))}
-                    </div>
-                  )}
+                  <Avatar b={{ name: b.name || '?', color: b.color, avatar: b.avatar, shape: b.shape }} size="lg" />
                 </div>
                 <div className="grid flex-1 grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
                   <label className="flex flex-col gap-1.5 text-sm font-medium"><span>Name</span>
@@ -573,17 +575,27 @@ function Recruit({ initial, isNew, onCancel, onSave, onRemove }: {
               </div>
 
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-2 text-sm font-medium">Agent avatar</legend>
-                <div role="radiogroup" aria-label="Choose an avatar" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {AGENT_AVATARS.map((choice) => (
-                    <button key={choice.id} type="button" role="radio" aria-checked={b.avatar === choice.id} aria-label={choice.label}
-                      onClick={() => set({ avatar: choice.id })}
-                      className={cn('flex min-h-24 flex-col items-center justify-center gap-1 rounded-xl border-2 p-2 text-xs', b.avatar === choice.id ? 'border-primary bg-primary/10' : 'border-transparent bg-muted hover:bg-accent')}>
-                      <span className={cn('size-14 rounded-2xl', choice.id === 'original' && 'bg-[#1A6DFF]')}><AgentAvatarImage avatar={choice.id} /></span>
-                      <span data-no-translate>{choice.label}</span>
+                <legend className="mb-2 text-sm font-medium">Its shape</legend>
+                <div role="radiogroup" aria-label="Choose a shape" className="flex flex-wrap gap-2">
+                  {SHAPE_IDS.map((id) => (
+                    <button key={id} type="button" role="radio" aria-checked={b.shape === id} aria-label={id}
+                      onClick={() => set({ shape: id, avatar: undefined })}
+                      className={cn('flex size-16 items-center justify-center rounded-2xl border-2', b.shape === id ? 'border-foreground bg-muted' : 'border-transparent bg-muted/60 hover:bg-accent')}>
+                      <AgentShape shape={id} color={b.color} size={40} />
                     </button>
                   ))}
-                  <button type="button" role="radio" aria-checked={!b.avatar} onClick={() => set({ avatar: undefined })} className="col-span-full min-h-11 text-left text-sm text-primary hover:underline">Use initials</button>
+                </div>
+              </fieldset>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 text-sm font-medium">Its colour</legend>
+                <div role="radiogroup" aria-label="Choose a colour" className="flex flex-wrap gap-2.5">
+                  {SHAPE_COLORS.map((c) => (
+                    <button key={c} type="button" role="radio" aria-checked={b.color === c} aria-label={c}
+                      onClick={() => set({ color: c, shape: b.shape ?? (b.avatar ? 'b' : shapeFor(b.name || '?', SHAPE_IDS)), avatar: undefined })}
+                      className={cn('flex size-10 items-center justify-center rounded-full border-2', b.color === c ? 'border-foreground' : 'border-transparent')}>
+                      <span className={cn('size-7 rounded-full', c === 'white' && 'border border-border')} style={{ background: c === 'white' ? 'var(--foreground)' : SHAPE_FILL[c] }} />
+                    </button>
+                  ))}
                 </div>
               </fieldset>
 

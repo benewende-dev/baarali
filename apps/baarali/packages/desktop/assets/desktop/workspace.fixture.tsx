@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect, useState } from 'react'
-import { DesktopModeTabs, DesktopWorkspaceProvider, DesktopWorkGate, workspaceForNav } from './desktop-workspace'
+import { DesktopModeSync, DesktopWorkspaceProvider, DesktopWorkGate, workspaceForNav } from './desktop-workspace'
 
 vi.mock('./baarali-mark', () => ({ BaaraliMark: () => <span>Loading</span> }))
 const invoke = vi.fn()
@@ -10,8 +10,10 @@ function PaidContent() { useEffect(() => { mounted++ }, []); return <span>Projec
 function Harness({ initial = 'assistant' }: { initial?: string }) {
   const [route, setRoute] = useState(initial)
   return <DesktopWorkspaceProvider>
-    <DesktopModeTabs activeNav={route} onChat={() => setRoute('assistant')} onWork={() => setRoute('code')} />
-    <DesktopWorkGate required={workspaceForNav(route) === 'work'} onChat={() => setRoute('assistant')}>
+    <DesktopModeSync activeNav={route} />
+    <button type="button" onClick={() => setRoute('code')}>Code</button>
+    <button type="button" onClick={() => setRoute('todo')}>Tasks</button>
+    <DesktopWorkGate required={workspaceForNav(route) === 'work'} page={route} onChat={() => setRoute('assistant')}>
       {workspaceForNav(route) === 'work' ? <PaidContent /> : <span>Chat content</span>}
     </DesktopWorkGate>
   </DesktopWorkspaceProvider>
@@ -23,52 +25,47 @@ beforeEach(() => {
   Object.defineProperty(window, 'ipc', { configurable: true, value: { invoke, on: () => () => {} } })
 })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
-describe('desktop Chat and Work', () => {
-  it('keeps free accounts in Chat and never mounts a paid page when Work is selected', async () => {
+describe('desktop pages by plan', () => {
+  it('shows the padlock screen for a paid page on Découverte and never mounts it', async () => {
     invoke.mockResolvedValue(plan('free'))
     render(<Harness />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Work' }))
-    await screen.findByText('Work is available with a paid plan')
+    fireEvent.click(screen.getByText('Code'))
+    expect(await screen.findByText('From the Semaine plan')).toBeVisible()
+    expect(screen.getByText('Code and projects')).toBeVisible()
     expect(mounted).toBe(0)
-    fireEvent.click(screen.getByText('Return to Chat'))
+    fireEvent.click(screen.getByText('Back to the conversation'))
     expect(screen.getByText('Chat content')).toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Chat' })).toHaveAttribute('aria-selected', 'true')
   })
-  it('opens the real paid destination and supports keyboard switching', async () => {
+  it('keeps free pages open on Découverte after a paid one', async () => {
+    invoke.mockResolvedValue(plan('free'))
+    render(<Harness initial="code" />)
+    await screen.findByText('From the Semaine plan')
+    fireEvent.click(screen.getByText('Tasks'))
+    expect(screen.getByText('Chat content')).toBeVisible()
+  })
+  it('opens a paid page on a paid plan', async () => {
     invoke.mockResolvedValue(plan('pro'))
     render(<Harness />)
     await waitFor(() => expect(invoke).toHaveBeenCalled())
     await act(async () => {})
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Chat' }), { key: 'ArrowRight' })
+    fireEvent.click(screen.getByText('Code'))
     expect(await screen.findByText('Project content')).toBeVisible()
     expect(mounted).toBe(1)
-    fireEvent.click(screen.getByRole('tab', { name: 'Chat' }))
-    expect(screen.getByText('Chat content')).toBeVisible()
   })
-  it('does not mount a restored Work route before entitlement is verified', async () => {
+  it('does not mount a restored paid page before the plan is verified', async () => {
     let resolve!: (info: unknown) => void
     invoke.mockImplementation(() => new Promise(done => { resolve = done }))
     render(<Harness initial="code" />)
     expect(mounted).toBe(0)
     await act(async () => resolve(plan('free')))
-    expect(await screen.findByText('Work is available with a paid plan')).toBeVisible()
+    expect(await screen.findByText('From the Semaine plan')).toBeVisible()
     expect(mounted).toBe(0)
   })
-  it.each(['email', 'meetings', 'spaces'])('blocks restored %s pages for Discovery before they mount', async route => {
+  it.each(['email', 'meetings', 'spaces', 'baarasseurs', 'agents', 'apps'])('blocks restored %s pages on Découverte', async route => {
     invoke.mockResolvedValue(plan('free'))
     render(<Harness initial={route} />)
-    expect(await screen.findByText('Work is available with a paid plan')).toBeVisible()
+    expect(await screen.findByText('From the Semaine plan')).toBeVisible()
     expect(mounted).toBe(0)
-    expect(screen.getByRole('tab', { name: 'Work' })).toHaveAttribute('aria-selected', 'true')
-  })
-  it('completes a Work click made while the paid plan is still loading', async () => {
-    let resolve!: (info: unknown) => void
-    invoke.mockImplementation(() => new Promise(done => { resolve = done }))
-    render(<Harness />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Work' }))
-    expect(mounted).toBe(0)
-    await act(async () => resolve(plan('pro')))
-    expect(await screen.findByText('Project content')).toBeVisible()
   })
   it('shows retry on verification failure and opens after a successful retry', async () => {
     invoke.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(plan('starter'))
@@ -84,7 +81,7 @@ describe('desktop Chat and Work', () => {
     await screen.findByText('Project content')
     invoke.mockResolvedValue(plan('free'))
     fireEvent(window, new Event('focus'))
-    expect(await screen.findByText('Work is available with a paid plan')).toBeVisible()
+    expect(await screen.findByText('From the Semaine plan')).toBeVisible()
     expect(screen.queryByText('Project content')).toBeNull()
   })
 })

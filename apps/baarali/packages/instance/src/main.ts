@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createGate } from './gate.js';
 import { seedWorkdir } from './seed.js';
 import { reaServer } from './rea.js';
+import { startSchedulePublisher } from './schedule-publisher.js';
 
 // Instance entry point on Fly (roadmap phase 0, 30/09/2026): prepare the
 // workdir, start the headless rowboat-server on loopback, open the gate.
@@ -70,6 +71,16 @@ const serverKey = (): string | null => {
 const gate = createGate({ targetPort: serverPort, apps: { port: 3210, serverKey } });
 const port = Number(process.env.PORT ?? '8080');
 gate.listen(port, '0.0.0.0', () => console.log(`[instance] gate on :${port} → 127.0.0.1:${serverPort}`));
+
+// Scheduled wakes (07/11/2026): the control plane learns when to wake this
+// machine for its next routine, and that it is at work while one runs.
+startSchedulePublisher({
+  workDir,
+  serverUrl: `http://127.0.0.1:${serverPort}`,
+  serverKey,
+  controlUrl: required('API_URL'),
+  instanceToken: required('BAARALI_INSTANCE_TOKEN'),
+});
 
 // One process tree: if the server dies, the machine restarts it whole.
 child.on('exit', (code, signal) => {

@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, AppState, Easing, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import Svg, { Ellipse } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useReducedMotion } from '@/components/agent-avatar';
-import { DURATION, OVALS, markFrames, type MarkMotion } from '@/lib/baarali-oval-motion';
+import { B_BODY, B_BOX, B_EYES, B_EYE_R, DURATION, eyesPose, type MarkMotion } from '@/lib/baarali-b-mark';
 import { useColors } from '@/theme/colors';
 
-export function BaaraliMark({ motion = 'static', size = 40, color }: {
-  motion?: MarkMotion; size?: number; color?: string;
+const SAMPLES = 120;
+
+// BAARALI(07/11/2026): the B that looks (founder's choice C, control
+// src/b-mark.ts): the body is drawn once; only the eyes move, on the native
+// driver, and only while the screen shows and the app is in front.
+// The eyes take the page's colour, so they read as holes in the B.
+export function BaaraliMark({ motion = 'static', size = 40, color, eyes }: {
+  motion?: MarkMotion; size?: number; color?: string; eyes?: string;
 }) {
   const colors = useColors();
   const reduced = useReducedMotion();
@@ -15,7 +21,6 @@ export function BaaraliMark({ motion = 'static', size = 40, color }: {
   const [focused, setFocused] = useState(false);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const effective = reduced ? 'static' : motion;
-  const frames = useMemo(() => markFrames(effective, effective === 'static' ? 1 : 180), [effective]);
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => setForeground(state === 'active'));
@@ -23,44 +28,38 @@ export function BaaraliMark({ motion = 'static', size = 40, color }: {
   }, []);
   useEffect(() => {
     phase.setValue(0);
-    if (reduced || !focused || !foreground || motion === 'static') return;
-    // BAARALI(11/10/2026): run the approved movement on the native driver,
-    // without keeping the chat list busy or animating a hidden route.
+    if (effective === 'static' || !focused || !foreground) return;
     const loop = Animated.loop(Animated.timing(phase, {
-      toValue: 1, duration: DURATION[motion], easing: Easing.linear,
-      useNativeDriver: true, isInteraction: false,
+      toValue: 1, duration: DURATION[effective], easing: Easing.linear, useNativeDriver: true, isInteraction: false,
     }));
     loop.start();
     return () => { loop.stop(); phase.setValue(0); };
-  }, [phase, reduced, focused, foreground, motion]);
-  const scale = size / 480;
-  // BAARALI(12/10/2026): navigation and history use a fixed B. One SVG is
-  // enough there; reserve the twelve animated views for actual movement.
-  if (effective === 'static') return <View style={{ width: size, height: size, flexShrink: 0 }} pointerEvents="none"
-    accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-    <Svg width={size} height={size} viewBox="-240 -240 480 480">
-      {OVALS.map((p, i) => <Ellipse key={i} cx={p.x} cy={p.y} rx={p.rx} ry={p.ry}
-        transform={`rotate(${p.a * 180 / Math.PI} ${p.x} ${p.y})`} fill={color ?? colors.label} />)}
-    </Svg>
-  </View>;
+  }, [phase, effective, focused, foreground]);
+
+  const k = size / B_BOX.size;
+  const frames = useMemo(() => {
+    const inputRange = Array.from({ length: SAMPLES + 1 }, (_, i) => i / SAMPLES);
+    const poses = inputRange.map(p => eyesPose(effective, p));
+    return { inputRange, dx: poses.map(p => p.dx * k), dy: poses.map(p => p.dy * k), lid: poses.map(p => p.lid) };
+  }, [effective, k]);
+  const body = color ?? colors.label;
+  const eyeColor = eyes ?? (color && color.toUpperCase() === '#FFFFFF' ? '#0A0A0A' : colors.background);
+  const r = B_EYE_R * k;
+  const still = effective === 'static';
+
   return <View style={{ width: size, height: size, flexShrink: 0 }} pointerEvents="none"
     accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-    {OVALS.map((p, i) => {
-      const poses = frames.ovals[i];
-      const interpolate = (key: 'x' | 'y' | 'sx' | 'sy') => phase.interpolate({
-        inputRange: frames.inputRange, outputRange: poses.map(pose => pose[key] * (key === 'x' || key === 'y' ? scale : 1)),
-      });
-      return <Animated.View key={i} style={{ position: 'absolute',
-        left: size / 2 - p.rx * scale, top: size / 2 - p.ry * scale,
-        width: 2 * p.rx * scale, height: 2 * p.ry * scale,
-        transform: [{ translateX: interpolate('x') }, { translateY: interpolate('y') },
-          { rotate: phase.interpolate({ inputRange: frames.inputRange, outputRange: poses.map(pose => `${pose.a}rad`) }) },
-          { scaleX: interpolate('sx') }, { scaleY: interpolate('sy') }],
-      }}>
-        <Svg width="100%" height="100%" viewBox={`0 0 ${2 * p.rx} ${2 * p.ry}`}>
-          <Ellipse cx={p.rx} cy={p.ry} rx={p.rx} ry={p.ry} fill={color ?? colors.label} />
-        </Svg>
-      </Animated.View>;
-    })}
+    <Svg width={size} height={size} viewBox={`${B_BOX.x} ${B_BOX.y} ${B_BOX.size} ${B_BOX.size}`}>
+      <Path d={B_BODY} fill={body} />
+    </Svg>
+    {B_EYES.map((e, i) => <Animated.View key={i} style={{
+      position: 'absolute', left: (e.cx - B_BOX.x) * k - r, top: (e.cy - B_BOX.y) * k - r,
+      width: 2 * r, height: 2 * r, borderRadius: r, backgroundColor: eyeColor,
+      transform: still ? [] : [
+        { translateX: phase.interpolate({ inputRange: frames.inputRange, outputRange: frames.dx }) },
+        { translateY: phase.interpolate({ inputRange: frames.inputRange, outputRange: frames.dy }) },
+        { scaleY: phase.interpolate({ inputRange: frames.inputRange, outputRange: frames.lid }) },
+      ],
+    }} />)}
   </View>;
 }

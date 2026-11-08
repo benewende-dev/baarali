@@ -7,7 +7,7 @@ import { CREDITS_PER_DOLLAR } from '@x/shared/dist/billing.js';
 import { accountResolver, createApp } from '../src/app.js';
 import { buildApiConfig } from '../src/config.js';
 import { MemoryStore, hashToken, type Account, type Plan } from '../src/store.js';
-import { ELEVEN_USD_PER_1K_CHARS, ELEVEN_VOICES, VOICES, createListenRelay, speakerFor, guessLang, splitForSpeech, sttCredits, ttsCredits, voiceFor } from '../src/voice.js';
+import { ELEVEN_USD_PER_1K_CHARS, ELEVEN_VOICES, VOICES, createListenRelay, speakerFor, guessLang, splitForSpeech, sttCredits, ttsCredits, voiceFor, fluxQuery } from '../src/voice.js';
 
 const T0 = Date.UTC(2026, 9, 6, 8, 0, 0);
 const PLANS: Plan[] = [{ id: 'pro', category: 'pro', displayName: 'pro', weekCredits: 20 * CREDITS_PER_DOLLAR, monthlyPrices: [], models: null }];
@@ -270,6 +270,35 @@ describe('voice, listening', () => {
     expect(s.usage[0]).toMatchObject({ path: '/voice/listen', model: 'nova-3', credits: sttCredits(120_000, 2) });
   });
 
+  it('relays the conversation mode to Flux, French first, with the turn settings kept', async () => {
+    const dg = await fakeDeepgram();
+    const s = store();
+    const clock = { now: T0 };
+    const port = await front(dg.port, s, clock);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/deepgram/v2/listen?model=nova-3&encoding=linear16&sample_rate=16000&eager_eot_threshold=0.5&eot_timeout_ms=4000`, ['bearer', 'me']);
+    await new Promise<string>((resolve, reject) => {
+      ws.onmessage = (e) => resolve(String(e.data));
+      ws.onerror = () => reject(new Error('ws failed'));
+    });
+    const url = dg.seen[0].split(' ')[0];
+    expect(url.startsWith('/v2/listen?')).toBe(true);
+    const q = new URLSearchParams(url.split('?')[1]);
+    expect(q.get('model')).toBe('flux-general-multi');
+    expect(q.getAll('language_hint')).toEqual(['fr', 'en']);
+    expect(q.get('eager_eot_threshold')).toBe('0.5');
+    expect(q.get('eot_timeout_ms')).toBe('4000');
+    clock.now = T0 + 60_000;
+    ws.close();
+    await vi_waitFor(() => s.usage.length > 0);
+    expect(s.usage[0]).toMatchObject({ path: '/voice/listen', model: 'flux-general-multi', credits: sttCredits(60_000, 1) });
+  });
+
+  it('keeps the language the app hints', () => {
+    const q = fluxQuery(new URL('http://x/deepgram/v2/listen?language_hint=en&token=secret'));
+    expect(q.getAll('language_hint')).toEqual(['en']);
+    expect(q.has('token')).toBe(false);
+  });
+
   it('refuses a wrong token and a spent quota before reaching Deepgram', async () => {
     const dg = await fakeDeepgram();
     const s = store();
@@ -310,3 +339,21 @@ async function vi_waitFor(check: () => boolean, ms = 2000): Promise<void> {
     await new Promise((r) => setTimeout(r, 10));
   }
 }
+
+describe('voice, the phone\'s door', () => {
+  it('opens to the phone app\'s sign-in session, as to the tokens of /v1', async () => {
+    const { listenAccountResolver } = await import('../src/app.js');
+    const s = store();
+    const me = (await s.accountByToken('me'))!;
+    s.accountForUser = async (userId: string) => (userId === 'user_me' ? me : null);
+    const auth = {
+      userIdForAccessToken: async () => null,
+      userIdForSession: async (t: string) => (t === 'session-me' ? 'user_me' : null),
+    } as unknown as Parameters<typeof listenAccountResolver>[1];
+    const door = listenAccountResolver(s, auth);
+    expect(await door('me')).toEqual(me);
+    expect(await door('session-me')).toEqual(me);
+    expect(await door('session-other')).toBeNull();
+    expect(await listenAccountResolver(s)('session-me')).toBeNull();
+  });
+});

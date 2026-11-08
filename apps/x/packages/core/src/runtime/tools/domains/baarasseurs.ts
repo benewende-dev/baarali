@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { BuiltinToolsSchema } from "../types.js";
-import { rememberFor } from "../../../baarasseurs/repo.js";
+import { rememberFor, updateFor } from "../../../baarasseurs/repo.js";
 
 export const baarasseurTools: z.infer<typeof BuiltinToolsSchema> = {
     "baarasseur-remember": {
@@ -19,6 +19,22 @@ export const baarasseurTools: z.infer<typeof BuiltinToolsSchema> = {
             return memory
                 ? { success: true, remembered: note, count: memory.length }
                 : { success: false, error: "Unknown baarasseur or empty note." };
+        },
+    },
+    // BAARALI(07/11/2026): the user renames it in a conversation (« appelle-toi Awa »).
+    "baarasseur-update": {
+        permission: "none",
+        description: "Change your own name or role as a baarasseur, when the user asks for it (« Appelle-toi Awa », « tu es maintenant notre comptable »). The app shows the new name at once.",
+        inputSchema: z.object({
+            id: z.string().describe("Your baarasseur id, as your instructions give it."),
+            name: z.string().optional().describe("The new first name, if the user gave one."),
+            role: z.string().optional().describe("The new role, 1 to 4 words, if the user gave one."),
+        }),
+        execute: async ({ id, name, role }: { id: string; name?: string; role?: string }) => {
+            const updated = await updateFor(id, { name, role });
+            return updated
+                ? { success: true, ...updated }
+                : { success: false, error: "Unknown baarasseur or nothing to change." };
         },
     },
 };

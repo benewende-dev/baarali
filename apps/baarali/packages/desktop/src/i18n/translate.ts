@@ -209,7 +209,8 @@ function translateNode(dict: Dictionary, node: Node): void {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const el = node as Element;
   // A field's own hint (placeholder, label) is the interface's, even where its content is not.
-  if (!skip(el.parentElement)) translateAttrs(dict, el);
+  // A button's label is the interface's, even inside a message (« Copy message » on a person's own message).
+  if (!skip(el.parentElement) || el.matches('button, [role="button"]')) translateAttrs(dict, el);
   if (skip(el)) return;
   for (const child of Array.from(el.childNodes)) translateNode(dict, child);
 }
@@ -253,7 +254,8 @@ export function startTranslation(dict: Dictionary, root: Element = document.body
       try {
         if (r.type === 'characterData') translateNode(dict, r.target);
         else if (r.type === 'attributes') {
-          if (!skip((r.target as Element).parentElement)) translateAttrs(dict, r.target as Element);
+          const target = r.target as Element;
+          if (!skip(target.parentElement) || target.matches('button, [role="button"]')) translateAttrs(dict, target);
         }
         else for (const n of Array.from(r.addedNodes)) translateNode(dict, n);
       } catch {

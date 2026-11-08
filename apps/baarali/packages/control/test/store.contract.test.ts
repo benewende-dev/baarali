@@ -155,6 +155,28 @@ describe.each([
     await store.revokeToken('tok-never-granted');
   });
 
+  it('keeps what each instance said of its next work, and finds the ones to wake', async () => {
+    const store = await make();
+    expect(await store.schedule(ME.id)).toBeNull();
+    const mine = { accountId: ME.id, nextDueAt: T0 + 60_000, reason: 'routine', busyUntil: null, updatedAt: T0 };
+    const other = { accountId: OTHER.id, nextDueAt: null, reason: null, busyUntil: T0 + 120_000, updatedAt: T0 };
+    await store.saveSchedule(mine);
+    await store.saveSchedule(other);
+    expect(await store.schedule(ME.id)).toEqual(mine);
+    // At T0: OTHER is at work, ME is due within the minute asked.
+    expect((await store.schedulesToWake(T0 + 60_000, T0, 10)).map((s) => s.accountId)).toEqual([OTHER.id, ME.id]);
+    expect((await store.schedulesToWake(T0, T0, 10)).map((s) => s.accountId)).toEqual([OTHER.id]);
+    expect(await store.schedulesToWake(T0 + 60_000, T0 + 120_000, 10)).toEqual([mine]);
+    expect(await store.schedulesToWake(T0 + 60_000, T0, 1)).toHaveLength(1);
+    // Cleared once woken, unless the instance published another due meanwhile.
+    await store.clearDue(ME.id, T0);
+    expect((await store.schedule(ME.id))?.nextDueAt).toBe(T0 + 60_000);
+    await store.clearDue(ME.id, T0 + 60_000);
+    expect(await store.schedule(ME.id)).toEqual({ ...mine, nextDueAt: null, reason: null });
+    await store.saveSchedule({ ...mine, nextDueAt: T0 + 3_600_000, updatedAt: T0 + 1 });
+    expect((await store.schedule(ME.id))?.nextDueAt).toBe(T0 + 3_600_000);
+  });
+
   it('keeps an instance record and its later steps', async () => {
     const store = await make();
     expect(await store.instance(ME.id)).toBeNull();

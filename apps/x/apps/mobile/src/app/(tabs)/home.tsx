@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { baarasseurs as shared, sessions as sessionsShared } from '@x/shared';
 
 import { AnnouncementBanner } from '@/components/announcement-banner';
+import { Today } from '@/components/baarali-today';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConsoleMessages } from '@/lib/console-messages';
 import { useConnection } from '@/lib/connection';
@@ -144,6 +145,9 @@ export default function HomeScreen() {
           <Image source="sf:waveform" style={{ width: 22, height: 22 }} contentFit="contain" tintColor={colors.onAccent} />
         </Pressable>
       </View>
+
+      {/* BAARALI(07/11/2026): what waits for a yes, runs, and was done (baarali-today.tsx). */}
+      <Today />
 
       <Text style={{ paddingHorizontal: 16, fontSize: 13, fontWeight: '600', color: colors.secondaryLabel }}>Your baarasseurs</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}>
