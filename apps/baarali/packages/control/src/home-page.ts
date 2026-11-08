@@ -5,7 +5,7 @@ import { CONTACT, legalLinks } from './legal-page.js';
 import { MODEL_BRANDS, MODEL_MAKER, TOOL_BRANDS, type Brand } from './brands.js';
 import { FAVICON, logoTile, logoWord, mascot, LOGO_ALIVE_CSS, LOGO_ALIVE_JS, logoTileLive } from './logo.js';
 import { pickLang } from './sign-in-page.js';
-import { LIVING_JS, PARADE, PICK_JS, living } from './living-shapes.js';
+import { LIVING_JS, PICK_JS, living } from './living-shapes.js';
 import type { ShapeId } from './b-mark.js';
 import { lockedNote, planAccessCopy } from './plan-access-copy.js';
 
@@ -34,7 +34,7 @@ const STRINGS = {
   fr: {
     title: 'Baarali — l’assistant qui agit pour vous',
     description: 'Il cherche, rédige et crée pour vous. Vous validez.',
-    nav: { how: 'Comment ça marche', features: 'Ce qu’il fait', prices: 'Tarifs', faq: 'Questions' },
+    nav: { how: 'Comment ça marche', features: 'Ce qu’il fait', prices: 'Tarifs', biz: 'Entreprises', faq: 'Questions' },
     navSignIn: 'Se connecter',
     beta: 'Bêta',
     eyebrow: 'Accès anticipé · Afrique de l’Ouest',
@@ -45,9 +45,12 @@ const STRINGS = {
     download: 'Télécharger Baarali',
     seeHow: 'Voir comment ça marche',
     trust: ['Gratuit pour commencer', 'Les meilleurs modèles d’IA', 'Français et anglais'],
+    // BAARALI(08/11/2026): what to ask it, as ChatGPT's page shows (the founder's call), in our trades.
+    triesLabel: 'Demandez-lui par exemple',
+    tries: ['Prépare un devis pour 40 sacs de ciment', 'Relance mes factures impayées du mois', 'Résume ma réunion de ce matin, et qui fait quoi', 'Trouve le prix du cajou cette semaine, avec les sources', 'Écris une annonce pour ma boutique sur WhatsApp', 'Fais une vidéo de 15 secondes pour ma nouvelle offre', 'Lis cet appel d’offres et liste les pièces à fournir', 'Prépare la TVA du mois', 'Trie mes emails et prépare les réponses simples', 'Crée un agent qui relance mes prospects chaque lundi'],
     sim: {
       label: 'Aperçu de l’app Baarali au travail',
-      newTask: 'Nouvelle tâche',
+      newTask: 'Nouveau chat',
       tasks: ['Devis pour Awa Traoré', 'Veille sur le cajou', 'Publication de lancement'],
       ask: 'Prépare un devis pour Awa Traoré, 40 sacs de ciment, et envoie-le-lui.',
       steps: ['J’ai retrouvé Awa Traoré dans vos contacts.', 'J’ai rédigé le devis : 40 × 6 500 F CFA.'],
@@ -90,7 +93,8 @@ const STRINGS = {
     appFeatures: [
       { icon: 'note', title: 'Notes vivantes', text: 'Une note qui se met à jour seule : vos ventes du jour, la veille d’un marché, vos emails importants.', soon: false },
       { icon: 'slides', title: 'Présentations', text: 'Il crée et modifie vos présentations, prêtes à projeter ou à envoyer.', soon: false },
-      { icon: 'apps', title: 'Mini-apps', text: 'Demandez un petit outil, un suivi de caisse ou un formulaire : il le construit pour vous.', soon: false },
+      // BAARALI(08/11/2026): Apps left the app (the founder's call); Code is what the app has instead.
+      { icon: 'code', title: 'Code et projets', text: 'Il construit, corrige et relit vos projets, dans un dossier à vous, et vous montre chaque changement.', soon: false },
       { icon: 'mail', title: 'Vos emails', text: 'Il lit votre boîte, prépare les réponses et vous laisse valider.', soon: false },
       { icon: 'call', title: 'Appels', text: 'Parlez-lui à voix haute ; il voit votre écran pour vous aider en direct.', soon: false },
       { icon: 'team', title: 'Espaces d’équipe', text: 'Des espaces partagés avec vos collègues, et un tableau blanc pour réfléchir ensemble.', soon: false },
@@ -181,10 +185,10 @@ const STRINGS = {
     usage: (x: string) => `Utilisation ×${x} par rapport à Essentiel`,
     plans: {
       decouverte: { tag: 'Pour essayer', points: ['Conversations avec Baarali, recherche web et analyse de fichiers', 'Voix et modèles rapides dans vos quotas', 'Médias avec des crédits séparés'] },
-      semaine: { tag: 'Sans engagement', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel, payée à la semaine', 'Pratique en Mobile Money'] },
-      essentiel: { tag: 'Le quotidien', points: ['Tous les modèles, dont les plus puissants', 'Une utilisation pour tous les jours', 'Les médias avec des crédits'] },
-      pro: { tag: 'Pour les gros besoins', points: ['Tous les modèles, dont les plus puissants', 'Cinq ou dix fois l’utilisation d’Essentiel', 'Pour travailler toute la journée avec lui'] },
-    } as Record<string, { tag: string; points: string[] }>,
+      semaine: { tag: 'Sans engagement', plus: 'Tout Découverte, et :', points: ['Tous les modèles, dont les plus puissants', 'L’utilisation d’Essentiel, payée à la semaine', 'Pratique en Mobile Money'] },
+      essentiel: { tag: 'Le quotidien', plus: 'Tout Semaine, payé au mois, et :', points: ['Une utilisation pour tous les jours', 'Les médias avec des crédits'] },
+      pro: { tag: 'Pour les gros besoins', plus: 'Tout Essentiel, et :', points: ['Cinq ou dix fois l’utilisation d’Essentiel', 'Pour travailler toute la journée avec lui'] },
+    } as Record<string, { tag: string; plus?: string; points: string[] }>,
     proChoice: 'Choisissez votre niveau',
     payment: 'Paiement en ligne bientôt : Mobile Money et carte.',
     taxes: 'Prix hors taxes.',
@@ -201,7 +205,7 @@ const STRINGS = {
     windows: 'Windows 10 et 11',
     forMac: 'Télécharger pour Mac',
     forWindows: 'Télécharger pour Windows',
-    other: 'Autres versions',
+    other: 'Toutes les versions :',
     macNote: 'Au premier lancement sur Mac, si macOS refuse d’ouvrir l’app : Réglages Système › Confidentialité et sécurité › Ouvrir quand même.',
     phoneNote: 'Sur téléphone : bientôt.',
     faqKicker: 'Questions',
@@ -225,7 +229,7 @@ const STRINGS = {
   en: {
     title: 'Baarali — the assistant that acts for you',
     description: 'It researches, writes and creates for you. You approve.',
-    nav: { how: 'How it works', features: 'What it does', prices: 'Pricing', faq: 'Questions' },
+    nav: { how: 'How it works', features: 'What it does', prices: 'Pricing', biz: 'Business', faq: 'Questions' },
     navSignIn: 'Sign in',
     beta: 'Beta',
     eyebrow: 'Early access · West Africa',
@@ -236,9 +240,11 @@ const STRINGS = {
     download: 'Download Baarali',
     seeHow: 'See how it works',
     trust: ['Free to start', 'The best AI models', 'French and English'],
+    triesLabel: 'Ask it, for example',
+    tries: ['Prepare a quote for 40 bags of cement', 'Chase this month’s unpaid invoices', 'Sum up this morning’s meeting, and who does what', 'Find this week’s cashew price, with sources', 'Write an ad for my shop on WhatsApp', 'Make a 15-second video for my new offer', 'Read this tender and list the documents to provide', 'Prepare this month’s VAT', 'Sort my emails and draft the simple replies', 'Create an agent that follows up my leads every Monday'],
     sim: {
       label: 'A look at the Baarali app at work',
-      newTask: 'New task',
+      newTask: 'New chat',
       tasks: ['Quote for Awa Traoré', 'Cashew market watch', 'Launch post'],
       ask: 'Prepare a quote for Awa Traoré, 40 bags of cement, and send it to her.',
       steps: ['I found Awa Traoré in your contacts.', 'I drafted the quote: 40 × 6,500 CFA francs.'],
@@ -281,7 +287,7 @@ const STRINGS = {
     appFeatures: [
       { icon: 'note', title: 'Live notes', text: 'A note that updates itself: today’s sales, a market watch, your important emails.', soon: false },
       { icon: 'slides', title: 'Presentations', text: 'It creates and edits your decks, ready to present or send.', soon: false },
-      { icon: 'apps', title: 'Mini apps', text: 'Ask for a small tool, a till tracker or a form: it builds it for you.', soon: false },
+      { icon: 'code', title: 'Code and projects', text: 'It builds, fixes and reviews your projects, in a folder of yours, and shows you every change.', soon: false },
       { icon: 'mail', title: 'Your emails', text: 'It reads your inbox, prepares replies and lets you approve.', soon: false },
       { icon: 'call', title: 'Calls', text: 'Talk to it out loud; it sees your screen to help you live.', soon: false },
       { icon: 'team', title: 'Team spaces', text: 'Spaces shared with your colleagues, and a whiteboard to think together.', soon: false },
@@ -372,10 +378,10 @@ const STRINGS = {
     usage: (x: string) => `×${x} the usage of Essentiel`,
     plans: {
       decouverte: { tag: 'To try it', points: ['Conversations with Baarali, web research and file analysis', 'Voice and fast models within your quotas', 'Media with separate credits'] },
-      semaine: { tag: 'No commitment', points: ['Every model, the most powerful included', 'The usage of Essentiel, paid by the week', 'Handy with mobile money'] },
-      essentiel: { tag: 'Everyday', points: ['Every model, the most powerful included', 'Usage for every day', 'Media with credits'] },
-      pro: { tag: 'For heavy use', points: ['Every model, the most powerful included', 'Five or ten times the usage of Essentiel', 'To work with it all day'] },
-    } as Record<string, { tag: string; points: string[] }>,
+      semaine: { tag: 'No commitment', plus: 'Everything in Découverte, and:', points: ['Every model, the most powerful included', 'The usage of Essentiel, paid by the week', 'Handy with mobile money'] },
+      essentiel: { tag: 'Everyday', plus: 'Everything in Semaine, paid monthly, and:', points: ['Usage for every day', 'Media with credits'] },
+      pro: { tag: 'For heavy use', plus: 'Everything in Essentiel, and:', points: ['Five or ten times the usage of Essentiel', 'To work with it all day'] },
+    } as Record<string, { tag: string; plus?: string; points: string[] }>,
     proChoice: 'Choose your level',
     payment: 'Online payment soon: mobile money and card.',
     taxes: 'Prices exclude taxes.',
@@ -392,7 +398,7 @@ const STRINGS = {
     windows: 'Windows 10 and 11',
     forMac: 'Download for Mac',
     forWindows: 'Download for Windows',
-    other: 'Other versions',
+    other: 'Every version:',
     macNote: 'On a Mac, if macOS refuses to open the app the first time: System Settings › Privacy & Security › Open Anyway.',
     phoneNote: 'On your phone: soon.',
     faqKicker: 'Questions',
@@ -465,6 +471,7 @@ const ICON = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   note: '<path d="M6 3.5h9l3 3v14H6z"/><path d="M9 10h6M9 13.5h6M9 17h4"/>',
   slides: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',
+  code: '<path d="m8.5 8-4 4 4 4M15.5 8l4 4-4 4M13.5 5.5l-3 13"/>',
   apps: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><path d="M16.5 13v7M13 16.5h7"/>',
   call: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
   team: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5a5 5 0 0 1 5.5 5"/>',
@@ -563,12 +570,11 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
         <h2 id="download">${titled(t.downloadTitle)}</h2>
         <p class="sub">${escape(t.downloadLead)}</p>
         <div class="dl-buttons"><a class="btn btn-blue" data-primary href="${escape(`${data.downloadBase}/${DOWNLOADS.macArm}`)}" data-windows="${escape(`${data.downloadBase}/${DOWNLOADS.windows}`)}" data-windows-label="${escape(t.forWindows)}">${icon('apple', 'fill')}<span>${escape(t.forMac)}</span></a></div>
-        <details class="others"><summary>${escape(t.other)}</summary><ul>${(['macArm', 'macIntel', 'windows'] as const)
+        <div class="others"><p>${escape(t.other)}</p><ul>${(['macArm', 'macIntel', 'windows'] as const)
           .map((k) => `<li><a href="${escape(`${data.downloadBase}/${DOWNLOADS[k]}`)}">${icon(k === 'windows' ? 'windows' : 'apple', 'fill')}${escape(t[k])}</a></li>`)
-          .join('')}</ul></details>
+          .join('')}</ul></div>
         <p class="fine">${escape(t.macNote)} ${escape(t.phoneNote)}</p>
       </div>
-      <div class="dl-art">${living('b', 'white', 150)}<div class="parade" aria-hidden="true">${PARADE.map((p) => living(p.shape, p.color, Math.round(p.size * 0.8))).join('')}</div></div>
     </div>
   </div>
 </section>`
@@ -586,7 +592,9 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
   const card = (offer: Offer, extra = '') => {
     // BAARALI(07/11/2026): what a paid plan opens leads, from plan-access-copy.ts.
     const free = offer.billing.kind === 'free';
-    const copy = { ...(t.plans[offer.id] ?? t.plans.pro), ...planAccessCopy({ for: '', points: [...(t.plans[offer.id] ?? t.plans.pro).points] }, false, lang, !free && offer.category !== 'pro') };
+    const own = t.plans[offer.id] ?? t.plans.pro
+    // BAARALI(08/11/2026): each paid plan says what it adds to the one before (as ChatGPT's), so the paid lines show once, on Semaine.
+    const copy = { ...own, ...planAccessCopy({ for: '', points: [...own.points] }, false, lang, !free && offer.category !== 'pro' && offer.id !== 'essentiel') };
     if (free) copy.points = [...(t.plans[offer.id] ?? t.plans.pro).points];
     const featured = offer.id === 'essentiel';
     return `<article class="plan${featured ? ' featured' : ''}">
@@ -594,6 +602,7 @@ export function homePage(data: HomeData, opts: { lang: string | null; nonce: str
       <p class="tag">${escape(copy.tag)}</p>
       <h3>${escape(offer.displayName)}</h3>
       ${extra || priceBlock(offer)}
+      ${!free && own.plus ? `<p class="plus">${escape(own.plus)}</p>` : ''}
       <ul>${copy.points.map((p) => `<li>${icon('check')}${escape(p)}</li>`).join('')}</ul>
       ${free ? `<p class="locked">${icon('lock')}${escape(lockedNote(lang))}</p>` : ''}
       ${offer.billing.kind === 'free' ? (data.downloadBase ? `<a class="btn btn-blue" href="#telecharger">${escape(t.download)}</a>` : `<a class="btn btn-blue" href="/auth/v1/sign-in">${escape(t.start)}</a>`) : `<p class="note">${escape(t.payment)}</p>`}
@@ -730,6 +739,19 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .ctas { display:flex; flex-wrap:wrap; gap:12px; }
 .trust { display:flex; flex-wrap:wrap; gap:8px 22px; list-style:none; padding:0; margin:28px 0 0; font-size:14px; color:var(--muted); }
 .trust li { display:flex; align-items:center; gap:7px; }
+/* What to ask it: two rows that drift, as on ChatGPT's page. */
+.tries { padding-block:0 64px; overflow:hidden; }
+.tries-label { margin:0 0 14px; font-size:13px; font-weight:650; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.tries-rows { display:flex; flex-direction:column; gap:10px; -webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.tries-row { overflow:hidden; }
+.tries-track { display:flex; gap:10px; width:max-content; animation:tries 60s linear infinite; }
+.tries-row.rev .tries-track { animation-direction:reverse; }
+.tries-rows:hover .tries-track { animation-play-state:paused; }
+.tries a { display:inline-flex; align-items:center; gap:10px; padding:13px 16px; border:1px solid var(--line); border-radius:14px; background:var(--surface); color:var(--ink); text-decoration:none; font-size:15px; white-space:nowrap; }
+.tries a:hover { border-color:var(--hover-line); }
+.tries a .i { width:15px; height:15px; color:var(--muted); }
+@keyframes tries { to { transform:translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .tries-track { animation:none; flex-wrap:wrap; width:auto; } .tries-track a[aria-hidden] { display:none; } }
 .trust .i { width:16px; height:16px; color:var(--blue); }
 
 /* The simulator */
@@ -773,8 +795,6 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .sim [data-step] { transition:opacity .45s ease, transform .45s ease; }
 .sim.play [data-step] { opacity:0; transform:translateY(8px); }
 .sim.play [data-step].show { opacity:1; transform:none; }
-.peek { position:absolute; right:-14px; bottom:-38px; width:104px; filter:drop-shadow(0 18px 24px var(--shadow)); }
-.peek .tile { display:block; width:100%; height:auto; }
 
 /* The character */
 .mascot .m-lids { transform-box:fill-box; transform-origin:center; animation:blink 5.2s infinite; }
@@ -1009,6 +1029,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .price strong { font-size:38px; letter-spacing:-.04em; color:var(--ink); font-weight:750; }
 .price span, .cfa, .usage, .note { color:var(--muted); font-size:14px; }
 .cfa, .usage, .note { margin:0; }
+.plan .plus { margin:0 0 -2px; font-size:13.5px; font-weight:650; color:var(--ink); }
 .plan ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px; font-size:14.5px; }
 .plan li { display:grid; grid-template-columns:auto 1fr; gap:9px; }
 .plan li .i { width:16px; height:16px; color:var(--blue); margin-top:3px; stroke-width:2.4; }
@@ -1025,22 +1046,16 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .packs span { color:var(--muted); font-size:13.5px; }
 
 /* Download */
-.dl { background:var(--night); color:var(--ink); border-radius:32px; padding:56px; display:grid; grid-template-columns:minmax(0, 1.3fr) minmax(0, .7fr); gap:40px; align-items:center; overflow:hidden; position:relative; }
+.dl { background:var(--night); color:var(--ink); border-radius:32px; padding:56px; display:grid; grid-template-columns:minmax(0, 1fr); gap:40px; align-items:center; overflow:hidden; position:relative; }
+.dl-copy { max-width:720px; }
 .dl h2 { color:var(--ink); }
 .dl h2 em { color:var(--blue); }
 .dl .sub, .dl .fine { color:var(--night-muted); }
 .dl-buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; }
-.dl-art { position:relative; display:flex; justify-content:center; }
-.dl-art { flex-direction:column; align-items:center; gap:18px; }
-.parade { display:flex; align-items:flex-end; justify-content:center; gap:12px; }
-.parade svg { animation:bob 2.8s ease-in-out infinite; }
-.parade svg:nth-child(2) { animation-delay:.4s; } .parade svg:nth-child(3) { animation-delay:.8s; }
-.parade svg:nth-child(4) { animation-delay:1.2s; } .parade svg:nth-child(5) { animation-delay:1.6s; }
-@keyframes bob { 0%, 100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
-@media (prefers-reduced-motion: reduce) { .parade svg { animation:none; } }
 .others { margin-top:14px; color:var(--night-muted); font-size:14.5px; }
-.others summary { cursor:pointer; width:max-content; }
-.others ul { list-style:none; margin:10px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
+.others { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+.others p { margin:0; }
+.others ul { list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:8px; }
 .others a { display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border:1px solid var(--night-line); border-radius:999px; text-decoration:none; color:var(--ink); }
 .others a:hover { border-color:var(--hover-line); }
 
@@ -1060,7 +1075,7 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
 .final h2 { color:var(--ink); font-size:clamp(36px, 5.4vw, 64px); }
 .final h2 em { color:var(--blue); }
 .final p { color:var(--muted); font-size:18px; margin:16px 0 30px; max-width:46ch; }
-.final .mascot { width:min(190px, 34vw); height:auto; filter:drop-shadow(0 24px 30px var(--shadow)); }
+.final .mascot { width:min(132px, 28vw); height:auto; filter:drop-shadow(0 24px 30px var(--shadow)); }
 
 /* Footer */
 
@@ -1078,7 +1093,6 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
   .bento { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .plans { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .here { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-  .peek { right:8px; }
 }
 @media (max-width: 680px) {
   .appgrid { grid-template-columns:minmax(0, 1fr); }
@@ -1091,11 +1105,9 @@ h1 em, h2 em { font-family:inherit; font-style:normal; font-weight:inherit; lett
   .sim-side { display:none; }
   .sim-chat { padding:16px 14px 14px; font-size:13.5px; }
   .ask, .sent { margin-left:0; }
-  .peek { width:76px; bottom:-30px; }
   .bento, .plans, .steps, .packs { grid-template-columns:minmax(0, 1fr); }
   .here { grid-template-columns:minmax(0, 1fr); }
   .dl, .final { padding:36px 24px; border-radius:24px; grid-template-columns:minmax(0, 1fr); }
-  .dl-art { display:none; }
   .final .mascot { width:120px; }
   .media { padding:24px; }
 }
@@ -1122,6 +1134,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <a href="#fonctions">${escape(t.nav.features)}</a>
       <a href="#etapes">${escape(t.nav.how)}</a>
       <a href="/tarifs">${escape(t.nav.prices)}</a>
+      <a href="/tarifs#entreprises">${escape(t.nav.biz)}</a>
       <a href="#questions">${escape(t.nav.faq)}</a>
     </nav>
     <div class="top-cta">
@@ -1141,10 +1154,12 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <div class="ctas">${primary}<a class="btn btn-line" href="#etapes">${escape(t.seeHow)}</a></div>
       <ul class="trust">${t.trust.map((x) => `<li>${icon('check')}${escape(x)}</li>`).join('')}</ul>
     </div>
-    <div class="stage">${simulator}
-      <div class="peek">${living('b', 'white', 104, ' tile')}</div>
-    </div>
+    <div class="stage">${simulator}</div>
   </div>
+</section>
+<section class="tries" aria-label="${escape(t.triesLabel)}">
+  <div class="wrap"><p class="tries-label">${escape(t.triesLabel)}</p></div>
+  <div class="tries-rows">${[t.tries.slice(0, 5), t.tries.slice(5)].map((row, r) => `<div class="tries-row${r ? ' rev' : ''}"><div class="tries-track">${[...row, ...row].map((x, i) => `<a href="${data.downloadBase ? '#telecharger' : '/auth/v1/sign-in'}"${i >= row.length ? ' aria-hidden="true" tabindex="-1"' : ''}>${escape(x)}${icon('arrow')}</a>`).join('')}</div></div>`).join('')}</div>
 </section>${download}
 <section id="fonctions" class="section" aria-labelledby="features">
   <div class="wrap">
@@ -1331,7 +1346,7 @@ ${opts.referral ? referralBar(opts.referral, lang) : ''}
       <p>${escape(t.finalLead)}</p>
       ${data.downloadBase ? `<a class="btn btn-white" href="#telecharger">${escape(t.download)}${icon('arrow')}</a>` : `<a class="btn btn-white" href="/auth/v1/sign-in">${escape(t.start)}${icon('arrow')}</a>`}
     </div>
-    ${living('b', 'white', 190, ' mascot')}
+    ${living('b', 'white', 132, ' mascot')}
   </div>
 </section>
 </main>

@@ -1,5 +1,5 @@
 import { CONTACT, legalLinks } from './legal-page.js';
-import { PARADE, living } from './living-shapes.js';
+
 import { logoTileLive, logoWord } from './logo.js';
 
 // BAARALI(07/11/2026): one footer for the site's pages (the founder found the
@@ -54,11 +54,10 @@ export function siteFooter(lang: Lang, acceptLanguage: string | null, download: 
   <div class="wrap">
     <div class="sf-top">
       <div class="sf-brand">
-        <a class="sf-logo" href="/" aria-label="Baarali">${logoTileLive(52)}${logoWord(30)}</a>
+        <a class="sf-logo" href="/" aria-label="Baarali">${logoTileLive(34)}${logoWord(24)}</a>
         <p>${escape(w.line)}</p>
         <div class="sf-ctas">${cta}<a class="sf-btn sf-ghost" href="/tarifs">${escape(w.plans)}</a></div>
       </div>
-      <div class="sf-parade" aria-hidden="true">${PARADE.map((p) => living(p.shape, p.color, Math.round(p.size * 0.72))).join('')}</div>
     </div>
     <div class="sf-cols">
       <div><h4>${escape(w.product)}</h4><ul>${list(product)}</ul></div>
@@ -85,11 +84,6 @@ export const SITE_FOOTER_CSS = `
 .sf-btn:hover { opacity:.9; }
 .sf-ghost { background:transparent; color:var(--ink) !important; border:1px solid var(--night-line); }
 .sf-ghost:hover { border-color:var(--hover-line); }
-.sf-parade { display:flex; align-items:flex-end; gap:12px; }
-.sf-parade svg { animation:sf-bob 2.8s ease-in-out infinite; }
-.sf-parade svg:nth-child(2) { animation-delay:.4s; } .sf-parade svg:nth-child(3) { animation-delay:.8s; }
-.sf-parade svg:nth-child(4) { animation-delay:1.2s; } .sf-parade svg:nth-child(5) { animation-delay:1.6s; }
-@keyframes sf-bob { 0%, 100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
 .sf-cols { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:32px; padding-block:44px; }
 .sf h4 { margin:0 0 14px; color:var(--ink); font-size:14px; font-weight:650; }
 .sf ul { list-style:none; margin:0; padding:0; }
@@ -98,6 +92,5 @@ export const SITE_FOOTER_CSS = `
 .sf-made li { border:1px solid var(--night-line); border-radius:999px; padding:6px 14px; font-size:13.5px; color:var(--text); }
 .sf-legal { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; padding-top:24px; border-top:1px solid var(--night-line); font-size:13.5px; }
 @media (max-width: 860px) { .sf-cols { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .sf-cols { grid-template-columns:minmax(0, 1fr); } .sf-parade { display:none; } }
-@media (prefers-reduced-motion: reduce) { .sf-parade svg { animation:none; } }
+@media (max-width: 480px) { .sf-cols { grid-template-columns:minmax(0, 1fr); } }
 `;
