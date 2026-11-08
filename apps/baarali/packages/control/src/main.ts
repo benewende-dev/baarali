@@ -50,6 +50,8 @@ const owner: Account = {
 const instanceToken = required('BAARALI_INSTANCE_TOKEN');
 // Our Spaces server (apps/harbor, AGENTS.md « Les espaces »); unset: no Spaces.
 const spacesUrl = process.env.BAARALI_SPACES_URL?.replace(/\/+$/, '') || undefined;
+// Baarali in the browser (08/11/2026): e.g. https://chat.baarali.com, comma-separated.
+const webOrigins = (process.env.BAARALI_WEB_ORIGINS ?? '').split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean);
 let store: ControlStore;
 let auth: BaaraliAuth | undefined;
 if (process.env.DATABASE_URL) {
@@ -84,6 +86,7 @@ if (process.env.DATABASE_URL) {
     );
     const authDeps: AuthDeps = {
       publicUrl,
+      webOrigins,
       secret: process.env.BAARALI_AUTH_SECRET,
       database: pool,
       db,
@@ -223,6 +226,7 @@ const app = createApp({
   auth,
   instances,
   gateway,
+  webOrigins,
   spacesUrl,
   mailer: noticeLinks ? mailer : undefined,
   noticeLinks,

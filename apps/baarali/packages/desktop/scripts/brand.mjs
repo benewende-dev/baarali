@@ -971,6 +971,9 @@ export function mobilePlan() {
       ['src/i18n/mobile/babel-plugin.cjs', `${mobile}/baarali-i18n/babel-plugin.cjs`],
       // BAARALI(08/11/2026): Inter and Source Serif 4 on the phone, as on the download page (baarali-text.tsx).
       ['assets/mobile/fonts-babel.cjs', `${mobile}/baarali-i18n/fonts-babel.cjs`],
+      // BAARALI(08/11/2026): Baarali in the browser: stand-ins on the web for the phone's own modules.
+      ['assets/mobile/web/metro.config.js', `${mobile}/metro.config.js`],
+      ['assets/mobile/web/secure-store.js', `${mobile}/web-shims/secure-store.js`],
       ['assets/mobile/baarali-text.tsx', `${mobile}/src/components/baarali-text.tsx`],
       ...MOBILE_FONTS.map(([file]) => [`assets/fonts/mobile/${file}`, `${mobile}/assets/fonts/${file}`]),
     ],
@@ -996,6 +999,9 @@ export function mobilePlan() {
         expo.scheme = ['baarali', MOBILE_ID];
         expo.ios = { ...expo.ios, bundleIdentifier: MOBILE_ID, infoPlist: { ...expo.ios.infoPlist, ...MOBILE_PERMISSIONS.en } };
         expo.locales = { fr: './baarali-locales/fr.json' };
+        // BAARALI(08/11/2026): Baarali in the browser is one page (as claude.ai): the static
+        // render ran the phone's modules in Node, where expo-notifications fails.
+        expo.web = { ...expo.web, output: 'single' };
         const android = { ...expo.android, package: MOBILE_ID, adaptiveIcon: { ...expo.android.adaptiveIcon, backgroundColor: '#0A0A0A' } };
         delete android.adaptiveIcon.backgroundImage;
         expo.android = android;

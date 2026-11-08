@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as Device from 'expo-device';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View, Platform } from 'react-native';
 
 import { BaaraliSignInView } from '@/components/baarali-sign-in-view';
 import { JoinWithLink } from '@/components/join-with-link';
@@ -76,7 +76,7 @@ function SignIn() {
       await account.signInWithSession(session);
       // The same cloud instance as the person's Mac: their chats, here.
       try {
-        const server = await connectInstance(session, Device.deviceName ?? 'iPhone');
+        const server = await connectInstance(session, Device.deviceName ?? (Platform.OS === 'web' ? 'Navigateur' : 'iPhone'));
         await pair({ url: server.url, token: server.key, name: 'Baarali' });
         if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.replace('/home');
