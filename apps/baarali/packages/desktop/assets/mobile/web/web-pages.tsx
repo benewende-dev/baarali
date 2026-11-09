@@ -1,10 +1,15 @@
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { baarasseurs as shared, sessions as sessionsShared } from '@x/shared';
-import type { backgroundTask } from '@x/shared';
+import type { backgroundTask, todo } from '@x/shared';
 import { BaaraliMark } from '@/components/baarali-mark';
+import { ChatComposer } from '@/components/chat-composer';
+import { ModelPill } from '@/components/model-picker';
+import { stageAttachments, useComposerAttachments } from '@/lib/composer-attachments';
+import { useModels } from '@/lib/use-models';
+import { useVoiceInput } from '@/lib/voice';
 import { BaarasseurAvatar, phoneLang, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
 import { scheduleWords } from '@/lib/schedule-words';
@@ -188,6 +193,8 @@ export function WebRoutines() {
   const { rpc, status } = useConnection();
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [running, setRunning] = useState<string[]>([]);
+  // The desktop's « New routine » window, open with what to write in it.
+  const [composing, setComposing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!rpc) return;
@@ -210,7 +217,7 @@ export function WebRoutines() {
     <WebPage>
       <WebPageHeader title={translate('Routines')}
         subtitle={translate('Persistent agents that fire on a schedule or in response to events. Toggle a task inactive to pause it.')}
-        action={{ label: translate('New routine'), icon: 'plus', onPress: () => chatWith('') }} />
+        action={{ label: translate('New routine'), icon: 'plus', onPress: () => setComposing('') }} />
       {tasks === null ? <ActivityIndicator style={{ marginTop: 32 }} /> : (
         <View style={{ gap: 10 }}>
           {tasks.length === 0 && (
@@ -222,7 +229,7 @@ export function WebRoutines() {
       <Section title={translate('Ready-made ideas')} subtitle={translate('Pick one: Baarali fills in the task, you adjust it, then create it.')}>
         <Grid min={180}>
           {IDEAS.map((idea) => (
-            <Card key={idea.title} onPress={() => chatWith(translate(idea.prompt))} style={{ padding: 14, gap: 8 }}>
+            <Card key={idea.title} onPress={() => setComposing(translate(idea.prompt))} style={{ padding: 14, gap: 8 }}>
               <View style={{ width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondaryBackground }}>
                 <Icon name={idea.icon} size={15} color={colors.label} />
               </View>
@@ -232,7 +239,145 @@ export function WebRoutines() {
           ))}
         </Grid>
       </Section>
+      {composing !== null ? <NewRoutine initial={composing} onClose={() => setComposing(null)} onCreated={() => { setComposing(null); void load(); }} /> : null}
     </WebPage>
+  );
+}
+
+// ── The « New routine » window ────────────────────────────────────────────
+
+type Every = 'manual' | 'day' | 'weekdays' | 'week' | 'hour';
+const WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** When it runs, as the routine's cron (the instance's clock is GMT, as the cards say). */
+function cronOf(every: Every, time: string, day: number): string | undefined {
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(time.trim());
+  const [h, min] = m ? [Number(m[1]), Number(m[2])] : [7, 0];
+  if (every === 'manual') return undefined;
+  if (every === 'hour') return `${min} * * * *`;
+  if (every === 'day') return `${min} ${h} * * *`;
+  if (every === 'weekdays') return `${min} ${h} * * 1-5`;
+  return `${min} ${h} * * ${day}`;
+}
+
+/** As the desktop's: describe it and Baarali sets it up, or set it up by hand (name, instructions, when). */
+function NewRoutine({ initial, onClose, onCreated }: { initial: string; onClose: () => void; onCreated: () => void }) {
+  const colors = useColors();
+  const tints = useTints();
+  const { rpc } = useConnection();
+  const [mode, setMode] = useState<'describe' | 'manual'>('describe');
+  const [description, setDescription] = useState(initial);
+  const [name, setName] = useState('');
+  const [instructions, setInstructions] = useState(initial);
+  const [every, setEvery] = useState<Every>('day');
+  const [time, setTime] = useState('07:00');
+  const [day, setDay] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const withBaarali = () => {
+    const text = description.trim();
+    if (!text) return;
+    onClose();
+    chatWith(`Create a background task for me. Here's what I want it to do:\n\n${text}`, { submit: '1' });
+  };
+  const byHand = async () => {
+    if (!rpc || !name.trim() || !instructions.trim() || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const cronExpr = cronOf(every, time, day);
+      const res = await rpc.call('bg-task:create', { name: name.trim(), instructions: instructions.trim(), ...(cronExpr ? { triggers: { cronExpr } } : {}) });
+      if (res.success) onCreated();
+      else setError(res.error ?? translate('Failed to create task'));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const field = { borderRadius: 10, borderWidth: 1, borderColor: colors.separator, backgroundColor: tints.card, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, lineHeight: 20, color: colors.label, ...({ outlineStyle: 'none' } as object) };
+  const label = (text: string) => <Text style={{ fontSize: 13, color: colors.secondaryLabel, marginBottom: 6 }}>{translate(text)}</Text>;
+  const chip = (id: Every, text: string) => (
+    <Pressable key={id} accessibilityRole="radio" accessibilityState={{ checked: every === id }} onPress={() => setEvery(id)}
+      style={{ paddingHorizontal: 12, height: 30, borderRadius: 15, justifyContent: 'center', borderWidth: 1, borderColor: every === id ? colors.label : colors.separator, backgroundColor: every === id ? colors.label : 'transparent' }}>
+      <Text style={{ fontSize: 13, color: every === id ? colors.background : colors.label }}>{translate(text)}</Text>
+    </Pressable>
+  );
+  const link = (text: string, onPress: () => void) => (
+    <Pressable accessibilityRole="button" onPress={onPress}><Text style={{ fontSize: 12, color: colors.secondaryLabel }}>{translate(text)}</Text></Pressable>
+  );
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable accessibilityLabel={translate('Close')} onPress={onClose} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24, ...({ pointerEvents: 'box-none' } as object) }}>
+        <View style={{ width: '100%', maxWidth: 580, maxHeight: '90%', borderRadius: 16, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.background, padding: 20, ...({ boxShadow: '0 20px 60px rgba(0,0,0,0.35)' } as object) }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+            <Text style={{ flex: 1, fontSize: 16, fontWeight: '600', color: colors.label }}>{translate('New routine')}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={translate('Close')} onPress={onClose} hitSlop={8}><Icon name="xmark" size={14} color={colors.secondaryLabel} /></Pressable>
+          </View>
+          <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled">
+            {mode === 'describe' ? (
+              <>
+                <TextInput autoFocus multiline value={description} onChangeText={setDescription}
+                  placeholder={translate('Describe what the task should do, and when. For example: every morning at 7, sum up my unread emails in one paragraph, with the list of what I need to do.')}
+                  placeholderTextColor={colors.tertiaryLabel}
+                  onKeyPress={(e) => { const k = e.nativeEvent as unknown as { key: string; metaKey?: boolean; ctrlKey?: boolean }; if (k.key === 'Enter' && (k.metaKey || k.ctrlKey)) { e.preventDefault(); withBaarali(); } }}
+                  style={{ ...field, minHeight: 140 }} />
+                <Text style={{ marginTop: 8, fontSize: 12, color: colors.tertiaryLabel }}>{`${translate('Tip: be specific about the cadence and the format you want.')} ⌘↵`}</Text>
+                <Text style={{ marginTop: 18, marginBottom: 8, fontSize: 11, fontWeight: '600', letterSpacing: 0.6, textTransform: 'uppercase', color: colors.tertiaryLabel }}>{translate('Or start from an idea')}</Text>
+                <Grid min={220}>
+                  {IDEAS.map((idea) => (
+                    <Card key={idea.title} onPress={() => setDescription(translate(idea.prompt))} style={{ paddingVertical: 10, paddingHorizontal: 12, gap: 2, borderRadius: 10 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.label }}>{translate(idea.title)}</Text>
+                      <Text style={{ fontSize: 11.5, color: colors.secondaryLabel }}>{translate(idea.when)}</Text>
+                    </Card>
+                  ))}
+                </Grid>
+              </>
+            ) : (
+              <View style={{ gap: 16 }}>
+                <View>{label('Name')}<TextInput autoFocus value={name} onChangeText={setName} placeholder={translate('Morning summary')} placeholderTextColor={colors.tertiaryLabel} style={field} /></View>
+                <View>{label('Instructions')}<TextInput multiline value={instructions} onChangeText={setInstructions} placeholderTextColor={colors.tertiaryLabel} style={{ ...field, minHeight: 110 }} /></View>
+                <View>
+                  {label('When')}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {chip('day', 'Every day')}{chip('weekdays', 'Weekdays')}{chip('week', 'Every week')}{chip('hour', 'Every hour')}{chip('manual', 'Manual only')}
+                  </View>
+                  {every === 'week' ? (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                      {WEEK.map((d, i) => (
+                        <Pressable key={d} accessibilityRole="radio" accessibilityState={{ checked: day === i }} onPress={() => setDay(i)}
+                          style={{ paddingHorizontal: 10, height: 28, borderRadius: 8, justifyContent: 'center', backgroundColor: day === i ? tints.soft : 'transparent', borderWidth: 1, borderColor: day === i ? colors.tertiaryLabel : colors.separator }}>
+                          <Text style={{ fontSize: 12.5, color: colors.label }}>{translate(d)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                  {every !== 'manual' && every !== 'hour' ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                      <Text style={{ fontSize: 13, color: colors.secondaryLabel }}>{translate('Hour')}</Text>
+                      <TextInput value={time} onChangeText={setTime} placeholder="07:00" placeholderTextColor={colors.tertiaryLabel} style={{ ...field, width: 90, paddingVertical: 6, textAlign: 'center' }} />
+                      <Text style={{ fontSize: 12, color: colors.tertiaryLabel }}>GMT</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {error ? <Text style={{ fontSize: 13, color: colors.destructive }}>{error}</Text> : null}
+              </View>
+            )}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18 }}>
+            <View style={{ flex: 1 }}>{mode === 'describe' ? link('Configure manually →', () => { setInstructions(description); setMode('manual'); }) : link('← Describe instead', () => setMode('describe'))}</View>
+            <OutlineButton label={translate('Cancel')} onPress={onClose} />
+            {mode === 'describe'
+              ? <PrimaryButton label={translate('Set up with Copilot')} onPress={withBaarali} disabled={!description.trim()} />
+              : <PrimaryButton label={saving ? translate('Creating…') : translate('Create')} onPress={() => void byHand()} disabled={!name.trim() || !instructions.trim() || saving} />}
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -415,6 +560,30 @@ export function WebCode() {
   const [picking, setPicking] = useState(false);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const attachments = useComposerAttachments();
+  const voice = useVoiceInput(rpc);
+  const [dictating, setDictating] = useState(false);
+  // The desktop's mic: tap, speak, tap again; the words land in the field.
+  const dictate = async () => {
+    if (!rpc || dictating) return;
+    setDictating(true);
+    try {
+      if (voice.state === 'recording') {
+        const text = await voice.finish();
+        if (text) setDraft((d) => `${d.trim()}${d.trim() ? ' ' : ''}${text}`);
+      } else if ((await voice.start()) === 'denied') {
+        globalThis.alert?.(translate('Allow microphone access in Settings to dictate a message.'));
+      }
+    } catch {
+      await voice.cancel();
+    } finally {
+      setDictating(false);
+    }
+  };
+  const models = useModels();
+  // The model catalog, read on arrival as the chat reads it.
+  const refreshModels = models.refresh;
+  useEffect(() => { void refreshModels(); }, [refreshModels]);
 
   const load = useCallback(async () => {
     if (!rpc) return;
@@ -429,17 +598,21 @@ export function WebCode() {
     .slice(0, 5), [projects]);
 
   const openChat = (id: string, extra: Record<string, string> = {}) => router.push({ pathname: '/chat', params: { id, mode: 'work', ...extra } });
-  const start = async (projectId: string | null, text: string) => {
+  const start = async (projectId: string | null, text: string, withFiles = false) => {
     if (!rpc || busy) return;
     setBusy(true);
     try {
+      // The files go with the words, the chat sends them (stageAttachments, as from the phone's home).
+      const key = withFiles ? stageAttachments(attachments.files) : undefined;
+      const extra: Record<string, string> = text || key ? { draft: text, submit: '1', ...(key ? { attachments: key } : {}) } : {};
       if (projectId) {
         const { sessionId } = await rpc.call('projects:createChat', { projectId });
-        openChat(sessionId, text ? { draft: text, submit: '1' } : {});
+        openChat(sessionId, extra);
       } else {
-        openChat('', text ? { draft: text, submit: '1' } : {});
+        openChat('', extra);
       }
       setDraft('');
+      if (withFiles) attachments.clear();
     } finally {
       setBusy(false);
     }
@@ -468,21 +641,17 @@ export function WebCode() {
           ))}
         </View>
       )}
-      <View style={{ borderRadius: 18, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.background, padding: 12, gap: 8, ...({ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' } as object) }}>
-        <TextInput value={draft} onChangeText={setDraft} multiline placeholder={translate('Describe a task, an app or a project.')} placeholderTextColor={colors.tertiaryLabel}
-          onKeyPress={(e) => {
-            const k = e.nativeEvent as unknown as { key: string; shiftKey?: boolean };
-            if (k.key === 'Enter' && !k.shiftKey) { e.preventDefault(); if (draft.trim()) void start(chosen, draft.trim()); }
-          }}
-          style={{ minHeight: 48, maxHeight: 200, fontSize: 15, color: colors.label, ...({ outlineStyle: 'none' } as object) }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ flex: 1, fontSize: 12, color: colors.tertiaryLabel }}>{project ? project.path : ' '}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel={translate('Send')} disabled={!draft.trim() || busy} onPress={() => void start(chosen, draft.trim())}
-            style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accent, opacity: !draft.trim() || busy ? 0.35 : 1 }}>
-            {busy ? <ActivityIndicator size="small" color={colors.onAccent} /> : <Icon name="arrow.up" size={16} color={colors.onAccent} />}
-          </Pressable>
-        </View>
+      {/* The desktop's Code composer: the « + » (images, documents, files, a note, the connectors), the model, send. */}
+      <View style={{ zIndex: 10, borderRadius: 18, borderWidth: 1, borderColor: colors.separator, backgroundColor: colors.background, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, ...({ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' } as object) }}>
+        <ChatComposer embedded draft={draft} onChange={setDraft} placeholder={translate('Describe a task, an app or a project.')}
+          files={attachments.files} onRemove={attachments.remove} onAttach={() => void attachments.pick()} picking={attachments.picking}
+          busy={busy || dictating} onSend={() => void start(chosen, draft.trim(), true)}
+          onVoice={rpc ? () => void dictate() : undefined} voiceActive={voice.state === 'recording'} voiceLabel={voice.state === 'recording' ? 'Finish dictation' : 'Dictate a message'}
+          leading={<ModelPill models={models} />} menu={[]} menuBelow
+          onAttachType={(type) => void attachments.pick(type)} onFiles={attachments.addFiles}
+          onInsert={(text) => setDraft((d) => (d && !d.endsWith(' ') ? `${d} ` : d) + text)} />
       </View>
+      {project ? <Text style={{ marginTop: 6, fontSize: 12, color: colors.tertiaryLabel }}>{project.path}</Text> : null}
 
       {recent.length > 0 && (
         <Section title={translate('Resume a session')}>
@@ -520,5 +689,163 @@ export function WebCode() {
         )}
       </Section>
     </WebPage>
+  );
+}
+
+// ── To-do ─────────────────────────────────────────────────────────────────
+
+type TodoList = { blocks: Array<{ kind: 'item'; item: todo.TodoItem } | { kind: 'raw'; text: string }> };
+type Archived = { month: string; blockIndex: number; date: string | null; item: todo.TodoItem };
+const MENTION = /@(baarali|rowboat)\b/i;
+
+/** The desktop's to-do page: the list, a line to add (« @baarali » hands it over), done and dismissed below. */
+export function WebTasks() {
+  const colors = useColors();
+  const { rpc, events, status } = useConnection();
+  const [list, setList] = useState<TodoList | null>(null);
+  const [running, setRunning] = useState<string[]>([]);
+  const [archived, setArchived] = useState<Archived[]>([]);
+  const [draft, setDraft] = useState('');
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const input = useState<{ focus?: () => void } | null>(null);
+  const [field, setField] = input;
+
+  const load = useCallback(async () => {
+    if (!rpc) return;
+    try {
+      const res = await rpc.call('todo:get', null);
+      setList(res.list as TodoList);
+      setRunning(res.running);
+    } catch { setList({ blocks: [] }); }
+    try { setArchived((await rpc.call('todo:listArchived', null)).items); } catch { /* none */ }
+  }, [rpc]);
+  useEffect(() => { if (status === 'connected') void load(); }, [load, status]);
+  useEffect(() => (events ? events.on('todo:events', () => void load()) : undefined), [events, load]);
+
+  const items = useMemo(() => (list?.blocks ?? []).flatMap((b) => (b.kind === 'item' ? [b.item] : [])), [list]);
+  const open = items.filter((it) => !it.checked);
+  const done = items.filter((it) => it.checked);
+
+  const save = async (next: TodoList) => {
+    if (!rpc) return;
+    setList(next);
+    try { const res = await rpc.call('todo:save', { list: next as never }); if (res.list) setList(res.list as TodoList); } catch { void load(); }
+  };
+  const toggle = (key: string) => {
+    if (!list) return;
+    void save({ blocks: list.blocks.map((b) => (b.kind === 'item' && b.item.key === key ? { ...b, item: { ...b.item, checked: !b.item.checked } } : b)) });
+  };
+  const add = async () => {
+    const text = draft.trim();
+    if (!text || !rpc || adding) return;
+    setAdding(true);
+    setDraft('');
+    try { await rpc.call('todo:addItem', { text, run: MENTION.test(text) }); } finally { setAdding(false); void load(); }
+  };
+  const run = async (key: string) => {
+    if (!rpc) return;
+    setRunning((r) => [...r, key]);
+    await rpc.call('todo:runItem', { key }).catch(() => {});
+    void load();
+  };
+  const stop = async (key: string) => { await rpc?.call('todo:stopRun', { key }).catch(() => {}); void load(); };
+  const dismiss = async (key: string) => { await rpc?.call('todo:dismiss', { key }).catch(() => {}); void load(); };
+  const restore = async (a: Archived) => { await rpc?.call('todo:restore', { month: a.month, blockIndex: a.blockIndex, key: a.item.key }).catch(() => {}); void load(); };
+
+  return (
+    <WebPage>
+      <WebPageHeader title={translate('To-do')} subtitle={translate('Your list. Write @baarali before a line to hand it to the assistant.')} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+        <Text style={{ flex: 1, fontSize: 12, fontWeight: '600', color: colors.tertiaryLabel }}>{translate('Tasks')}</Text>
+        <Pressable accessibilityRole="button" onPress={() => field?.focus?.()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Icon name="plus" size={12} color={colors.secondaryLabel} />
+          <Text style={{ fontSize: 12.5, color: colors.secondaryLabel }}>{translate('New to-do')}</Text>
+        </Pressable>
+      </View>
+      {list === null ? <ActivityIndicator style={{ marginTop: 24 }} /> : (
+        <View style={{ gap: 1 }}>
+          {open.map((it) => (
+            <View key={it.key}>
+              <TodoRow item={it} busy={running.includes(it.key)} onToggle={() => toggle(it.key)} onRun={() => void run(it.key)} onStop={() => void stop(it.key)} onDismiss={() => void dismiss(it.key)} />
+              {it.children.filter((c) => !c.checked).map((c) => (
+                <View key={c.key} style={{ paddingLeft: 30 }}>
+                  <TodoRow item={c} busy={running.includes(c.key)} onToggle={() => toggle(c.key)} onRun={() => void run(c.key)} onStop={() => void stop(c.key)} onDismiss={() => void dismiss(c.key)} />
+                </View>
+              ))}
+            </View>
+          ))}
+          {/* The line to add, as the desktop's: Enter adds it, « @baarali » hands it over at once. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, paddingHorizontal: 8 }}>
+            <Icon name="plus" size={14} color={colors.tertiaryLabel} />
+            <TextInput ref={(r) => setField(r as unknown as { focus?: () => void } | null)} value={draft} onChangeText={setDraft} onSubmitEditing={() => void add()}
+              placeholder={translate('Add a to-do… @baarali hands it off')} placeholderTextColor={colors.tertiaryLabel} editable={!adding}
+              style={{ flex: 1, fontSize: 14, color: colors.label, paddingVertical: 8, ...({ outlineStyle: 'none' } as object) }} />
+            {draft.trim() ? <Text style={{ fontSize: 11, color: colors.tertiaryLabel }}>↵</Text> : null}
+          </View>
+        </View>
+      )}
+
+      {(done.length > 0 || archived.length > 0) && (
+        <View style={{ marginTop: 28 }}>
+          <Pressable accessibilityRole="button" accessibilityState={{ expanded: doneOpen }} onPress={() => setDoneOpen((v) => !v)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <Icon name={doneOpen ? 'chevron.down' : 'chevron.right'} size={11} color={colors.tertiaryLabel} />
+            <Text style={{ fontSize: 12, fontWeight: '600', color: colors.tertiaryLabel }}>{`${translate('Done & dismissed ·')} ${done.length + archived.length}`}</Text>
+          </Pressable>
+          {doneOpen && (
+            <View style={{ gap: 1 }}>
+              {done.map((it) => <TodoRow key={it.key} item={it} busy={false} onToggle={() => toggle(it.key)} />)}
+              {archived.map((a) => (
+                <TodoRow key={`${a.month}:${a.blockIndex}:${a.item.key}`} item={{ ...a.item, checked: true }} busy={false} archived onRestore={() => void restore(a)} />
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+    </WebPage>
+  );
+}
+
+/** One line: the box, the words (« @baarali » as a chip), and what can be done with it under the pointer. */
+function TodoRow({ item, busy, archived, onToggle, onRun, onStop, onDismiss, onRestore }: {
+  item: todo.TodoItem; busy: boolean; archived?: boolean;
+  onToggle?: () => void; onRun?: () => void; onStop?: () => void; onDismiss?: () => void; onRestore?: () => void;
+}) {
+  const colors = useColors();
+  const tints = useTints();
+  const [hover, setHover] = useState(false);
+  const parts = item.text.split(/(@(?:baarali|rowboat)\b)/i);
+  return (
+    <Pressable onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)} onPress={onToggle} disabled={!onToggle}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 40, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 8, backgroundColor: hover ? tints.hover : 'transparent' }}>
+      <View accessibilityRole="checkbox" accessibilityState={{ checked: item.checked }}
+        style={{ width: 17, height: 17, borderRadius: 4, borderWidth: item.checked ? 0 : 1.5, borderColor: colors.tertiaryLabel, backgroundColor: item.checked ? colors.label : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+        {item.checked ? <Icon name="checkmark" size={11} color={colors.background} /> : null}
+      </View>
+      <Text style={{ flex: 1, fontSize: 14, lineHeight: 20, color: item.checked ? colors.tertiaryLabel : colors.label, textDecorationLine: item.checked ? 'line-through' : 'none' }}>
+        {parts.map((p, i) => (MENTION.test(p) && /^@/.test(p)
+          ? <Text key={i} style={{ color: colors.label, fontWeight: '600', backgroundColor: tints.soft, borderRadius: 4 }}>{' @baarali '}</Text>
+          : <Text key={i}>{p}</Text>))}
+      </Text>
+      {busy ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <ActivityIndicator size="small" />
+          <Text style={{ fontSize: 12, color: colors.secondaryLabel }}>{translate('Baarali is on it…')}</Text>
+          {onStop ? <OutlineButton label={translate('Stop')} onPress={onStop} /> : null}
+        </View>
+      ) : !item.checked && item.delegated && onRun ? (
+        <Pressable accessibilityRole="button" onPress={onRun} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 24, borderRadius: 6, backgroundColor: tints.soft }}>
+          <Icon name="play.fill" size={10} color={colors.secondaryLabel} />
+          <Text style={{ fontSize: 12, color: colors.secondaryLabel }}>{translate('run')}</Text>
+        </Pressable>
+      ) : null}
+      {archived && onRestore ? <OutlineButton label={translate('Restore')} onPress={onRestore} /> : null}
+      {hover && onDismiss && !busy ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={translate('Dismiss — moves to Done & dismissed, restorable')} onPress={onDismiss} hitSlop={6}
+          {...({ title: translate('Dismiss — moves to Done & dismissed, restorable') } as object)}>
+          <Icon name="xmark" size={13} color={colors.tertiaryLabel} />
+        </Pressable>
+      ) : null}
+    </Pressable>
   );
 }

@@ -58,7 +58,6 @@ const MORE: Place[] = [
 
 /** The phone's screens that wear the desktop's page title in the browser. */
 const PAGE_TITLES: Record<string, { title: string; subtitle?: string }> = {
-  '/tasks': { title: 'To-do', subtitle: 'Your list. Write @baarali before a line to hand it to the assistant.' },
   '/notes': { title: 'Library', subtitle: 'Your notes and files' },
   '/email': { title: 'Email' },
   '/meetings': { title: 'Meetings' },

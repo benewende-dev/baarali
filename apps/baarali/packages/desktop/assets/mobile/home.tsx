@@ -198,7 +198,7 @@ export default function HomeScreen() {
         <View>
           {look ? <LivingShape shape={look.shape} color={adaptive(look.color, dark)} size={104} /> : <BaaraliMark size={104} motion="loading" />}
           <View style={{ position: 'absolute', right: -2, bottom: 2, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFA31A', borderWidth: 3, borderColor: colors.background }}>
-            <Image source="sf:star.fill" style={{ width: 13, height: 13 }} tintColor="#FFFFFF" />
+            <Image source="sf:checkmark" style={{ width: 13, height: 13 }} tintColor="#FFFFFF" />
           </View>
           {waits(latest.mine) && <Dot />}
         </View>

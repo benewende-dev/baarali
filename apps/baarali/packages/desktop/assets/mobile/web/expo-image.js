@@ -19,7 +19,7 @@ const SF = {
   'number': 'Hash', 'lock': 'Lock', 'lock.fill': 'Lock', 'face.smiling': 'Smile', 'envelope': 'Mail', 'envelope.fill': 'Mail', 'at': 'AtSign',
   'circle': 'Circle', 'xmark.circle.fill': 'CircleX', 'bubble.left': 'MessageSquare', 'bubble.left.and.bubble.right': 'MessagesSquare',
   'bubble.left.and.bubble.right.fill': 'MessagesSquare', 'tray': 'Inbox', 'archivebox': 'Archive', 'sun.horizon': 'Sunrise', 'star.fill': 'Star',
-  'square.and.arrow.up': 'Share', 'sparkle': 'Sparkle', 'rectangle.portrait.and.arrow.right': 'LogOut', 'qrcode.viewfinder': 'ScanQrCode',
+  'square.and.arrow.up': 'Share', 'sparkle': 'SlidersHorizontal', 'sparkles': 'SlidersHorizontal', 'rectangle.portrait.and.arrow.right': 'LogOut', 'qrcode.viewfinder': 'ScanQrCode',
   'photo': 'Image', 'person.crop.square': 'SquareUser', 'person.crop.circle': 'CircleUser', 'laptopcomputer.and.iphone': 'MonitorSmartphone',
   'desktopcomputer': 'Monitor', 'hand.tap': 'Pointer', 'globe': 'Globe', 'chevron.left.forwardslash.chevron.right': 'Code',
   'arrow.up.right': 'ArrowUpRight', 'arrow.up': 'ArrowUp', 'arrow.clockwise': 'RotateCw', 'app': 'Square',
