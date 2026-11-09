@@ -1,0 +1,26 @@
+# Baarali in the browser, https://chat.baarali.com (decided 08/11/2026): the
+# phone app's web build (Expo), static files only. It signs in and talks to
+# the instance through app.baarali.com, which allows this origin
+# (BAARALI_WEB_ORIGINS on warell-control). Build: ./build.sh, then
+# fly deploy --config apps/baarali/packages/chat/fly.toml --dockerfile apps/baarali/packages/chat/Dockerfile --remote-only --ha=false apps/baarali/packages/chat
+app = "baarali-chat"
+primary_region = "cdg"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Static files: asleep when nobody visits, awake in a second.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
