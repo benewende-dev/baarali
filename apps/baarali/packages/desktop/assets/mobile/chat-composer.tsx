@@ -1,6 +1,6 @@
 import type { ReactNode, Ref } from 'react';
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useColors } from '@/theme/colors';
 import type { ComposerAttachment } from '@/lib/composer-attachments';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
@@ -44,7 +44,14 @@ export function ChatComposer({ draft, onChange, placeholder, files, onRemove, on
   return <View style={{ padding: embedded ? 0 : 12, gap: 8, borderRadius: 22, borderCurve: 'continuous', borderWidth: embedded ? 0 : 0.5, borderColor: colors.separator, backgroundColor: colors.background }}>
     <AttachmentChips files={files} onRemove={onRemove} disabled={busy} />
     <TextInput ref={inputRef} value={draft} onChangeText={onChange} editable={!busy} multiline accessibilityLabel={placeholder} placeholder={placeholder} placeholderTextColor={colors.tertiaryLabel}
-      style={{ fontSize: 16, color: colors.label, minHeight: 36, maxHeight: 120, paddingHorizontal: 2, paddingVertical: 4 }} />
+      // BAARALI(08/11/2026): in the browser, Enter sends and Shift+Enter starts a new line, as on claude.ai.
+      onKeyPress={Platform.OS === 'web' ? (e) => {
+        const key = e.nativeEvent as unknown as { key: string; shiftKey?: boolean; isComposing?: boolean };
+        if (key.key !== 'Enter' || key.shiftKey || key.isComposing) return;
+        e.preventDefault();
+        if (!busy && !picking && !voiceActive && (draft.trim() || files.length)) onSend();
+      } : undefined}
+      style={[{ fontSize: 16, color: colors.label, minHeight: 36, maxHeight: 120, paddingHorizontal: 2, paddingVertical: 4 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]} />
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <ComposerButton icon="sf:plus" label="Add files" onPress={onAttach} disabled={busy || picking} />
       {leading}

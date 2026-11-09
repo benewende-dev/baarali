@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { baarasseurs as shared } from '@x/shared';
 
 import { BaaraliMark } from '@/components/baarali-mark';
+import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
 import { LivingShape, SHAPE_FILL, saveLook } from '@/components/agent-shape';
 import { APEX_URL } from '@/lib/spaces/account';
 
@@ -41,7 +42,7 @@ export default function Welcome() {
 
   const button = (label: string, onPress: () => void) => <Pressable accessibilityRole="button" disabled={leaving} onPress={onPress}
     style={({ pressed }) => ({ height: 58, marginBottom: 12, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', opacity: pressed || leaving ? 0.8 : 1 })}>
-    <Text style={{ fontSize: 18, fontWeight: '600', color: INK }}>{label}</Text>
+    <Text style={{ fontSize: 18, fontWeight: '600', color: INK }}>{translate(label)}</Text>
   </Pressable>;
 
   return <View style={{ flex: 1, backgroundColor: INK }}>

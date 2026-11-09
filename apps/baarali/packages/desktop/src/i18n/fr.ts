@@ -3358,6 +3358,7 @@ export const FR: Dictionary = {
     "action": "action",
     "actions": "actions",
     "Read": "Lire",
+    "Baarali asks your approval": "Baarali demande votre accord",
     "Describe a change, a fix or a review in this folder": "Décrivez un changement, une correction ou une relecture dans ce dossier",
     // BAARALI(08/11/2026): the token menu's labels whole (« Jetons utilisés pour ce Options de turn »), the Library's columns.
     "Token usage for this turn": "Jetons utilisés pour ce tour",
