@@ -50,7 +50,7 @@ export default function Welcome() {
     <SafeAreaView style={{ flex: 1, paddingHorizontal: 24 }}>
       {step === 'hello' ? <>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 28 }}>
-          <BaaraliMark size={120} motion="loading" color="#FFFFFF" />
+          <BaaraliMark size={96} motion="loading" color="#FFFFFF" />
           <View style={{ alignItems: 'center', gap: 12 }}>
             <Text accessibilityRole="header" style={{ fontSize: 40, fontWeight: '600', letterSpacing: -1.2, color: '#FFFFFF' }}>Baarali</Text>
             <Text style={{ fontSize: 18, lineHeight: 26, textAlign: 'center', color: '#B5B5B5' }}>Agents that work for you. You stay in control.</Text>
@@ -78,7 +78,7 @@ export function LookPicker({ shape, color, onShape, onColor }: {
         <Text accessibilityRole="header" style={{ marginTop: 28, fontSize: 28, fontWeight: '600', textAlign: 'center', color: '#FFFFFF' }}>Choose your Baarali</Text>
         <Text style={{ marginTop: 8, fontSize: 16, textAlign: 'center', color: '#B5B5B5' }}>Its face in the app. You can change it later.</Text>
         <ScrollView contentContainerStyle={{ paddingVertical: 24, gap: 26 }} showsVerticalScrollIndicator={false}>
-          <View style={{ alignItems: 'center' }}><LivingShape key={shape + color} shape={shape} color={color} size={150} /></View>
+          <View style={{ alignItems: 'center' }}><LivingShape key={shape + color} shape={shape} color={color} size={120} /></View>
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 }}>
             {shared.SHAPE_IDS.map((id) => <Pressable key={id} accessibilityRole="radio" accessibilityLabel={id} accessibilityState={{ checked: shape === id }} onPress={() => { tap(); setShape(id); }}
               style={{ width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: shape === id ? '#FFFFFF' : 'transparent' }}>

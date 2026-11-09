@@ -9,7 +9,7 @@ import { BaaraliSignInView } from '@/components/baarali-sign-in-view';
 import { JoinWithLink } from '@/components/join-with-link';
 import { Face } from '@/components/member-face';
 import { useSpacesAccount, type SpacesOrg } from '@/lib/spaces/account';
-import { connectInstance, sendCode, SignInError, verifyCode, type SignInProblem } from '@/lib/baarali-sign-in';
+import { connectInstance, sendCode, signInWithPassword, SignInError, verifyCode, type SignInProblem } from '@/lib/baarali-sign-in';
 import { useConnection } from '@/lib/connection';
 import { SpacesClient } from '@/lib/spaces/client';
 import type { Member, Space } from '@rowboat/spaces-protocol';
@@ -44,6 +44,7 @@ function SignIn() {
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
 
   const say = (err: unknown) => setError(err instanceof SignInError ? problemText(err.reason) : err instanceof Error ? err.message : String(err));
 
@@ -72,21 +73,40 @@ function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      const session = await verifyCode(email, typed);
-      await account.signInWithSession(session);
-      // The same cloud instance as the person's Mac: their chats, here.
-      try {
-        const server = await connectInstance(session, Device.deviceName ?? (Platform.OS === 'web' ? 'Navigateur' : 'iPhone'));
-        await pair({ url: server.url, token: server.key, name: 'Baarali' });
-        if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/home');
-      } catch (err) {
-        // Signed in to Spaces all the same; the chats wait for the instance.
-        say(err);
-      }
+      await finish(await verifyCode(email, typed));
     } catch (err) {
       say(err);
       if (err instanceof SignInError && err.reason === 'bad_code') setCode('');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // The same end for a code and a password: the account, then the instance.
+  const finish = async (session: string) => {
+    await account.signInWithSession(session);
+    // The same cloud instance as the person's Mac: their chats, here.
+    try {
+      const server = await connectInstance(session, Device.deviceName ?? (Platform.OS === 'web' ? 'Navigateur' : 'iPhone'));
+      await pair({ url: server.url, token: server.key, name: 'Baarali' });
+      if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.replace('/home');
+    } catch (err) {
+      // Signed in to Spaces all the same; the chats wait for the instance.
+      say(err);
+    }
+  };
+
+  const passwordSignIn = async () => {
+    if (busy) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('Enter your email address.'); return; }
+    if (!password) { setError('Enter your password.'); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      await finish(await signInWithPassword(email, password));
+    } catch (err) {
+      say(err);
     } finally {
       setBusy(false);
     }
@@ -114,6 +134,7 @@ function SignIn() {
       onSend={() => void askCode()} onConfirm={() => void checkCode()}
       onChange={() => { setStep('email'); setCode(''); setError(null); }}
       onOther={() => void go()} onPair={() => router.push('/pairing')}
+      password={password} onPassword={value => { setPassword(value); setError(null); }} onPasswordSignIn={() => void passwordSignIn()}
     />
   );
 }
@@ -122,6 +143,8 @@ function SignIn() {
 /** What went wrong, for the person. */
 function problemText(problem: SignInProblem): string {
   switch (problem) {
+    case 'bad_password':
+      return 'Wrong email or password.';
     case 'bad_code':
       return 'That code isn’t right. Check it and try again.';
     case 'expired_code':

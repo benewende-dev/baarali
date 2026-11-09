@@ -3358,6 +3358,10 @@ export const FR: Dictionary = {
     "action": "action",
     "actions": "actions",
     "Read": "Lire",
+    "Sign in with a password": "Se connecter avec un mot de passe",
+    "No password yet? Use the code sent to your email.": "Pas encore de mot de passe ? Utilisez le code reçu par email.",
+    "Enter your password.": "Entrez votre mot de passe.",
+    "Wrong email or password.": "Email ou mot de passe incorrect.",
     "Baarali asks your approval": "Baarali demande votre accord",
     "Describe a change, a fix or a review in this folder": "Décrivez un changement, une correction ou une relecture dans ce dossier",
     // BAARALI(08/11/2026): the token menu's labels whole (« Jetons utilisés pour ce Options de turn »), the Library's columns.

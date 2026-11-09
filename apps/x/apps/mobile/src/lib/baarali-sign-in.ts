@@ -5,10 +5,11 @@
 // Mac uses (POST /v1/devices), and its Spaces tokens (/v1/session/spaces-token).
 
 /** The control plane: sign-in server, devices, Spaces tokens. */
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.x.rowboatlabs.com';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://app.baarali.com';
 
 export type SignInProblem =
   | 'bad_code'
+  | 'bad_password'
   | 'expired_code'
   | 'too_many'
   | 'instances_full'
@@ -50,6 +51,20 @@ async function refusal(res: Response): Promise<SignInError> {
 export async function sendCode(email: string): Promise<void> {
   const res = await call('/auth/v1/email-otp/send-verification-otp', { email: email.trim(), type: 'sign-in' });
   if (!res.ok) throw await refusal(res);
+}
+
+/**
+ * BAARALI(09/11/2026): the password chosen after a code (control's
+ * passwordChoice), right on the screen instead of a web page that the
+ * browser version could not come back from. The session token, as a code's.
+ */
+export async function signInWithPassword(email: string, password: string): Promise<string> {
+  const res = await call('/auth/v1/sign-in/email', { email: email.trim(), password });
+  if (res.status === 401) throw new SignInError('bad_password');
+  if (!res.ok) throw await refusal(res);
+  const session = res.headers.get('set-auth-token');
+  if (!session) throw new SignInError('no_session');
+  return session;
 }
 
 /** Checks the code; the session token of the new sign-in. */
