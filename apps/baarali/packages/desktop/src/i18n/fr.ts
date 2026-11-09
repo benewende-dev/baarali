@@ -3377,6 +3377,8 @@ export const FR: Dictionary = {
     "Older": "Plus ancien",
     "Show more": "Afficher plus",
     "Ctrl K": "Ctrl K",
+    "Add files and more": "Ajouter des fichiers et plus",
+    "Turn off": "Désactiver",
     "Baarali asks your approval": "Baarali demande votre accord",
     "Describe a change, a fix or a review in this folder": "Décrivez un changement, une correction ou une relecture dans ce dossier",
     // BAARALI(08/11/2026): the token menu's labels whole (« Jetons utilisés pour ce Options de turn »), the Library's columns.

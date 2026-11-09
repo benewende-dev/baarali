@@ -946,6 +946,35 @@ export function mobilePlan() {
       edit(`${mobile}/src/app/_layout.tsx`, "              headerBackButtonDisplayMode: 'minimal',", "              headerBackButtonDisplayMode: 'minimal',\n              headerTitleStyle: { fontFamily: 'Inter', fontWeight: '600' },\n              headerLargeTitleStyle: { fontFamily: 'Source Serif 4', fontWeight: '500' },"),
       // BAARALI(07/11/2026): changing one's Baarali's face from the settings (look.tsx).
       edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"new-agent\"", "<Stack.Screen name=\"look\" options={{ headerShown: false, presentation: 'modal' }} />\n            <Stack.Screen name=\"new-agent\""),
+      // BAARALI(09/11/2026): in the browser, the new chat is the desktop's first page (the founder's call): the B, « How can I help you? », its line and three ideas, the composer below (baarali-web-frame.tsx).
+      edit(`${mobile}/src/app/chat.tsx`, "import { BaaraliGreeting, ChatMenu, ChatTitle } from '@/components/chat-header';", "import { BaaraliGreeting, ChatMenu, ChatTitle } from '@/components/chat-header';\nimport { WebChatWelcome, useWebWide } from '@/components/baarali-web-frame';"),
+      edit(`${mobile}/src/app/chat.tsx`, "  const colors = useColors();\n  const insets = useSafeAreaInsets();\n  const models = useModels();\n", "  const colors = useColors();\n  const insets = useSafeAreaInsets();\n  const models = useModels();\n  const webWide = useWebWide() && !embedded;\n"),
+      edit(`${mobile}/src/app/chat.tsx`, "        ) : (\n          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>\n            <BaaraliLogo />\n", "        ) : webWide ? (\n          <WebChatWelcome onPick={setDraft} />\n        ) : (\n          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>\n            <BaaraliLogo />\n"),
+      edit(`${mobile}/src/app/chat.tsx`, "headerTitle: () => <ChatTitle baarasseur={baarasseur} />,", "headerTitle: () => (webWide && !id && !baarasseur ? null : <ChatTitle baarasseur={baarasseur} />),"),
+      // BAARALI(09/11/2026): in the browser, the desktop's composer: the « + » opens files, web search, reading aloud and talking; what is on shows as a pill; the model on the right.
+      edit(`${mobile}/src/app/chat.tsx`, "leading={<><ModelPill models={models} /><ComposerButton icon=\"sf:ellipsis\" label=\"Chat options\" active={optionsOpen || search || readAloud} onPress={() => setOptionsOpen(value => !value)} /></>}", "leading={<><ModelPill models={models} />{!webWide && <ComposerButton icon=\"sf:ellipsis\" label=\"Chat options\" active={optionsOpen || search || readAloud} onPress={() => setOptionsOpen(value => !value)} />}</>}\n            menu={webWide ? [{ icon: 'sf:globe', label: 'Web search', active: search, onPress: () => setSearch(value => !value) }, { icon: 'sf:speaker.wave.2', label: 'Read replies aloud', active: readAloud, onPress: () => setReadAloud(!readAloud) }, { icon: 'sf:waveform', label: 'Talk with Baarali', onPress: () => void startConversation() }] : undefined}\n            chips={webWide && search ? [{ icon: 'sf:globe', label: 'Web search', onClear: () => setSearch(false) }] : undefined}"),
+      // BAARALI(09/11/2026): in the browser, the desktop's pages for Agents, Routines and Code (baarali-web-pages.tsx); the phone keeps its screens.
+      edit(`${mobile}/src/app/routines.tsx`, "<WorkGate chrome={false}><RoutinesScreenContent /></WorkGate>", "<WorkGate chrome={false}><WebOr web={WebRoutines} phone={RoutinesScreenContent} /></WorkGate>"),
+      edit(`${mobile}/src/app/routines.tsx`, "import { useColors } from '@/theme/colors';\n", "import { useColors } from '@/theme/colors';\nimport { WebOr, WebRoutines } from '@/components/baarali-web-pages';\n"),
+      edit(`${mobile}/src/app/projects.tsx`, "<WorkGate chrome={false}><ProjectsScreenContent /></WorkGate>", "<WorkGate chrome={false}><WebOr web={WebCode} phone={ProjectsScreenContent} /></WorkGate>"),
+      edit(`${mobile}/src/app/projects.tsx`, "import { WorkGate } from '@/components/work-gate';\n", "import { WorkGate } from '@/components/work-gate';\nimport { WebCode, WebOr } from '@/components/baarali-web-pages';\n"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "export default function BaarasseursScreen() {\n", "export default function BaarasseursScreen() { return <WebOr web={WebAgents} phone={PhoneBaarasseursScreen} />; }\nfunction PhoneBaarasseursScreen() {\n"),
+      edit(`${mobile}/src/app/baarasseurs/index.tsx`, "import { useConnection } from '@/lib/connection';\n", "import { useConnection } from '@/lib/connection';\nimport { WebAgents, WebOr } from '@/components/baarali-web-pages';\n"),
+      // BAARALI(09/11/2026): in the browser those pages wear their own title (the desktop's): no phone header over them.
+      edit(`${mobile}/src/app/_layout.tsx`, "  const colorScheme = useColorScheme();\n", "  const colorScheme = useColorScheme();\n  const webScreen = useWebScreen();\n"),
+      edit(`${mobile}/src/app/_layout.tsx`, "import { WebFrame } from '@/components/baarali-web-frame';\n", "import { WebFrame } from '@/components/baarali-web-frame';\nimport { useWebScreen } from '@/components/baarali-web-pages';\n"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"tasks\" options={{ title: 'Tasks' }} />", "<Stack.Screen name=\"tasks\" options={{ title: 'Tasks', headerShown: !webScreen }} />"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"routines\" options={{ title: 'Routines' }} />", "<Stack.Screen name=\"routines\" options={{ title: 'Routines', headerShown: !webScreen }} />"),
+      edit(`${mobile}/src/app/_layout.tsx`, "<Stack.Screen name=\"projects\" options={{ title: 'Projects' }} />", "<Stack.Screen name=\"projects\" options={{ title: 'Projects', headerShown: !webScreen }} />"),
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "          title: 'Your agents',\n", "          title: 'Your agents',\n          headerShown: !webScreen,\n"),
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "  const colors = useColors();\n", "  const colors = useColors();\n  const webScreen = useWebScreen();\n"),
+      edit(`${mobile}/src/app/baarasseurs/_layout.tsx`, "import { useColors } from '@/theme/colors';\n", "import { useColors } from '@/theme/colors';\nimport { useWebScreen } from '@/components/baarali-web-pages';\n"),
+      edit(`${mobile}/src/app/notes/_layout.tsx`, "options={{ title: 'Library', headerLeft: () => <BackButton /> }}", "options={{ title: 'Library', headerLeft: () => <BackButton />, headerShown: !webScreen }}"),
+      edit(`${mobile}/src/app/notes/_layout.tsx`, "  const tint = colorScheme === 'dark' ? '#ffffff' : '#000000';\n", "  const tint = colorScheme === 'dark' ? '#ffffff' : '#000000';\n  const webScreen = useWebScreen();\n"),
+      edit(`${mobile}/src/app/notes/_layout.tsx`, "import { BackButton } from '@/components/back-button';\n", "import { BackButton } from '@/components/back-button';\nimport { useWebScreen } from '@/components/baarali-web-pages';\n"),
+      // BAARALI(09/11/2026): in the browser, a page opened from the sidebar has nothing behind it: no way back to show.
+      edit(`${mobile}/src/components/back-button.tsx`, "import { Pressable, useColorScheme } from 'react-native';", "import { Platform, Pressable, useColorScheme, useWindowDimensions } from 'react-native';"),
+      edit(`${mobile}/src/components/back-button.tsx`, "  const tint = useColorScheme() === 'dark' ? '#ffffff' : '#000000';\n", "  const tint = useColorScheme() === 'dark' ? '#ffffff' : '#000000';\n  const { width } = useWindowDimensions();\n  if (Platform.OS === 'web' && width >= 1024 && !router.canGoBack()) return null;\n"),
     ],
     copies: [
       ['assets/mobile/settings.tsx', `${mobile}/src/app/settings.tsx`],
@@ -1001,6 +1030,7 @@ export function mobilePlan() {
       ['assets/mobile/web/secure-store.js', `${mobile}/web-shims/secure-store.js`],
       ['assets/mobile/web/expo-image.js', `${mobile}/web-shims/expo-image.js`],
       ['assets/mobile/web/web-frame.tsx', `${mobile}/src/components/baarali-web-frame.tsx`],
+      ['assets/mobile/web/web-pages.tsx', `${mobile}/src/components/baarali-web-pages.tsx`],
       ['assets/mobile/baarali-text.tsx', `${mobile}/src/components/baarali-text.tsx`],
       ...MOBILE_FONTS.map(([file]) => [`assets/fonts/mobile/${file}`, `${mobile}/assets/fonts/${file}`]),
     ],

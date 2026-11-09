@@ -24,6 +24,10 @@ const SF = {
   'desktopcomputer': 'Monitor', 'hand.tap': 'Pointer', 'globe': 'Globe', 'chevron.left.forwardslash.chevron.right': 'Code',
   'arrow.up.right': 'ArrowUpRight', 'arrow.up': 'ArrowUp', 'arrow.clockwise': 'RotateCw', 'app': 'Square',
   'sidebar.left': 'PanelLeft', 'gearshape': 'Settings',
+  'sun.max': 'Sun', 'calendar.badge.checkmark': 'CalendarCheck', 'receipt': 'Receipt', 'hand.raised': 'Handshake', 'binoculars': 'Telescope',
+  'chart.line.uptrend.xyaxis': 'TrendingUp', 'bolt': 'Zap', 'calendar.badge.clock': 'CalendarClock', 'exclamationmark.circle': 'CircleAlert', 'pencil': 'Pencil',
+  'person.3': 'UsersRound', 'bell': 'Bell', 'square.and.pencil': 'SquarePen', 'paperclip': 'Paperclip',
+  'clock': 'Clock', 'checklist': 'ListTodo', 'books.vertical': 'LibraryBig', 'calendar': 'Calendar', 'film': 'Clapperboard',
 };
 
 function flat(style) {

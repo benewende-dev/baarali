@@ -4,6 +4,7 @@ import { Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColors } from '@/theme/colors';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
+import { useWebWide } from '@/components/baarali-web-frame';
 
 // BAARALI(07/11/2026): Grok Bot hides everything (the founder's call): no
 // sidebar and no Chat / Work switch any more. The places Work keeps (email,
@@ -11,7 +12,10 @@ import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
 // only the way back to the home. The props stay so their screens are unchanged.
 export function TopNavigation({ inset = true }: { mode?: 'chat' | 'work'; inset?: boolean }) {
   const colors = useColors();
+  // BAARALI(09/11/2026): in the browser the sidebar is the way around (baarali-web-frame.tsx).
+  const webWide = useWebWide();
   const back = () => (router.canGoBack() ? router.back() : router.navigate('/(tabs)/home'));
+  if (webWide) return null;
   return <SafeAreaView edges={inset ? ['top'] : []} style={{ backgroundColor: colors.background }}>
     <View style={{ height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center' }}>
       <Pressable accessibilityRole="button" accessibilityLabel={translate('Back')} onPress={back}
