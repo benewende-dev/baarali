@@ -93,7 +93,10 @@ function SignIn() {
       router.replace('/home');
     } catch (err) {
       // Signed in to Spaces all the same; the chats wait for the instance.
+      // BAARALI(09/11/2026): the home says why and offers to link again (the
+      // sign-in screen gave way to Spaces at once, and the reason was lost).
       say(err);
+      router.replace('/home');
     }
   };
 

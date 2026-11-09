@@ -23,6 +23,7 @@ const SF = {
   'photo': 'Image', 'person.crop.square': 'SquareUser', 'person.crop.circle': 'CircleUser', 'laptopcomputer.and.iphone': 'MonitorSmartphone',
   'desktopcomputer': 'Monitor', 'hand.tap': 'Pointer', 'globe': 'Globe', 'chevron.left.forwardslash.chevron.right': 'Code',
   'arrow.up.right': 'ArrowUpRight', 'arrow.up': 'ArrowUp', 'arrow.clockwise': 'RotateCw', 'app': 'Square',
+  'sidebar.left': 'PanelLeft', 'gearshape': 'Settings',
 };
 
 function flat(style) {
