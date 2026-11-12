@@ -33,7 +33,7 @@ const WORDS = {
       'Sur ordinateur et sur téléphone',
     ],
     locked: 'Agents, routines et espace de travail : à partir de Semaine.',
-    paid: ['Vos agents personnalisés et leurs routines', 'Code, e-mail, réunions, apps, espaces d’équipe et Studio'],
+    paid: ['Vos agents personnalisés et leurs routines', 'Code, e-mail, réunions, espaces d’équipe et Studio'],
     groups: [
       { name: 'Avec Baarali', rows: [
         { text: 'Questions, rédaction et traduction', cells: all },
@@ -52,7 +52,6 @@ const WORDS = {
         { text: 'Code et projets', cells: paid },
         { text: 'E-mail : tri et réponses préparées', cells: paid },
         { text: 'Réunions : notes et compte rendu', cells: paid },
-        { text: 'Apps connectées à vos agents', cells: paid },
         { text: 'Espaces d’équipe partagés', cells: paid },
         { text: 'Studio : vidéo, animation et 3D', cells: paid },
       ] },
@@ -76,7 +75,7 @@ const WORDS = {
       'On desktop and on your phone',
     ],
     locked: 'Agents, routines and the workspace: from Semaine on.',
-    paid: ['Your own agents and their routines', 'Code, email, meetings, apps, team spaces and Studio'],
+    paid: ['Your own agents and their routines', 'Code, email, meetings, team spaces and Studio'],
     groups: [
       { name: 'With Baarali', rows: [
         { text: 'Questions, writing and translation', cells: all },
@@ -95,7 +94,6 @@ const WORDS = {
         { text: 'Code and projects', cells: paid },
         { text: 'Email: sorting and drafted replies', cells: paid },
         { text: 'Meetings: notes and minutes', cells: paid },
-        { text: 'Apps connected to your agents', cells: paid },
         { text: 'Shared team spaces', cells: paid },
         { text: 'Studio: video, motion and 3D', cells: paid },
       ] },

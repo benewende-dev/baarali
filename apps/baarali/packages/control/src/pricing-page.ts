@@ -29,6 +29,7 @@ const STRINGS = {
     home: 'Accueil',
     prices: 'Tarifs',
     questions: 'Questions',
+    biz: 'Entreprises',
     signIn: 'Se connecter',
     theme: 'Changer de thème : clair ou sombre',
     kicker: 'Tarifs',
@@ -157,6 +158,7 @@ const STRINGS = {
     home: 'Home',
     prices: 'Pricing',
     questions: 'Questions',
+    biz: 'Business',
     signIn: 'Sign in',
     theme: 'Switch theme: light or dark',
     kicker: 'Pricing',
@@ -692,6 +694,7 @@ ${SITE_FOOTER_CSS}
     <nav class="menu" aria-label="Baarali">
       <a href="/">${escape(t.home)}</a>
       <a href="${PRICING_PATH}" aria-current="page">${escape(t.prices)}</a>
+      <a href="#entreprises">${escape(t.biz)}</a>
       <a href="#questions">${escape(t.questions)}</a>
       <button class="theme" type="button" aria-label="${escape(t.theme)}" title="${escape(t.theme)}">${SUN}${MOON}</button>
       ${account(true)}

@@ -76,7 +76,7 @@ const PAID_PAGES: Record<string, { title: string; text: string }> = {
 export function DesktopWorkGate({ children, required = false, page, studio = false, onChat }: { children: ReactNode; required?: boolean; page?: string | null; studio?: boolean; onChat: () => void }) {
   const workspace = useDesktopWorkspace()
   if (!required || workspace.access === 'allowed') return children
-  const about = PAID_PAGES[studio ? 'studio' : page ?? ''] ?? { title: 'This page', text: 'Agents, routines, code, email, meetings, apps, team spaces and Studio.' }
+  const about = PAID_PAGES[studio ? 'studio' : page ?? ''] ?? { title: 'This page', text: 'Agents, routines, code, email, meetings, team spaces and Studio.' }
   return <div className="baarali-work-gate" role="region" aria-label="Plan access">
     {workspace.access === 'checking' ? <><BaaraliMark size={44} motion="loading" /><p role="status">Checking your plan…</p></> : <>
       <span className="baarali-gate-symbol"><LockKeyhole size={25} /></span>
