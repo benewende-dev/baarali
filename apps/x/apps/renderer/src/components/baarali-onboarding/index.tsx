@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { MobileChannelsSettings } from '@/components/settings/mobile-channels-settings'
 import { GitHubIcon, GmailIcon, OutlookIcon, SlackIcon } from '@/components/onboarding/provider-icons'
 import { Duo } from './duo'
+import { BaaraliIntro, introDone } from './intro'
 import {
   clearSaved, ideasFor, loadSaved, mergeProfile, profileBlock, PROFILE_FILE, ROLES, SECTORS,
   spaceProgress, storeSaved, type Profile, type Saved, type Step,
@@ -378,6 +379,8 @@ export function BaaraliOnboarding({ open, onComplete }: BaaraliOnboardingProps) 
   const [joined, setJoined] = useState(false)
   const [finishing, setFinishing] = useState(false)
   const lang = typeof document !== 'undefined' && document.documentElement.lang === 'fr' ? 'fr' : 'en'
+  // BAARALI(12/11/2026): the animated intro first (intro.tsx), once; then these steps, the name already given.
+  const [intro, setIntro] = useState(() => !introDone())
 
   const update = useCallback((next: Partial<Saved>) => {
     setSaved((prev) => {
@@ -465,6 +468,12 @@ export function BaaraliOnboarding({ open, onComplete }: BaaraliOnboardingProps) 
   }
 
   const step = saved.step
+  if (open && intro) {
+    return <BaaraliIntro onDone={({ name }) => {
+      if (name) update({ profile: { ...saved.profile, name } })
+      setIntro(false)
+    }} />
+  }
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BaaraliOnboarding } from './index'
 import { STORAGE_KEY } from './model'
+import { INTRO_KEY, LOOK_KEY } from './intro'
 
 // BAARALI(04/10/2026): the onboarding validated by the founder: sign-in,
 // the space prepared, the profile, the tools, a first request.
@@ -20,7 +21,8 @@ beforeEach(() => {
   // onboarding tests use the supported reduced-motion preference.
   vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
   vi.stubGlobal('IntersectionObserver', class { observe() {} unobserve() {} disconnect() {} });
-  store = new Map()
+  // The animated intro (intro.tsx) has its own test below; these start after it.
+  store = new Map([[INTRO_KEY, '1']])
   vi.stubGlobal('localStorage', {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => void store.set(k, v),
@@ -91,3 +93,23 @@ describe('BaaraliOnboarding', () => {
     await waitFor(() => expect(onComplete).toHaveBeenCalledWith())
   })
 })
+
+describe('the animated intro (12/11/2026)', () => {
+  it('plays first, keeps the chosen Baarali, and hands the first name to the steps', async () => {
+    store.delete(INTRO_KEY)
+    render(<BaaraliOnboarding open onComplete={() => undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Get started' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'cloud' }))
+    fireEvent.click(screen.getByRole('radio', { name: 'violet' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.change(screen.getByLabelText('Your first name'), { target: { value: 'Awa' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(screen.getByRole('heading', { name: 'Nice to meet you, Awa.' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Create my account' }))
+    expect(store.get(INTRO_KEY)).toBe('1')
+    expect(JSON.parse(store.get(LOOK_KEY) ?? '{}')).toEqual({ shape: 'cloud', color: 'violet' })
+    await waitFor(() => expect(JSON.parse(store.get(STORAGE_KEY) ?? '{}').profile?.name).toBe('Awa'))
+  })
+})
+

@@ -27,6 +27,7 @@ const SF = {
   'sun.max': 'Sun', 'calendar.badge.checkmark': 'CalendarCheck', 'receipt': 'Receipt', 'hand.raised': 'Handshake', 'binoculars': 'Telescope',
   'chart.line.uptrend.xyaxis': 'TrendingUp', 'bolt': 'Zap', 'calendar.badge.clock': 'CalendarClock', 'exclamationmark.circle': 'CircleAlert', 'pencil': 'Pencil',
   'person.3': 'UsersRound', 'bell': 'Bell', 'square.and.pencil': 'SquarePen', 'paperclip': 'Paperclip',
+  'iphone': 'Smartphone', 'laptopcomputer': 'Laptop',
   'clock': 'Clock', 'checklist': 'ListTodo', 'books.vertical': 'LibraryBig', 'calendar': 'Calendar', 'film': 'Clapperboard',
 };
 
