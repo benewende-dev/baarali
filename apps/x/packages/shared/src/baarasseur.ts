@@ -243,6 +243,8 @@ export type Lang = "fr" | "en";
 export const TOOLS = [
     "Gmail", "Google Calendar", "WhatsApp", "Telegram", "Google Sheets", "Google Docs", "Google Drive",
     "Outlook", "Web search", "Browser", "Images and videos",
+    // BAARALI(12/11/2026): the social networks, for the community manager (Awa).
+    "Instagram", "Facebook", "LinkedIn", "X",
 ] as const;
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
@@ -460,6 +462,35 @@ export const TEMPLATES: Template[] = [
         "mission": {
             "fr": "Lis mes ventes et dis-moi, en 5 points maximum, ce qui marche, ce qui baisse et quoi changer.",
             "en": "Read my sales and tell me, in 5 points at most, what works, what is dropping and what to change."
+        }
+    },
+    // BAARALI(12/11/2026): the social networks, run with the person's approval (the founder's call): she prepares, the person says yes, then it goes out.
+    {
+        "id": "awa",
+        "name": "Awa",
+        "color": "rose",
+        "tools": [
+            "Instagram",
+            "Facebook",
+            "LinkedIn",
+            "X",
+            "Images and videos"
+        ],
+        "schedule": {
+            "every": "weekday",
+            "hour": 9
+        },
+        "role": {
+            "fr": "Community manager",
+            "en": "Community manager"
+        },
+        "summary": {
+            "fr": "Posts, commentaires, messages",
+            "en": "Posts, comments, messages"
+        },
+        "mission": {
+            "fr": "Gère mes réseaux sociaux. Chaque matin de semaine, prépare les publications du jour pour chaque réseau : le texte adapté, le visuel proposé et la meilleure heure. Lis les nouveaux commentaires et messages, et prépare une réponse courte et polie, dans mon ton. Chaque vendredi, fais-moi un point en 5 lignes : ce qui a le mieux marché, ce qui a moins marché, et quoi publier la semaine suivante. Ne publie, ne réponds et n’envoie jamais rien sans mon accord : tout reste en brouillon jusqu’à ce que je dise oui.",
+            "en": "Run my social media. Every weekday morning, prepare the day’s posts for each network: the text fitted to it, the suggested visual and the best time. Read the new comments and messages, and prepare a short, polite reply in my tone. Every Friday, give me a 5-line review: what worked best, what worked less, and what to post next week. Never post, reply or send anything without my approval: everything stays a draft until I say yes."
         }
     }
 ];

@@ -36,6 +36,8 @@ export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
 
 export interface AuthDeps {
   publicUrl: string;
+  /** Baarali in the browser (app.ts webOrigins): trusted for sign-in too. */
+  webOrigins?: string[];
   /** Signs sessions and the authorization flow; 32 random bytes or more. */
   secret: string;
   /** Better Auth's connection (a pg Pool in production), on the `baarali` search path. */
@@ -116,7 +118,7 @@ function authOptions(deps: AuthDeps) {
     database: deps.database,
     // Off by default already; written down so an upgrade cannot turn it on.
     telemetry: { enabled: false },
-    trustedOrigins: [deps.publicUrl],
+    trustedOrigins: [deps.publicUrl, ...(deps.webOrigins ?? [])],
     // Signing in with a password, once chosen after a code (passwordChoice);
     // never an account made from a password alone.
     emailAndPassword: {

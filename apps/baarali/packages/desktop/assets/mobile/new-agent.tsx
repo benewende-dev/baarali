@@ -15,10 +15,13 @@ import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
 // founder's call): a shape, a colour, a name, « Create », and its
 // conversation opens; the mission is said to it there, in words. The full
 // form stays in Your agents (baarasseurs/recruit.tsx).
+// BAARALI(09/11/2026): its job too, under its name (the founder's call: the
+// job stays, « Mariama · Accountant »), as the desktop's recruiting asks it.
 export default function NewAgentScreen() {
   const colors = useColors();
   const { team, upsert } = useBaarasseurs();
   const [name, setName] = useState('');
+  const [role, setRole] = useState('');
   const [shape, setShape] = useState<shared.AgentShapeId>('b');
   const [color, setColor] = useState<string>('violet');
   const [saving, setSaving] = useState(false);
@@ -30,7 +33,7 @@ export default function NewAgentScreen() {
     setSaving(true);
     try {
       const taken = (team ?? []).map(b => b.id);
-      const b: shared.Baarasseur = { ...shared.blankBaarasseur(taken), id: shared.idFor(name.trim(), taken), name: name.trim(), shape, color };
+      const b: shared.Baarasseur = { ...shared.blankBaarasseur(taken), id: shared.idFor(name.trim(), taken), name: name.trim(), role: role.trim(), shape, color };
       await upsert(b);
       if (process.env.EXPO_OS === 'ios') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace({ pathname: '/chat', params: { id: '', agent: shared.baarasseurAgentId(b.id) } });
@@ -52,10 +55,14 @@ export default function NewAgentScreen() {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 26 }}>
         <View style={{ alignItems: 'center', paddingTop: 12 }} accessible accessibilityLabel={name || translate('New agent')}>
           <AgentShape shape={shape} color={color} size={170} />
+          {role.trim() ? <Text numberOfLines={1} style={{ marginTop: 10, fontSize: 15, color: colors.secondaryLabel }}>{role.trim()}</Text> : null}
         </View>
         <TextInput value={name} onChangeText={text => setName(text.slice(0, 40))} placeholder={translate('Name your agent')} placeholderTextColor={colors.tertiaryLabel}
           returnKeyType="done" onSubmitEditing={() => void create()} textAlign="center"
           style={{ height: 60, borderRadius: 18, paddingHorizontal: 16, fontSize: 22, fontWeight: '500', color: colors.label, backgroundColor: colors.secondaryBackground }} />
+        <TextInput value={role} onChangeText={text => setRole(text.slice(0, 60))} placeholder={translate('Its job, e.g. Accountant')} placeholderTextColor={colors.tertiaryLabel}
+          accessibilityLabel={translate('Job')} returnKeyType="done" onSubmitEditing={() => void create()} textAlign="center"
+          style={{ height: 50, marginTop: -14, borderRadius: 16, paddingHorizontal: 16, fontSize: 17, color: colors.label, backgroundColor: colors.secondaryBackground }} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }} accessibilityRole="radiogroup">
           {shared.SHAPE_IDS.map(id => <Pressable key={id} accessibilityRole="radio" accessibilityState={{ checked: shape === id }} accessibilityLabel={id} onPress={() => pick(() => setShape(id))}
             style={{ width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: shape === id ? colors.secondaryLabel : 'transparent' }}>

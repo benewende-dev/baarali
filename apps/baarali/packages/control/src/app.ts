@@ -2,6 +2,7 @@ import { createRender, getRender, motionAllowance, renderFile, type MotionDeps }
 import { posterMotion, reviewMotion } from './motion-review.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { createMiddleware } from 'hono/factory';
 import { buildApiConfig } from './config.js';
 import { OPENROUTER_BASE, proxyLlm, type ProxyDeps } from './llm-proxy.js';
@@ -50,6 +51,12 @@ export type ControlDeps = ProxyDeps & {
   /** One instance per account and the door to it; unset: no device can connect. */
   instances?: Instances;
   gateway?: Gateway;
+  /**
+   * Where Baarali in the browser is served (chat.baarali.com, 08/11/2026):
+   * those origins only may call /auth, /v1 and the gateway from a page.
+   * Unset or empty: no page of another origin may.
+   */
+  webOrigins?: string[];
   /**
    * Our Spaces server (Harbor), told to the apps by /v1/config. Only with
    * the sign-in server: Harbor trusts the tokens it signs, no others.
@@ -147,6 +154,20 @@ export function createApp(deps: ControlDeps) {
   const notices = deps.notices ?? new NoticeDispatcher(dispatch, [auto, program]);
 
   app.get('/health', (c) => c.json({ ok: true }));
+
+  // BAARALI(08/11/2026): Baarali in the browser signs in with a bearer, like
+  // the phone (no cookie), so no credentials cross origins; the session comes
+  // back in `set-auth-token`, which the page must be allowed to read.
+  const webOrigins = new Set((deps.webOrigins ?? []).map((o) => o.replace(/\/+$/, '')));
+  if (webOrigins.size) {
+    app.use('*', cors({
+      origin: (origin) => (webOrigins.has(origin) ? origin : null),
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['authorization', 'content-type'],
+      exposeHeaders: ['set-auth-token'],
+      maxAge: 600,
+    }));
+  }
 
   // The machine sleeps when idle (fly.toml): the first requests after waking
   // send what came due meanwhile. Never awaited: nobody waits for it.

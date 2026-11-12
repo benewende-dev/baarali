@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { FlatList, Keyboard, KeyboardAvoidingView, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
+import { FlatList, Keyboard, KeyboardAvoidingView, Platform, Pressable, RefreshControl, Text, TextInput, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { baarasseurs as team, sessions as sessionsShared } from '@x/shared';
 
@@ -13,6 +13,8 @@ import { BaaraliMark } from '@/components/baarali-mark';
 import { AgentShape, LivingShape, adaptive, useLook } from '@/components/agent-shape';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
+import { connectInstance, SignInError, type SignInProblem } from '@/lib/baarali-sign-in';
+import { useSpacesAccount } from '@/lib/spaces/account';
 import { NOTIFY_INTRO_KEY } from '@/lib/push';
 import { searchKey } from '@/lib/team-directory';
 import { useWorkAccess } from '@/lib/work-access-provider';
@@ -20,6 +22,15 @@ import { useColors } from '@/theme/colors';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
 
 type Entry = sessionsShared.SessionIndexEntry;
+
+/** Why a device could not be linked, in words (translated on screen). */
+const LINK_PROBLEM: Partial<Record<SignInProblem, string>> & { other: string } = {
+  too_many_devices: 'Too many devices on this account (10 at most). Remove old ones in the computer app’s settings, then try again.',
+  instances_full: 'Early access is full for now: your chats will open as soon as a place frees up.',
+  no_instance: 'Your Baarali can’t be reached right now. Try again in a moment.',
+  network: 'No connection. Check your internet, then try again.',
+  other: 'This device could not be linked. Try again in a moment.',
+};
 
 const tap = () => { if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync(); };
 
@@ -49,7 +60,11 @@ const waits = (entry?: Entry) => entry?.latestTurnStatus === 'suspended';
 // Everything else is behind the account (settings.tsx).
 export default function HomeScreen() {
   const colors = useColors();
-  const { pairing, sessions, events, rpc } = useConnection();
+  const { pairing, sessions, events, rpc, pair } = useConnection();
+  const account = useSpacesAccount();
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkTried, setLinkTried] = useState(false);
   const { team: agents, reload } = useBaarasseurs();
   const { access } = useWorkAccess();
   // BAARALI(07/11/2026): the face the person chose for their Baarali (welcome.tsx).
@@ -127,17 +142,50 @@ export default function HomeScreen() {
   const newAgent = () => { tap(); router.push(access === 'paid' ? '/new-agent' : '/plans'); };
   const stopSearch = () => { setSearching(false); setQuery(''); Keyboard.dismiss(); };
 
+  // BAARALI(09/11/2026): signed in but not linked (the browser at chat.baarali.com showed it):
+  // the account's own session links this device here, and says why when it cannot.
+  const accountSession = account.voiceSession();
+  const link = async () => {
+    if (!accountSession) {
+      // In a browser there is no computer to scan: sign in again, with a code or a password.
+      if (Platform.OS === 'web') { await account.signOut().catch(() => {}); router.replace('/spaces'); return; }
+      router.push('/pairing');
+      return;
+    }
+    setLinking(true);
+    setLinkError(null);
+    try {
+      const server = await connectInstance(accountSession, Platform.OS === 'web' ? 'Navigateur' : 'iPhone');
+      await pair({ url: server.url, token: server.key, name: 'Baarali' });
+    } catch (err) {
+      setLinkError(err instanceof SignInError ? LINK_PROBLEM[err.reason] ?? LINK_PROBLEM.other : String(err));
+    } finally {
+      setLinking(false);
+    }
+  };
+  // In a browser, signed out and unlinked: straight to the sign-in.
+  useEffect(() => {
+    if (Platform.OS === 'web' && !pairing && account.status === 'signedOut') router.replace('/spaces');
+  }, [pairing, account.status]);
+  // Once, on arriving signed in but unlinked: the reason shows without a tap.
+  useEffect(() => {
+    if (pairing || !accountSession || linkTried) return;
+    setLinkTried(true);
+    void link();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairing, accountSession, linkTried]);
   if (!pairing) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32, backgroundColor: colors.background }}>
-      <BaaraliMark size={64} motion="loading" />
-      <Text style={{ fontSize: 20, fontWeight: '600', color: colors.label }}>Connect your computer</Text>
+      <BaaraliMark size={56} motion="loading" />
+      <Text style={{ fontSize: 20, fontWeight: '600', color: colors.label }}>{accountSession ? 'Link this device' : Platform.OS === 'web' ? 'Sign in again' : 'Connect your computer'}</Text>
       <Text style={{ fontSize: 15, textAlign: 'center', lineHeight: 22, color: colors.secondaryLabel }}>
-        Your chats and your baarasseurs show up here once the phone is linked to your Baarali.
+        {accountSession ? translate('Your chats and your agents show up here once this device is linked to your Baarali.') : Platform.OS === 'web' ? translate('Sign in with a code or your password to find your chats and your agents here.') : translate('Your chats and your baarasseurs show up here once the phone is linked to your Baarali.')}
       </Text>
-      <Pressable accessibilityRole="button" onPress={() => router.push('/pairing')}
-        style={{ marginTop: 6, minHeight: 46, paddingHorizontal: 22, borderRadius: 23, justifyContent: 'center', backgroundColor: colors.label }}>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.background }}>Connect</Text>
+      <Pressable accessibilityRole="button" disabled={linking} onPress={() => void link()}
+        style={{ marginTop: 6, minHeight: 46, paddingHorizontal: 22, borderRadius: 23, justifyContent: 'center', backgroundColor: colors.label, opacity: linking ? 0.6 : 1 }}>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: colors.background }}>{linking ? translate('Linking…') : accountSession ? translate('Link') : Platform.OS === 'web' ? translate('Sign in') : translate('Connect')}</Text>
       </Pressable>
+      {linkError && <Text accessibilityRole="alert" style={{ maxWidth: 420, fontSize: 14, textAlign: 'center', lineHeight: 20, color: colors.destructive }}>{translate(linkError)}</Text>}
     </View>
   );
 
@@ -150,7 +198,7 @@ export default function HomeScreen() {
         <View>
           {look ? <LivingShape shape={look.shape} color={adaptive(look.color, dark)} size={104} /> : <BaaraliMark size={104} motion="loading" />}
           <View style={{ position: 'absolute', right: -2, bottom: 2, width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFA31A', borderWidth: 3, borderColor: colors.background }}>
-            <Image source="sf:star.fill" style={{ width: 13, height: 13 }} tintColor="#FFFFFF" />
+            <Image source="sf:checkmark" style={{ width: 13, height: 13 }} tintColor="#FFFFFF" />
           </View>
           {waits(latest.mine) && <Dot />}
         </View>
