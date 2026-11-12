@@ -243,6 +243,8 @@ export type Lang = "fr" | "en";
 export const TOOLS = [
     "Gmail", "Google Calendar", "WhatsApp", "Telegram", "Google Sheets", "Google Docs", "Google Drive",
     "Outlook", "Web search", "Browser", "Images and videos",
+    // BAARALI(12/11/2026): the social networks, for the community manager (Awa).
+    "Instagram", "Facebook", "LinkedIn", "X",
 ] as const;
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
