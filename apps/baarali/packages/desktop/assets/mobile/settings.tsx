@@ -2,11 +2,12 @@ import { router, useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import Constants from 'expo-constants';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, AppState, Pressable, RefreshControl, ScrollView, Switch, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import { billing } from '@x/shared';
 import { useConnection } from '@/lib/connection';
+import { useSpacesAccount } from '@/lib/spaces/account';
 import { phoneLang } from '@/lib/baarasseurs';
 import { dayWords, type PartnerState } from '@/lib/partner-code';
 import { useModels } from '@/lib/use-models';
@@ -35,6 +36,11 @@ export default function SettingsScreen() {
   const look = useLook();
   const dark = useColorScheme() === 'dark';
   const { rpc, pairing, unpair, status } = useConnection();
+  const { signOut } = useSpacesAccount();
+  // BAARALI(12/11/2026): React Native's Alert does nothing in a browser, so the
+  // web asks with the browser's own dialog, and signs out of the account too
+  // (unpairing alone, the web pairs itself again with the session).
+  const web = Platform.OS === 'web';
   const { access } = useWorkAccess();
   const [info, setInfo] = useState<billing.BillingInfo | null>(null);
   const [media, setMedia] = useState<billing.MediaCredits | null>(null);
@@ -82,11 +88,18 @@ export default function SettingsScreen() {
   const go = (path: Path) => router.push(path);
   // Work's places: behind the plan, the gate explains it (work-home.tsx).
   const work = (path: Path) => router.push(access === 'paid' ? path : '/(tabs)/more');
-  const pickTheme = () => Alert.alert(say('Appearance'), undefined, [
+  const pickTheme = () => web
+    ? void choose(THEMES[(THEMES.findIndex(item => item.id === theme) + 1) % THEMES.length].id).catch(() => window.alert(say('The appearance could not be saved. Please try again.')))
+    : Alert.alert(say('Appearance'), undefined, [
     ...THEMES.map(item => ({ text: `${say(item.title)}${theme === item.id ? '  ✓' : ''}`, onPress: () => { void choose(item.id).catch(() => Alert.alert(say('Theme'), say('The appearance could not be saved. Please try again.'))); } })),
     { text: say('Cancel'), style: 'cancel' as const },
   ]);
-  const disconnect = () => Alert.alert(say('Unpair this phone?'), say('Your conversations remain available on your computer. You can reconnect this phone later.'), [
+  const signOutHere = () => {
+    if (!window.confirm(say('Log out of your Baarali account?'))) return;
+    analytics.mobileUnpaired('user');
+    void Promise.all([unpair(), signOut()]).then(() => router.replace('/')).catch(() => window.alert(say('Please try again.')));
+  };
+  const disconnect = () => web ? signOutHere() : Alert.alert(say('Unpair this phone?'), say('Your conversations remain available on your computer. You can reconnect this phone later.'), [
     { text: say('Cancel'), style: 'cancel' },
     { text: say('Unpair'), style: 'destructive', onPress: () => { analytics.mobileUnpaired('user'); void unpair().then(() => router.replace('/')).catch(() => Alert.alert(say('Unable to unpair'), say('Please try again.'))); } },
   ]);
@@ -151,17 +164,17 @@ export default function SettingsScreen() {
         <Row label="Studio" onPress={() => work('/studio')} />
       </View>
 
-      <Text style={heading}>This phone</Text>
+      <Text style={heading}>{web ? 'This browser' : 'This phone'}</Text>
       <View style={card}>
         <Row first label="Linked computer" value={pairing?.name ?? '—'} detail={status === 'connected' ? 'Connected' : 'Reconnecting…'} />
         <Row label="Notifications" onPress={() => go('/notifications')} />
         <Row label="Default model" right={<ModelPill models={models} />} />
         <Row label="Read replies aloud" right={<Switch value={readAloud} onValueChange={setReadAloud} accessibilityLabel={say('Read replies aloud')} />} />
         <Row label="Appearance" value={say(THEMES.find(item => item.id === theme)?.title ?? 'System')} onPress={pickTheme} />
-        <Row label="Language" value={phoneLang() === 'fr' ? 'Français' : 'English'} detail="The language follows your phone." />
+        <Row label="Language" value={phoneLang() === 'fr' ? 'Français' : 'English'} detail={web ? 'The language follows your browser.' : 'The language follows your phone.'} />
       </View>
 
-      {pairing && <View style={card}><Row first label="Unpair this phone" danger onPress={disconnect} /></View>}
+      {pairing && <View style={card}><Row first label={web ? 'Sign out' : 'Unpair this phone'} danger onPress={disconnect} /></View>}
 
       <View style={{ alignItems: 'center', gap: 8, paddingTop: 24 }}>
         {look ? <AgentShape shape={look.shape} color={adaptive(look.color, dark)} size={64} /> : <BaaraliMark size={64} />}

@@ -13,6 +13,7 @@ import { BaaraliMark } from '@/components/baarali-mark';
 import { AgentShape, LivingShape, adaptive, useLook } from '@/components/agent-shape';
 import { BaarasseurAvatar, useBaarasseurs, type Baarasseur } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
+import { useSignUpHandOff } from '@/components/baarali-welcome';
 import { connectInstance, SignInError, type SignInProblem } from '@/lib/baarali-sign-in';
 import { useSpacesAccount } from '@/lib/spaces/account';
 import { NOTIFY_INTRO_KEY } from '@/lib/push';
@@ -61,6 +62,7 @@ const waits = (entry?: Entry) => entry?.latestTurnStatus === 'suspended';
 export default function HomeScreen() {
   const colors = useColors();
   const { pairing, sessions, events, rpc, pair } = useConnection();
+  useSignUpHandOff();
   const account = useSpacesAccount();
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);

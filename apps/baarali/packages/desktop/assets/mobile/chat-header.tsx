@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { ActionSheetIOS, Alert, Pressable, Text, View, useColorScheme } from 'react-native';
 import { baarasseurs as shared } from '@x/shared';
@@ -8,6 +8,7 @@ import { AgentShape, adaptive, useLook } from '@/components/agent-shape';
 import { BaarasseurAvatar, type Baarasseur } from '@/lib/baarasseurs';
 import { useColors } from '@/theme/colors';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
+import { useFirstAgent } from '@/components/baarali-welcome';
 
 // BAARALI(07/11/2026): Grok Bot's conversation header (the founder's call):
 // whom you talk to in a pill in the middle, « … » on the right.
@@ -50,11 +51,15 @@ export function ChatMenu({ baarasseur }: { baarasseur: Baarasseur | null }) {
 }
 
 /** The empty conversation with Baarali: its greeting the first time (home passes `first`), else a hint. */
+// BAARALI(14/11/2026): until the person names their first agent, it asks
+// (the founder); its answer is kept by the copilot-set-name tool (core).
 export function BaaraliGreeting() {
   const colors = useColors();
-  const { first } = useLocalSearchParams<{ first?: string }>();
-  if (first !== '1') return <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>;
-  return <View style={{ alignSelf: 'stretch', marginTop: 18, marginHorizontal: 24, padding: 14, borderRadius: 18, backgroundColor: colors.secondaryBackground }}>
-    <Text style={{ fontSize: 16, lineHeight: 22, color: colors.label }}>Hello, I'm Baarali. Before we start, what should I call you?</Text>
+  const agent = useFirstAgent();
+  if (!agent.ready || agent.name) return <Text style={{ fontSize: 15, color: colors.tertiaryLabel }}>Ask anything to get started</Text>;
+  return <View style={{ alignSelf: 'stretch', maxWidth: 520, marginTop: 18, marginHorizontal: 24, padding: 14, borderRadius: 18, backgroundColor: colors.secondaryBackground }}>
+    <Text style={{ fontSize: 16, lineHeight: 22, color: colors.label }}>
+      {agent.firstName ? translate("Hello $1. I'm your first agent. What would you like to call me?", [agent.firstName]) : translate("Hello. I'm your first agent. What would you like to call me?")}
+    </Text>
   </View>;
 }

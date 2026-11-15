@@ -1,4 +1,4 @@
-import { router, useGlobalSearchParams, useLocalSearchParams, usePathname } from 'expo-router';
+import { router, useGlobalSearchParams, usePathname } from 'expo-router';
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
@@ -6,6 +6,7 @@ import { baarasseurs as team, billing, sessions as sessionsShared } from '@x/sha
 import type { backgroundTask } from '@x/shared';
 import { BaaraliMark } from '@/components/baarali-mark';
 import { BaaraliGreeting } from '@/components/chat-header';
+import { useFirstAgent } from '@/components/baarali-welcome';
 import { WebPageHeader } from '@/components/baarali-web-pages';
 import { BaarasseurAvatar, useBaarasseurs } from '@/lib/baarasseurs';
 import { useConnection } from '@/lib/connection';
@@ -496,12 +497,13 @@ const STARTERS = [
 /** The new chat's page, as the desktop's: the B, the question, its line, the three ideas; the composer stays below. */
 export function WebChatWelcome({ onPick }: { onPick: (prompt: string) => void }) {
   const colors = useColors();
-  const { first } = useLocalSearchParams<{ first?: string }>();
+  // BAARALI(14/11/2026): the first agent asks for its name until it has one.
+  const agent = useFirstAgent();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 24 }}>
       <BaaraliMark size={44} />
       <Text style={{ fontFamily: 'Source Serif 4', fontSize: 32, fontWeight: '500', color: colors.label, textAlign: 'center' }}>{translate('How can I help you?')}</Text>
-      {first === '1' ? <BaaraliGreeting /> : <Text style={{ fontSize: 14, color: colors.secondaryLabel, textAlign: 'center' }}>{translate('A question, an idea or a document to explore.')}</Text>}
+      {agent.ready && !agent.name ? <BaaraliGreeting /> : <Text style={{ fontSize: 14, color: colors.secondaryLabel, textAlign: 'center' }}>{translate('A question, an idea or a document to explore.')}</Text>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 14, maxWidth: 560 }}>
         {STARTERS.map((s) => <Starter key={s.title} icon={s.icon} title={translate(s.title)} onPress={() => onPick(translate(s.prompt))} />)}
       </View>

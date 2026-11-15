@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { B_BODY, B_BOX, B_EYES, B_EYE_R, EYES, SHAPES, SHAPE_FILL, type ShapeId } from '@/lib/baarali-b-mark'
 
 // BAARALI(12/11/2026): the animated onboarding, the same on the phone, the
@@ -8,6 +8,8 @@ import { B_BODY, B_BOX, B_EYES, B_EYE_R, EYES, SHAPES, SHAPE_FILL, type ShapeId 
 // promise, shown working; the person's Baarali (a shape, a colour); their
 // first name, which their Baarali asks for; « Nice to meet you ». Then the
 // usual onboarding (index.tsx) signs them in, their name already in it.
+// (14/11/2026, the founder: the agent does not speak at sign-up; once signed
+// in, it asks what to call it: core registry.ts, shared agent-name.ts.)
 
 /** Played once on this computer. */
 export const INTRO_KEY = 'baarali.intro.v1'
@@ -71,19 +73,6 @@ function Shape({ shape, color, size }: { shape: ShapeId; color: string; size: nu
       {eyes.map(([cx, cy], i) => <circle key={i} className={EYE_CLASS[b ? 0 : 1]} cx={cx} cy={cy} r={b ? B_EYE_R : 5.2} fill={fill === INK ? '#FFFFFF' : INK} />)}
     </svg>
   )
-}
-
-/** Words that come one letter after the other. */
-function Typed({ text }: { text: string }) {
-  const [count, setCount] = useState(0)
-  useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setCount(text.length); return }
-    setCount(0)
-    let timer = 0
-    const start = window.setTimeout(() => { timer = window.setInterval(() => setCount(n => (n >= text.length ? n : n + 1)), 28) }, 500)
-    return () => { window.clearTimeout(start); window.clearInterval(timer) }
-  }, [text])
-  return <p data-no-translate aria-label={text} className="m-0 text-base leading-relaxed text-white">{text.slice(0, count)}<span className="opacity-0">{text.slice(count)}</span></p>
 }
 
 const button = 'h-12 rounded-xl bg-white px-6 text-[15px] font-semibold text-[#0A0A0A] transition-opacity hover:opacity-90 disabled:opacity-50'
@@ -176,7 +165,7 @@ export function BaaraliIntro({ onDone }: { onDone: (result: { name: string }) =>
           {step === 'name' && (
             <div key="name" className="flex max-w-[440px] flex-1 flex-col justify-center gap-3.5">
               <h2 className="bi-rise m-0 text-[30px] font-semibold">What should we call you?</h2>
-              <p className="bi-rise m-0 text-[15px] text-[#B5B5B5]" style={{ animationDelay: '120ms' }}>Your Baarali will remember it in all your conversations.</p>
+              <p className="bi-rise m-0 text-[15px] text-[#B5B5B5]" style={{ animationDelay: '120ms' }}>Your agents will remember it in all your conversations.</p>
               <label htmlFor="baarali-intro-name" className="mt-2 text-[13px] text-[#8E8E93]">Your first name</label>
               <input id="baarali-intro-name" autoFocus value={name} onChange={e => setName(e.target.value.slice(0, 40))} onKeyDown={e => { if (e.key === 'Enter') go(4) }}
                 autoComplete="given-name" placeholder="Your first name"
@@ -188,7 +177,7 @@ export function BaaraliIntro({ onDone }: { onDone: (result: { name: string }) =>
           {step === 'ready' && (
             <div key="ready" className="flex flex-1 flex-col justify-center gap-4">
               <h2 className="bi-rise m-0 font-serif text-[40px] font-medium" data-no-translate>{name.trim() ? say('Nice to meet you, $1.').replace('$1', name.trim()) : say('Nice to meet you.')}</h2>
-              <p className="bi-rise m-0 max-w-[420px] text-base leading-6 text-[#B5B5B5]" style={{ animationDelay: '150ms' }}>Your Baarali is ready. Let’s keep your account, then tell it what to do.</p>
+              <p className="bi-rise m-0 max-w-[420px] text-base leading-6 text-[#B5B5B5]" style={{ animationDelay: '150ms' }}>Let’s create your account. Then your first agent will say hello.</p>
               <div className="bi-rise" style={{ animationDelay: '300ms' }}>{nav('Create my account', finish)}</div>
             </div>
           )}
@@ -228,11 +217,6 @@ export function BaaraliIntro({ onDone }: { onDone: (result: { name: string }) =>
 
           {(step === 'look' || step === 'name' || step === 'ready') && (
             <div className="relative flex flex-col items-center gap-6">
-              {step === 'name' && (
-                <div className="bi-rise max-w-[340px] rounded-[20px] rounded-bl-md bg-[#1C1C1E] px-[18px] py-3.5" style={{ animationDelay: '300ms' }}>
-                  <Typed text={say("Hi, I'm your Baarali. What should I call you?")} />
-                </div>
-              )}
               <div key={`${shape}-${color}-${pick}`} className="bi-pop"><div className={step === 'ready' ? 'bi-hop' : 'bi-bob'}><Shape shape={shape} color={color} size={200} /></div></div>
             </div>
           )}
