@@ -264,6 +264,7 @@ const HISTORICAL_KEY_ORDER = [
     "whiteboard-draw",
     "baarasseur-remember",
     "baarasseur-update",
+    "copilot-set-name",
     "spawn-agent",
 ];
 

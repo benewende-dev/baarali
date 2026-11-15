@@ -14,6 +14,8 @@ import { lazyResolve } from "../../di/lazy-resolve.js";
 import type { IAgentsRepo } from "./repo.js";
 import { baarasseurIdOf, personaInstructions } from "@x/shared/dist/baarasseur.js";
 import { findBaarasseur } from "../../baarasseurs/repo.js";
+import { agentNameInstructions } from "@x/shared/dist/agent-name.js";
+import { readCopilotName } from "../tools/domains/copilot-name.js";
 
 // The registry of built-in agents: one table instead of the historical
 // if (id === ...) ladder. An entry owns its builder. Traits (which replace
@@ -51,8 +53,19 @@ function promptFileAgent(id: string, getRaw: () => string): BuiltinAgentDefiniti
 
 // "rowboatx" is a legacy alias for the copilot: both ids share one
 // definition object.
+// BAARALI(14/11/2026): the copilot as the person's first agent, with the
+// name they gave it, or the instruction to ask for one (shared agent-name.ts).
+// A baarasseur builds on buildCopilotAgent directly, so it never gets it.
 const COPILOT: BuiltinAgentDefinition = {
-    build: buildCopilotAgent,
+    build: async () => {
+        const copilot = await buildCopilotAgent();
+        const name = await readCopilotName();
+        return {
+            ...copilot,
+            instructions: `${copilot.instructions}\n\n${agentNameInstructions(name)}`,
+            tools: { ...copilot.tools, "copilot-set-name": { type: "builtin", name: "copilot-set-name" } },
+        };
+    },
 };
 
 const builtinAgents: Record<string, BuiltinAgentDefinition> = {

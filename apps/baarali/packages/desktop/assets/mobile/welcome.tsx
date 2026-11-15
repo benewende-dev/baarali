@@ -6,13 +6,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { baarasseurs as shared } from '@x/shared';
+import { agentName, baarasseurs as shared } from '@x/shared';
 
 import { BaaraliMark } from '@/components/baarali-mark';
 import { useReducedMotion } from '@/components/agent-avatar';
 import { __baaraliT as translate } from '@/baarali-i18n/mobile/runtime';
 import { LivingShape, SHAPE_FILL, saveLook } from '@/components/agent-shape';
 import { APEX_URL } from '@/lib/spaces/account';
+import { useConnection } from '@/lib/connection';
 
 // BAARALI(07/11/2026): the first launch as Grok Bot opens (the founder's
 // call): a black screen where the Baarali shapes look around, « Get
@@ -23,10 +24,56 @@ import { APEX_URL } from '@/lib/spaces/account';
 // arrive; the promise, shown working (an agent at work, an approval waiting,
 // the same chat everywhere); the person's Baarali; their first name, which
 // their Baarali asks for; « Nice to meet you », then the sign-in. In a wide
+// (14/11/2026, the founder: at sign-up the person gives their own name and
+// what they do; once signed in, their first agent asks what to call it.)
 // browser the shapes drift at the page's edges and the step stays in the middle.
 export const ONBOARDED_KEY = 'rowboat.onboarded.v1';
-/** The first name given here, put in the first chat's composer (chat.tsx). */
-export const NAME_KEY = 'baarali.name.v1';
+/** What the person told here (first name, activity), until the instance has it. */
+export const SIGN_UP_KEY = 'baarali.sign-up.v1';
+type SignUp = { name: string; activity: string; handed?: boolean };
+const readSignUp = async (): Promise<SignUp | null> => {
+  try { return JSON.parse((await AsyncStorage.getItem(SIGN_UP_KEY)) ?? 'null') as SignUp | null; } catch { return null; }
+};
+
+/** Once linked, hands what the person told at sign-up to the instance, in
+ * the notes its agents read on them at every turn (shared agent-name.ts). */
+export function useSignUpHandOff() {
+  const { rpc } = useConnection();
+  useEffect(() => {
+    if (!rpc) return;
+    let alive = true;
+    void (async () => {
+      const told = await readSignUp();
+      if (!told || told.handed || !alive) return;
+      const path = agentName.USER_NOTES_FILE;
+      const existing = await rpc.call('workspace:readFile', { path, encoding: 'utf8' }).then((r) => r.data).catch(() => '');
+      const lang = translate('Continue') === 'Continue' ? 'en' : 'fr';
+      await rpc.call('workspace:writeFile', { path, data: agentName.withSignUpProfile(existing, { ...told, lang }), opts: { encoding: 'utf8', mkdirp: true } });
+      // The first name stays here for the first agent's greeting.
+      await AsyncStorage.setItem(SIGN_UP_KEY, JSON.stringify({ ...told, handed: true })).catch(() => {});
+    })().catch(() => { /* tried again at the next start */ });
+    return () => { alive = false; };
+  }, [rpc]);
+}
+
+/** The first agent: its name once the person gave one (null: not yet, it
+ * asks), and the person's first name for its greeting. */
+export function useFirstAgent(): { ready: boolean; name: string | null; firstName: string } {
+  const { rpc } = useConnection();
+  const [state, setState] = useState<{ ready: boolean; name: string | null; firstName: string }>({ ready: false, name: null, firstName: '' });
+  useEffect(() => {
+    if (!rpc) return;
+    let alive = true;
+    void Promise.all([
+      rpc.call('workspace:readFile', { path: agentName.AGENT_NAME_FILE, encoding: 'utf8' }).then((r) => r.data).catch(() => null),
+      readSignUp(),
+    ]).then(([raw, told]) => {
+      if (alive) setState({ ready: true, name: agentName.parseAgentName(raw), firstName: agentName.cleanAgentName(told?.name ?? '') });
+    });
+    return () => { alive = false; };
+  }, [rpc]);
+  return state;
+}
 
 const INK = '#0A0A0A';
 const CARD = '#1C1C1E';
@@ -186,20 +233,19 @@ function PromiseScene({ wide }: { wide: boolean }) {
   </View>;
 }
 
-function Name({ shape, color, name, onName, onDone }: { shape: shared.AgentShapeId; color: string; name: string; onName: (s: string) => void; onDone: () => void }) {
+function Name({ shape, color, name, onName, activity, onActivity, onDone }: { shape: shared.AgentShapeId; color: string; name: string; onName: (s: string) => void; activity: string; onActivity: (s: string) => void; onDone: () => void }) {
+  const field = { height: 60, borderRadius: 18, backgroundColor: CARD, color: '#FFFFFF', paddingHorizontal: 18, fontSize: 20, fontWeight: '500', ...(native ? {} : ({ outlineStyle: 'none' } as object)) } as const;
   return <View style={{ gap: 18, alignSelf: 'stretch' }}>
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
-      <Pop><LivingShape shape={shape} color={color} size={64} bob /></Pop>
-      <Rise delay={300} style={{ flex: 1, borderRadius: 20, borderBottomLeftRadius: 6, backgroundColor: CARD, paddingVertical: 14, paddingHorizontal: 16 }}>
-        <Typed text={translate("Hi, I'm your Baarali. What should I call you?")} style={{ fontSize: 16, lineHeight: 23, color: '#FFFFFF' }} />
-      </Rise>
-    </View>
-    <Rise delay={500} style={{ gap: 8, marginTop: 14 }}>
+    <Pop><LivingShape shape={shape} color={color} size={64} bob /></Pop>
+    <Rise delay={200}><Text accessibilityRole="header" style={{ fontSize: 28, fontWeight: '600', color: '#FFFFFF' }}>{translate('What is your name?')}</Text></Rise>
+    <Rise delay={400} style={{ gap: 8 }}>
       <Text style={{ fontSize: 13, color: '#8E8E93' }}>{translate('Your first name')}</Text>
       <TextInput value={name} onChangeText={(t) => onName(t.slice(0, 40))} placeholder={translate('Your first name')} placeholderTextColor="#6E6E73"
-        autoComplete="given-name" textContentType="givenName" returnKeyType="done" onSubmitEditing={onDone} accessibilityLabel={translate('Your first name')}
-        style={{ height: 60, borderRadius: 18, backgroundColor: CARD, color: '#FFFFFF', paddingHorizontal: 18, fontSize: 20, fontWeight: '500', ...(native ? {} : ({ outlineStyle: 'none' } as object)) }} />
-      <Text style={{ fontSize: 13, lineHeight: 19, color: '#8E8E93' }}>{translate('It will remember it in all your conversations.')}</Text>
+        autoComplete="given-name" textContentType="givenName" returnKeyType="next" accessibilityLabel={translate('Your first name')} style={field} />
+      <Text style={{ fontSize: 13, color: '#8E8E93', marginTop: 8 }}>{translate('What you do (optional)')}</Text>
+      <TextInput value={activity} onChangeText={(t) => onActivity(t.slice(0, 40))} placeholder={translate('E.g. shopkeeper, accountant')} placeholderTextColor="#6E6E73"
+        autoComplete="off" returnKeyType="done" onSubmitEditing={onDone} accessibilityLabel={translate('What you do (optional)')} style={field} />
+      <Text style={{ fontSize: 13, lineHeight: 19, color: '#8E8E93' }}>{translate('Your agents will remember it in all your conversations.')}</Text>
     </Rise>
   </View>;
 }
@@ -211,9 +257,9 @@ function Ready({ shape, color, name, wide }: { shape: shared.AgentShapeId; color
       <LivingShape shape={shape} color={color} size={wide ? 130 : 120} />
     </Animated.View>
     <Rise><Text accessibilityRole="header" style={{ fontFamily: 'Source Serif 4', fontSize: wide ? 42 : 32, fontWeight: '500', color: '#FFFFFF', textAlign: 'center' }}>
-      {name.trim() ? translate('Nice to meet you, $1.', [name.trim()]) : translate('Nice to meet you.')}
+      {name.trim() ? translate('Nice to meet you, $1.', [agentName.cleanAgentName(name)]) : translate('Nice to meet you.')}
     </Text></Rise>
-    <Rise delay={200}><Text style={{ fontSize: 16, lineHeight: 23, textAlign: 'center', color: MUTED }}>{translate('Your Baarali is ready. Let’s keep your account, then tell it what to do.')}</Text></Rise>
+    <Rise delay={200}><Text style={{ fontSize: 16, lineHeight: 23, textAlign: 'center', color: MUTED }}>{translate('Let’s create your account. Then your first agent will say hello.')}</Text></Rise>
     <View style={{ flexDirection: 'row', gap: 12, marginTop: 6 }}>
       {PARADE.map((p, i) => <Pop key={p.shape} delay={300 + i * 120}><LivingShape shape={p.shape} color={p.color} size={34} bob offset={i * 260} /></Pop>)}
     </View>
@@ -229,6 +275,7 @@ export default function Welcome() {
   const [shape, setShape] = useState<shared.AgentShapeId>('b');
   const [color, setColor] = useState('white');
   const [name, setName] = useState('');
+  const [activity, setActivity] = useState('');
   const [leaving, setLeaving] = useState(false);
   const index = STEPS.indexOf(step);
   const go = (next: number) => { tap(); setStep(STEPS[Math.max(0, Math.min(STEPS.length - 1, next))]); };
@@ -238,7 +285,9 @@ export default function Welcome() {
     setLeaving(true);
     if (process.env.EXPO_OS === 'ios') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await saveLook({ shape, color });
-    if (name.trim()) await AsyncStorage.setItem(NAME_KEY, name.trim()).catch(() => {});
+    if (agentName.cleanAgentName(name) || agentName.cleanAgentName(activity)) {
+      await AsyncStorage.setItem(SIGN_UP_KEY, JSON.stringify({ name: agentName.cleanAgentName(name), activity: agentName.cleanAgentName(activity) })).catch(() => {});
+    }
     await AsyncStorage.setItem(ONBOARDED_KEY, '1').catch(() => {});
     router.replace(APEX_URL ? '/spaces' : '/pairing');
   };
@@ -260,7 +309,7 @@ export default function Welcome() {
   const scene = step === 'hello' ? <Hello wide={wide} />
     : step === 'promise' ? <PromiseScene wide={wide} />
       : step === 'look' ? <LookPicker shape={shape} color={color} onShape={setShape} onColor={setColor} />
-        : step === 'name' ? <Name shape={shape} color={color} name={name} onName={setName} onDone={() => go(index + 1)} />
+        : step === 'name' ? <Name shape={shape} color={color} name={name} onName={setName} activity={activity} onActivity={setActivity} onDone={() => go(index + 1)} />
           : <Ready shape={shape} color={color} name={name} wide={wide} />;
 
   if (wide) {

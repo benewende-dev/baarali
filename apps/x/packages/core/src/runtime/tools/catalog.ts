@@ -33,6 +33,7 @@ import { imageTools } from "./domains/image.js";
 import { spacesTools } from "./domains/spaces.js";
 import { whiteboardTools } from "./domains/whiteboard.js";
 import { baarasseurTools } from "./domains/baarasseurs.js";
+import { copilotNameTools } from "./domains/copilot-name.js";
 import { BuiltinToolsSchema } from "./types.js";
 export { coalesceCodeRunEvents } from "./domains/code.js";
 
@@ -119,6 +120,7 @@ export const BuiltinTools: z.infer<typeof BuiltinToolsSchema> = {
     ...spacesTools,
     ...whiteboardTools,
     ...baarasseurTools,
+    ...copilotNameTools,
 
     [SPAWN_AGENT_TOOL_NAME]: {
         permission: "none",
